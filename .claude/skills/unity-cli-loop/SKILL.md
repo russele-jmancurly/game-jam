@@ -30,6 +30,14 @@ unity command --detail full --format json $P > .claude/unity-snippets/_catalog.j
 
 Never use `unity build` to check compilation. Don't use `script create` when the file tools can write the file.
 
+If `unity recompile` fails with `COMMAND_FAILED` "HTTP 400" (seen with CLI 1.0.0-beta.16 + Pipeline
+0.10.0-exp.1), compile through the Editor instead:
+`unity command script eval $P -- --code 'UnityEditor.AssetDatabase.Refresh(); return "ok";'`, then
+`unity status --until-ready $P`. The domain reload drops the connection for a few seconds, so an
+immediate next call can fail with `EDITOR_NOT_RUNNING`: wait with `--until-ready` and retry once. Confirm the
+new code loaded with a `script eval` that reflects on a type or field you just added, and read
+`groundTruth.compilationFailed` from `console get`.
+
 ## 2. Scene / prefab change loop (batched)
 
 For anything more than two operations, write one snippet instead of many calls:
@@ -55,7 +63,8 @@ unity command editor set_auto_tick $P
 unity command editor.playmode set_run_in_background $P
 unity command editor.playmode start $P
 unity status --until-ready $P --format json
-unity command job wait $P -- --condition '{"member":"UnityEngine.Time.frameCount","op":"changed"}' --timeout 10
+unity command editor set_auto_tick $P                  # again: a domain reload on entering Play resets it
+unity command job wait $P -- --condition '{"member":"UnityEngine.Time.frameCount","op":"greaterThan","value":200}' --timeout 30
 unity command console get $P -- --level error --tail 50
 # only if the visual result is the question:
 unity command capture game_view $P -- --source camera --save_path Screenshots/check.png
@@ -63,6 +72,23 @@ unity command editor.playmode stop $P
 unity command editor.playmode set_run_in_background $P -- --enable false
 unity command editor set_auto_tick $P -- --enable false
 ```
+
+`job wait` operators are `equals`, `notEquals`, `greaterThan`, `lessThan`, `contains` and `changed` (not `gt`).
+If `frameCount` stays at 1 to 3, check `EditorApplication.isPaused`: Error Pause stops Play on the first
+exception, so read `console get -- --level error` before assuming the Editor is unfocused.
+
+The prototype scene is `Assets/GameJam/Scenes/Prototype.unity` (generated; see `jam-feature` §4). It has a
+PC test mode (`DesktopRigInput`), on whenever no headset is active, or always with
+`PlayerRigConfig.ForceDesktopMode` (then the camera renders to the Game view, not the headset). Controls:
+WASD, Space, hold right mouse to look, left click to slap, hold G to grab, K for a self-knockback, Enter to
+start a run; a panel in the top-left lists them (`ShowDesktopControlsHelp`). `LocalRig.UsesHeadset` tells
+which mode is active.
+
+To slap with the real glove from a script (exercises the hand sweep, not just the balloon RPC), place the
+balloon in front of the right hand, about `head + yaw * (0.2, -0.2, 0.55)`, then set `DesktopRigInput._slapTimer`
+to 0.2 by reflection. Wait ~0.6 s between slaps (the cooldown is 0.2 s) and read `NetworkBalloon.Instance.LastHitter`.
+A slapped balloon often ends up in the water, which pops it and resets `LastHitter`, so re-place it before every slap.
+`capture game_view` returned nothing in Play mode on 2026-11-05; OnGUI panels never show in camera captures anyway.
 
 VR note: there is no headset in this loop. Test gameplay logic with the XR Device Simulator or a
 debug script, and tell the user what still needs a real headset test.

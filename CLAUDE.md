@@ -38,18 +38,41 @@ Load a skill only when its task comes up; don't preload them all.
 ## 3. Project layout
 
 Everything we make lives under `Assets/GameJam/`. Leave `VRTemplateAssets/`, `Samples/` and
-`Photon/` untouched (vendor code).
+`Photon/` untouched (vendor code). The one project edit inside `Photon/` is the `AssembliesToWeave`
+entry for `GameJam.Net` in `NetworkProjectConfig.fusion`.
 
 ```
 Assets/GameJam/
-  Scripts/Core/        GameJam.Core.asmdef      timer, scoring, leg flow, config SOs
-  Scripts/Gameplay/    GameJam.Gameplay.asmdef  balloon, slap, items, hazards, ragdoll
-  Scripts/Player/      GameJam.Player.asmdef    gorilla locomotion, gloves, spikes, haptics
-  Scripts/Net/         GameJam.Net.asmdef       Fusion behaviours, runner bootstrap, voice
-  Scripts/Editor/      GameJam.Editor.asmdef    custom [CliCommand] tools, editor-only
-  Config/              ScriptableObject tuning assets (BalloonConfig, SlapConfig, ...)
-  Prefabs/  Scenes/  Materials/  Audio/
+  Scripts/Core/        GameJam.Core.asmdef      config SOs, enums, scoring, CourseClock, CourseLayout,
+                                                interfaces (ISlappable, IGrabbable, IRunStatus...) + GameServices
+  Scripts/Gameplay/    GameJam.Gameplay.asmdef  BalloonPhysics (plain C#), course hazards, placeholder FX
+  Scripts/Player/      GameJam.Player.asmdef    LocalRig, SlapHand, HandGrip, hazards sensor, desktop test
+                                                input, Locomotion/ (third-party GorillaLocomotion, MIT)
+  Scripts/Net/         GameJam.Net.asmdef       every NetworkBehaviour: GameState, NetworkBalloon,
+                                                NetworkItem, NetworkAvatar, NetworkBootstrap (Fusion-woven)
+  Scripts/Editor/      GameJam.Editor.asmdef    PrototypeSceneBuilder + placeholder prefab/course builders
+  Config/              tuning assets: Balloon/Slap/Run/PlayerRig/KnockbackConfig, Items/Item_*.asset
+  Prefabs/Net/         generated network prefabs (do not hand-edit; change the builder)
+  Scenes/Prototype.unity  generated placeholder prototype (Scene/Game.unity is the untouched original)
+  Materials/Placeholder/  Audio/
 ```
+
+- Assembly dependencies only point one way: Core ← Gameplay ← Player ← Net ← Editor. Gameplay and
+  Player never reference Fusion; they reach networked objects through the Core interfaces.
+- Any new assembly containing a `NetworkBehaviour` must be added to `AssembliesToWeave` in
+  `Assets/Photon/Fusion/Resources/NetworkProjectConfig.fusion`, or Fusion won't weave it.
+- C# style: `GameJam.<Assembly>` namespaces, `[SerializeField] private _camelCase` fields, PascalCase
+  members, `sealed` components, `Configure(...)` methods for builder wiring, braces on every `if`.
+- Rebuild the placeholder prototype with
+  `unity command script eval ... -- --code 'return GameJam.Editor.PrototypeSceneBuilder.BuildFromCli();'`
+  (menu: Game Jam > Build Prototype Scene). It keeps existing config assets.
+- Photon: Fusion 2.1.4 only. Never import PUN 2 or the Asset Store Photon Voice 2 package: it breaks
+  Fusion's Photon Realtime (see the `fusion-networked` skill). Without a Fusion App ID the game runs
+  offline in Fusion's Single mode.
+- Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with
+  `PlayerRigConfig.ForceDesktopMode`. Solo, the pass rule is suspended (`BalloonConfig.AllowSoloDoubleHits`).
+  Two players in the Editor: Multiplayer Play Mode (Window > Multiplayer > Multiplayer Play Mode), which
+  needs the Fusion App ID.
 
 - Every script folder has an assembly definition, so a change recompiles one small assembly instead
   of all of Assembly-CSharp. Create the asmdef together with the folder.
