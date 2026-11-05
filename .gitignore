@@ -76,3 +76,11 @@ crashlytics-build.properties
 
 # Claude: per-session Unity CLI command cache
 .claude/unity-snippets/_catalog.json
+
+# Local-only: superseded prototype copy, quarantined PUN/Voice 2.64 files, review captures
+/_pending/
+/Screenshots/
+/ArtSource/
+
+# Python bytecode from the Blender CLI scripts
+__pycache__/
