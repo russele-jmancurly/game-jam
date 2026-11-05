@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1da252234f4c9234c9f4834222c1a987, type: 3}
+  m_Name: KnockbackConfig
+  m_EditorClassIdentifier: GameJam.Core::GameJam.Core.KnockbackConfig
+  MinUpward: 0.15
+  HapticAmplitude: 0.8
+  HapticSeconds: 0.2
+  ObstacleMinSpeed: 0.8
+  ObstacleForceScale: 1.2
+  ObstacleMinForce: 3
+  ObstacleMaxForce: 7
+  ObstacleKnockdownSeconds: 1.2
+  FlameForce: 3
+  FlameKnockdownSeconds: 0.8
+  SoftItemForce: 1.5
+  SoftItemStunSeconds: 0.4
+  HeavyItemKnockdownSeconds: 1.5
+  SelfTestForce: 4
+  SelfTestSeconds: 1.5

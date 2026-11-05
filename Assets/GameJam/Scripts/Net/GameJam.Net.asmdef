@@ -1,0 +1,20 @@
+{
+    "name": "GameJam.Net",
+    "rootNamespace": "GameJam.Net",
+    "references": [
+        "GameJam.Core",
+        "GameJam.Gameplay",
+        "GameJam.Player",
+        "Fusion.Unity",
+        "Photon.Realtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

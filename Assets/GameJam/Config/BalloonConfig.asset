@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d69b24223d815d4da7c5f9f0ff4174c, type: 3}
+  m_Name: BalloonConfig
+  m_EditorClassIdentifier: GameJam.Core::GameJam.Core.BalloonConfig
+  Radius: 0.25
+  Gravity: 1
+  Drag: 1.2
+  MaxHitSpeed: 6
+  FreeFlightSpeedMultiplier: 1.5
+  UpwardAssist: 0.6
+  Bounciness: 0.6
+  BodyPopSpeed: 2.2
+  LeakCooldown: 1
+  GravityPerLeakStep: 0.35
+  HitGraceSeconds: 0.25
+  SpikePushSpeed: 1.5
+  AllowSoloDoubleHits: 1
+  PopBlastRadius: 1.5
+  PopBlastForce: 3
+  PopBlastKnockdownSeconds: 0.8
+  ConditionScales:
+  - 1
+  - 0.85
+  - 0.7

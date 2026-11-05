@@ -1,0 +1,23 @@
+{
+    "name": "GameJam.Editor",
+    "rootNamespace": "GameJam.Editor",
+    "references": [
+        "GameJam.Core",
+        "GameJam.Gameplay",
+        "GameJam.Player",
+        "GameJam.Net",
+        "Fusion.Unity",
+        "Fusion.Unity.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
