@@ -151,7 +151,7 @@ namespace GameJam.Player
             if (input != Vector3.zero && !_rig.IsKnockedDown)
             {
                 Quaternion yaw = Quaternion.Euler(0f, _yaw, 0f);
-                Vector3 move = _rig.LocomotionRoot.rotation * (yaw * input.normalized) * _rig.Config.DesktopMoveSpeed;
+                Vector3 move = _rig.TrackingSpace.rotation * (yaw * input.normalized) * _rig.Config.DesktopMoveSpeed;
                 Vector3 velocity = body.linearVelocity;
                 velocity.x = move.x;
                 velocity.z = move.z;

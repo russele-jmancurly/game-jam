@@ -57,6 +57,9 @@ namespace GameJam.Player
 
         public Transform LocomotionRoot => _locomotion.transform;
 
+        /// <summary>The tracking space (head and controllers); snap turn rotates it around the head.</summary>
+        public Transform TrackingSpace => _head.parent;
+
         public Rigidbody Body => _body;
 
         public Vector3 BodyCenter => _locomotion.bodyCollider != null ? _locomotion.bodyCollider.transform.position : _head.position;
@@ -155,6 +158,15 @@ namespace GameJam.Player
             Instance = this;
             _body = _locomotion.GetComponent<Rigidbody>();
             _climbableLayers = _locomotion.locomotionEnabledLayers;
+            ApplyLocomotionTuning();
+            _locomotion.velocityHistorySize = _config.VelocityHistorySize;
+            if (_locomotion.bodyCollider != null)
+            {
+                // GorillaPlus hangs the capsule from the head; place its centre BodyDrop below the head.
+                _locomotion.bodyOffset = Vector3.up * (_locomotion.bodyCollider.height * 0.5f - _config.BodyDrop);
+            }
+
+            _locomotion.InitializeValues();
             _leftGrip = new HandGrip(_leftHandFollower, _leftSlapHand);
             _rightGrip = new HandGrip(_rightHandFollower, _rightSlapHand);
             Application.onBeforeRender += OnBeforeRender;
@@ -218,19 +230,30 @@ namespace GameJam.Player
                 ResetHands();
             }
 
-            if (_locomotion.bodyCollider != null)
-            {
-                _locomotion.bodyCollider.transform.position = _head.position + Vector3.down * _config.BodyDrop;
-            }
-
+            ApplyLocomotionTuning();
             UpdateWrist();
         }
 
-        private void LateUpdate()
+        /// <summary>Copies the locomotion tuning from the config every frame, so it can be tuned live in Play mode.</summary>
+        private void ApplyLocomotionTuning()
         {
-            // Gloves follow the controller rotation; gorilla locomotion only moves their position.
-            _leftHandFollower.rotation = _leftController.rotation;
-            _rightHandFollower.rotation = _rightController.rotation;
+            _locomotion.velocityLimit = _config.VelocityLimit;
+            _locomotion.slideVelocityLimit = _config.SlideVelocityLimit;
+            _locomotion.maxJumpSpeed = _config.MaxJumpSpeed;
+            _locomotion.jumpMultiplier = _config.JumpMultiplier;
+            _locomotion.maxArmLength = _config.MaxArmLength;
+            _locomotion.defaultSlideFactor = _config.DefaultSlideFactor;
+            _locomotion.tapHapticStrength = _config.TapHapticStrength;
+            _locomotion.slideHapticStrength = _config.SlideHapticStrength;
+            if (_locomotion.leftTapSource != null)
+            {
+                _locomotion.leftTapSource.volume = _config.TapVolume;
+            }
+
+            if (_locomotion.rightTapSource != null)
+            {
+                _locomotion.rightTapSource.volume = _config.TapVolume;
+            }
         }
 
         private void UpdateTracking()

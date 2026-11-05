@@ -115,23 +115,33 @@ namespace GameJam.Editor
             SlapHand rightHand = HandFollower("RightHandFollower", root.transform, rightController.localPosition, glove, XRNode.RightHand, configs.Slap);
             TextMesh wrist = PlaceholderShapes.Text("WristTimer", leftHand.transform, new Vector3(0f, 0.08f, -0.05f), 0.01f, "Lobby", Color.white);
 
+            // GorillaPlus locomotion. Feel tuning (jump, slide, arm length, taps) comes from PlayerRigConfig at runtime
+            // (LocalRig.ApplyLocomotionTuning); these are the structural values from GorillaPlus's rig prefab.
             var locomotion = root.AddComponent<GorillaLocomotion.Player>();
+            locomotion.turnParent = trackingSpace.gameObject;
+            locomotion.headFollower = head.transform;
             locomotion.headCollider = headCollider;
             locomotion.bodyCollider = bodyCollider;
-            locomotion.leftHandFollower = leftHand.transform;
-            locomotion.rightHandFollower = rightHand.transform;
-            locomotion.leftHandTransform = leftController;
-            locomotion.rightHandTransform = rightController;
-            locomotion.velocityHistorySize = 3;
-            locomotion.maxArmLength = 1.5f;
+            locomotion.leftFollower = leftHand.transform;
+            locomotion.rightFollower = rightHand.transform;
+            locomotion.leftController = leftController;
+            locomotion.rightController = rightController;
+            locomotion.velocityHistorySize = configs.PlayerRig.VelocityHistorySize;
             locomotion.unStickDistance = 1f;
-            locomotion.velocityLimit = 0.4f;
-            locomotion.maxJumpSpeed = 6.5f;
-            locomotion.jumpMultiplier = 1.1f;
             locomotion.minimumRaycastDistance = 0.05f;
-            locomotion.defaultSlideFactor = 0.03f;
             locomotion.defaultPrecision = 0.995f;
             locomotion.locomotionEnabledLayers = GameLayers.DefaultMask;
+            locomotion.leftTapSource = HandAudio("TapAudio", leftHand.transform, false);
+            locomotion.rightTapSource = HandAudio("TapAudio", rightHand.transform, false);
+            locomotion.leftSlipSource = HandAudio("SlideAudio", leftHand.transform, true);
+            locomotion.rightSlipSource = HandAudio("SlideAudio", rightHand.transform, true);
+            locomotion.sounds = root.AddComponent<GorillaLocomotion.Sounds>();
+            locomotion.sounds.DefaultSounds = new[]
+            {
+                GeneratedAudio.Tap("Tap_Low", 150f, 1),
+                GeneratedAudio.Tap("Tap_Mid", 185f, 2),
+                GeneratedAudio.Tap("Tap_High", 220f, 3),
+            };
 
             var rig = root.AddComponent<LocalRig>();
             rig.Configure(configs.PlayerRig, configs.Knockback, locomotion, head.transform, leftController, rightController, leftHand, rightHand, wrist);
@@ -158,6 +168,27 @@ namespace GameJam.Editor
             child.SetParent(parent, false);
             child.localPosition = localPosition;
             return child;
+        }
+
+        /// <summary>A quiet 3D source on a glove for hand taps (one-shots) or the looping slide hiss.</summary>
+        private static AudioSource HandAudio(string name, Transform hand, bool isSlideLoop)
+        {
+            var source = new GameObject(name).AddComponent<AudioSource>();
+            source.transform.SetParent(hand, false);
+            source.playOnAwake = false;
+            source.spatialBlend = 1f;
+            source.minDistance = 0.3f;
+            source.maxDistance = 6f;
+            source.rolloffMode = AudioRolloffMode.Linear;
+            source.volume = 0.6f;
+            if (isSlideLoop)
+            {
+                source.clip = GeneratedAudio.SlideLoop("Slide_Loop");
+                source.loop = true;
+                source.volume = 0.35f;
+            }
+
+            return source;
         }
 
         private static SlapHand HandFollower(string name, Transform parent, Vector3 localPosition, Material glove, XRNode node, SlapConfig slapConfig)

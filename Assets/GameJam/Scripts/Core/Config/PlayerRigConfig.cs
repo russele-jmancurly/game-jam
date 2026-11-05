@@ -14,8 +14,28 @@ namespace GameJam.Core
                  "to protect Quest frame time; always on in PC test mode.")]
         public bool PostProcessingInHeadset;
 
+        [Header("Gorilla locomotion (GorillaPlus; applied every frame, so tune it live)")]
+        [Tooltip("Hand speed (m/s, averaged) needed to launch off a surface. Lower = jumps trigger more easily.")]
+        [Range(0.1f, 1.5f)] public float VelocityLimit = 0.4f;
+        [Tooltip("Push-off speed needed to leave a slippery surface.")]
+        [Range(0.1f, 1.5f)] public float SlideVelocityLimit = 0.7f;
+        [Tooltip("Top launch speed (m/s).")]
+        [Min(0f)] public float MaxJumpSpeed = 6.5f;
+        [Tooltip("Launch speed = averaged hand speed x this.")]
+        [Min(0f)] public float JumpMultiplier = 1.1f;
+        [Tooltip("Hands further than this from the head are pulled back (stops stretched-arm launches).")]
+        [Range(1f, 2.5f)] public float MaxArmLength = 1.5f;
+        [Tooltip("Frames averaged for the launch velocity: more = smoother, steadier jumps; fewer = snappier. " +
+                 "Read when the rig starts.")]
+        [Range(2, 10)] public int VelocityHistorySize = 8;
+        [Tooltip("Hand grip on ordinary surfaces (0 = sticky, higher = hands slide along walls).")]
+        [Range(0.001f, 0.1f)] public float DefaultSlideFactor = 0.03f;
+        [Range(0f, 1f)] public float TapVolume = 0.6f;
+        [Range(0f, 1f)] public float TapHapticStrength = 0.5f;
+        [Range(0f, 1f)] public float SlideHapticStrength = 0.075f;
+
         [Header("Body")]
-        [Tooltip("The body collider sits this far below the head.")]
+        [Tooltip("The body collider's centre sits this far below the head.")]
         public float BodyDrop = 0.4f;
         [Tooltip("Falling below this height respawns you at the current section.")]
         public float KillHeight = -1f;
