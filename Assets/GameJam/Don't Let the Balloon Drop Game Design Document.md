@@ -4,7 +4,9 @@ Nov 4, 2026 · @Russele
 
 ## Overview
 
-On a TV relay race show, a team of 2 to 4 porcupine-suited Jmans must parkour through a moving obstacle course to the finish line before the timer runs out, dodging the environment while slapping a balloon along with them.
+On a TV game show, a crew of 2 to 4 porcupine-suited Jmans work together to parkour through a moving obstacle course and get a balloon to the finish line before the timer runs out, dodging the environment while slapping the balloon along with them.
+
+**Fully co-op:** There are no rival crews and no opponents. Every player is on the same side, helping each other against the clock and the course. Nobody can finish alone: the pass rule means the balloon only moves forward when players hand it to each other.
 
 |  |  |
 | --- | --- |
@@ -13,12 +15,12 @@ On a TV relay race show, a team of 2 to 4 porcupine-suited Jmans must parkour th
 | Players | 2 to 4 online co-op |
 | Movement | Gorilla locomotion (arm-swing) |
 | Networking | Photon Fusion 2 (Shared Mode) and Photon Voice 2, Unity 6000.3.8f1 |
-| Session | Episodes of 3 relay legs, each on a timer |
+| Session | One timed run of a single obstacle course, built to replay for a better medal |
 | Jam | Curly Blue three-day VR game jam |
 
 **How it answers the brief:**
 
-- **Smooth VR movement:** Gorilla locomotion parkour is the heart of the game: leap, swing and climb through obstacle courses while dodging hazards that move.
+- **Smooth VR movement:** Gorilla locomotion parkour is the heart of the game: leap, swing and climb through an obstacle course while dodging hazards that move.
 - **A world you can touch:** Hundreds of grabbable, throwable items are scattered everywhere. Slapping, throwing and bonking are the whole game.
 - **Jman personality:** Existing Jman characters in spiky porcupine suits, an overexcited Jman commentator, and ragdolling friends carry the humour.
 - **One great moment:** Saving the balloon with a perfect throw, only for it to bounce straight into your friend's spiky head.
@@ -35,45 +37,35 @@ Every feature must serve at least one of these five rules. If it serves none, cu
 
 ## Fiction and characters
 
-The players are contestants on **Pop or Glory: The Porcupine Relay**, a cheap but wildly popular Jman TV game show. Teams race a balloon through moving obstacle courses, and the show's famous twist is that every contestant must wear a spiky porcupine suit. Only the show's padded gloves are safe to touch the balloon with.
+The players are contestants on **Pop or Glory: The Porcupine Relay**, a cheap but wildly popular Jman TV game show. Crews of friends work together to get a balloon through moving obstacle courses, and the show's famous twist is that every contestant must wear a spiky porcupine suit. Only the show's padded gloves are safe to touch the balloon with.
 
-**The team (players):** Existing Jman characters in the show's official porcupine suits. The suit is a spiky vest, back spikes and a hood, built from simple shapes or existing props so no new character art is needed. Every part of the suit pops balloons; only the gloves are safe. Each player can pick a different Jman for identity.
+**The crew (players):** Existing Jman characters in the show's official porcupine suits. The suit is a spiky vest, back spikes and a hood, built from simple shapes or existing props so no new character art is needed. Every part of the suit pops balloons; only the gloves are safe. Each player can pick a different Jman for identity.
 
-**The commentator:** A Jman sports commentator in a booth above the course who narrates everything over loudspeakers: great saves, near misses, ragdolls and especially pops ("He's slapped it straight into his teammate's spikes!"). They are the main voice of the game's humour.
+**The commentator:** A Jman sports commentator in a booth above the course who narrates everything over loudspeakers: great saves, near misses, ragdolls and especially pops ("He's slapped it straight into his crewmate's spikes!"). They are the main voice of the game's humour.
 
-**The host:** The show's over-the-top Jman host greets the team in the studio between legs, announces the qualifying score, and at the end of an episode either crowns the team champions or eliminates them in front of the audience.
+**The host:** The show's over-the-top Jman host greets the crew at the start line, then at the finish awards their medal in front of the audience, or eliminates them if the clock runs out.
 
 **Tone:** Cartoon slapstick. Nobody gets hurt; Jmans bounce, flop and get back up.
 
 ## Core loop and time limit
 
-An episode is three relay legs. Each leg has a hard time limit, and the episode has a qualifying score the team must hit to be crowned champions.
+The game is one short course, played as a single timed run. A clean crew can finish in about two minutes, but the course is packed with traps and hard enough that most crews will not get gold on their first try. The fun is in trying again.
 
-**One leg:**
+**One run:**
 
-1. The host announces the course and the balloon for the leg in the studio.
-2. The team spawns at the start line (point A) with the balloon floating in front of them.
-3. The leg timer starts. The team slaps, throws and bonks the balloon along the route.
-4. If the balloon pops, the course resets: the whole team and a fresh balloon go back to the start line, but the timer keeps running. The leg succeeds when the balloon crosses the finish line (point B), and fails only when the timer hits zero.
-5. Points are awarded based on balloon condition, time left and rally bonus.
+1. The host introduces the crew at the start line, with the balloon floating in front of them.
+2. The timer starts. The crew slaps, throws and bonks the balloon through the three sections of the course.
+3. If the balloon pops, the whole crew and a fresh balloon go back to the start of the current section, and the timer keeps running.
+4. The run succeeds when the balloon crosses the finish line, and fails only when the timer hits zero.
+5. The host awards a medal, and the crew is back at the start line for another go.
 
-**The episode:** After each leg, the team returns to the studio and sees their points against the qualifying score. After the third leg, the host either crowns them champions or eliminates them. Then a new episode starts.
+A pop sends the crew back to the start of the current section with the clock still running; only running out of time ends a run without a medal.
 
-&#91;embedded content: episode loop · 3 timed legs, 1 qualifying score\]
+**Time limit:** 3:00 for the whole course (starting value, tune in playtest). A clean crew finishes in about 2:15, leaving slack for a pop or two and plenty of chaos.
 
-A pop sends the team back to the start line with the clock still running; only running out of time ends a leg without points.
+**Score and medals:** Base points for finishing, plus a bonus for time left, a multiplier for balloon condition (full, leaking, nearly flat) and a rally bonus for long chains of passes between players. The score earns bronze, silver or gold. A timeout scores nothing. Every pop costs the time it takes to redo that section, which shrinks the time-left bonus.
 
-**Time limits (starting values, tune in playtest):**
-
-| Leg | Route | Balloons | Time limit |
-| --- | --- | --- | --- |
-| 1 | Backyard | 1 | 2:30 |
-| 2 | Kitchen | 1 | 2:30 |
-| 3 | Rooftops to the finish | 2 at once | 3:00 |
-
-**Points per leg:** Base points, plus a bonus for time left, a multiplier for balloon condition (full, leaking, nearly flat), and a rally bonus for long chains of passes between players. A timeout scores nothing. Every pop costs the time it takes to redo the course, which shrinks the time-left bonus.
-
-**Qualifying score:** Set so a clean episode passes comfortably and a messy one only just scrapes through. Failing a leg makes it hard but not impossible, so the episode stays tense until the end.
+**Why play again:** Gold needs a clean run with few pops, and each section has an optional hero leap that saves time but risks the balloon. The crew's best score and medal stay on the scoreboard at the start line.
 
 ## Movement and controls
 
@@ -98,11 +90,11 @@ Players move only with gorilla locomotion: push off the ground, walls and object
 
 | Move | How it works | Where the course uses it |
 | --- | --- | --- |
-| Momentum leap | A strong double-arm push launches you across gaps | Roof gaps, broken bridges |
-| Wall hop | Push off one wall to reach the opposite one | Narrow alleys, chimney shafts |
+| Momentum leap | A strong double-arm push launches you across gaps | Lawn gaps, patio gaps, the final roof gap |
+| Wall hop | Push off one wall to reach the opposite one | Between the fence and the shed, the chimney |
 | Swing | Grab a bar, rope or washing line and release at the right moment | Over pools, under sweepers |
 | Ledge catch | Grab an edge mid-fall and pull up | Collapsing platforms |
-| Slide | Slippery surfaces carry your momentum, steer with your hands | Wet tiles, ice, butter spills |
+| Slide | Slippery surfaces carry your momentum, steer with your hands | Wet stepping stones, roof tiles |
 | Bounce | Trampolines and mattresses fling you high | Shortcuts and vertical sections |
 
 **Dodging:** Players dodge with their real bodies: duck under sweeping bars, lean away from swinging objects and hop over rolling ones. This is the heart of the parkour feel and reads brilliantly on the showcase capture.
@@ -115,7 +107,7 @@ The balloon floats down slowly, bounces off soft surfaces, and pops on anything 
 
 **Physics:** Slow, floaty fall with high air drag, so players have time to react. Light squash-and-stretch on every hit. It drifts with wind zones and fans.
 
-**Pass rule:** The same player can never hit the balloon twice in a row. After Player A hits it, the next hit must come from any other teammate; if Player A touches it again first, it pops. This turns every course into a passing game, so at least two players are always needed.
+**Pass rule:** The same player can never hit the balloon twice in a row. After Player A hits it, the next hit must come from any other crewmate; if Player A touches it again first, it pops. This turns every course into a passing game, so at least two players are always needed.
 
 - **What counts as a hit:** A slap, an item that player threw, or a tool they used (leaf blower, umbrella, bubble wand). Players can throw items at any time, but if their thrown item hits the balloon when it isn't their turn, the balloon pops, just like a double slap. An item knocked into the balloon by a hazard counts as nobody's hit.
 - **What does not clear it:** Bounces off walls, furniture, bounce pads or the ground. Only another player's hit unlocks the last hitter.
@@ -137,16 +129,14 @@ The balloon floats down slowly, bounces off soft surfaces, and pops on anything 
 
 **Condition:** Every balloon has three states: full, leaking and nearly flat. Leaking balloons fall faster and make a sad squeaky noise. Condition sets the points multiplier at the finish line.
 
-**Balloon types (unlocked by leg):**
+**Balloon types:**
 
-- **Standard:** The tutorial balloon.
-- **Heavy water balloon:** Falls faster and splashes nearby players when it pops.
-- **Giant balloon:** Twice the size, easy to hit, blocks your view, and almost guaranteed to touch someone's spikes.
-- **Double relay:** Two balloons at once, forcing the crew to split up.
+- **Standard:** Used for the whole course.
+- **Stretch:** A heavy water balloon (falls faster, splashes nearby players when it pops) and a giant balloon (twice the size, blocks your view, almost guaranteed to touch someone's spikes).
 
 ## Items
 
-Every route is packed with grabbable junk, so the answer to any problem is always "throw something at it." Most items help with the balloon and are dangerous to friends; a few are traps that only look helpful. All items reuse existing prop art.
+The course is packed with grabbable junk, so the answer to any problem is always "throw something at it." Most items help with the balloon and are dangerous to friends; a few are traps that only look helpful. All items reuse existing prop art.
 
 **Density:** Aim for an item within arm's reach almost everywhere on the route. Items respawn at their spot a few seconds after being thrown off the map, so the world never runs dry.
 
@@ -171,8 +161,16 @@ Every route is packed with grabbable junk, so the answer to any problem is alway
 | Darts | Trap | Pops it instantly | Sticks in their suit |
 | Fork | Trap | Pops it instantly | Poke and mini-stun |
 | Cake | Chaos | Medium knock, sticks to it and adds weight | Face full of cake |
+| Flip-flop | Soft throwable | Small, flat bump | Slaps them with a loud thwack |
+| Frisbee | Soft throwable | Flies far, nudges it from a distance | Bonks them from across a gap |
+| Garden gnome | Heavy throwable | Hard knock | Ragdoll, gnome stays grinning |
+| Tennis racket | Tool | Strong, precise hit, the safest power shot | Bonk, ragdoll |
+| Garden hose | Tool | Water jet pushes it at range but makes it heavier | Soaks them and pushes them back |
+| Rake | Trap | Pops it on the tines | Poke and mini-stun; step on one lying flat and it springs up into your face |
 
-**Jam scope:** Build about 10 of these first (the soft throwables, frying pan, watermelon, leaf blower, umbrella, darts). Every extra item is cheap once the throw and hit systems work.
+**Item stashes:** Every section has its own stash of items that fits the set, so the tools change as the crew climbs: pool toys on the lawn, garden tools and laundry by the fence, and barbecue gear on the way up to the roof (see Levels). Traps such as darts, forks and rakes are mixed into the stashes so players have to look before they grab.
+
+**Jam scope:** Build about 10 of these first (the soft throwables, frying pan, watermelon, leaf blower, umbrella, darts). Every extra item is cheap once the throw and hit systems work, so add a few more to the stashes on Day 3 if there is time. Only use items whose props already exist in the asset library.
 
 ## Threats: yourself, your friends, the world
 
@@ -209,6 +207,9 @@ The course is the main enemy. Most obstacles move on a readable rhythm, and each
 | Water jets and sprinklers | Time your crossing | Slippery hands for a few seconds | Heavier, falls faster |
 | Bounce pads | Use them or avoid them | Launched, often into friends | Launched high |
 | Floor that drops away (pool, lava-orange carpet, open sewer) | Never touch it | Respawn at checkpoint | Pops or is lost |
+| Snap traps (mousetraps, rakes lying flat, clothes pegs) | Watch where you put your hands | Snap: mini-stun and a yelp | Pops if it is caught in the snap |
+| Heat (barbecue flames, bug zapper) | Time your crossing between bursts | Knocked back with singed spikes | Pops |
+| View blockers (flapping laundry, sprinkler mist, smoke from the grill) | Push through or go around | Can't see for a moment | Hidden from view, often drifting into something else |
 
 **Rhythm rule:** Every moving obstacle has a clear wind-up (a creak, a light, a shake) before it moves, and a steady pattern players can learn. Difficulty comes from combining obstacles, not from surprising players.
 
@@ -239,34 +240,45 @@ Soft items and light slaps cause a mini-stun instead: a wobble, a noise and a ti
 - **Revenge slap:** A friend gets ragdolled, recovers and immediately hits the culprit with a fish.
 - **Pop blast:** The balloon pops and knocks everyone nearby onto their backs while the commentator groans.
 - **Leaf blower friend launch:** A player aims the leaf blower at the balloon and blows their friend off the roof instead.
-- **Traffic cone hat:** A thrown cone lands perfectly on a friend's head and stays there for the rest of the leg.
-- **Squeaky panic:** A friend accidentally helium-blasts themselves and spends the leg yelling in a chipmunk voice.
+- **Traffic cone hat:** A thrown cone lands perfectly on a friend's head and stays there for the rest of the run.
+- **Squeaky panic:** A friend accidentally helium-blasts themselves and spends the run yelling in a chipmunk voice.
 
 **Tuning rule:** A ragdolled player should be back in action within 2 seconds. Long stuns stop being funny for the person on the floor.
 
 ## Levels
 
-All three courses are giant studio sets built at toy scale: everyday places blown up so the Jmans are tiny. Furniture becomes cliffs, drawers become ledges and the gaps between objects become leaps. Sets are built by scaling up existing props and environment art, so no new art is needed. Studio lights, camera rigs, the commentator's booth and the audience stands surround every set. Each course takes a clean team about 1.5 to 2 minutes, leaving slack inside the time limit for chaos.
+The game has one long course: **The Giant Backyard**, a studio set built at toy scale, where everyday garden things are blown up so the Jmans are tiny. Fences become cliffs, flower pots become stepping stones and the gaps between objects become leaps. The set is built by scaling up existing props and environment art, so no new art is needed. Studio lights, camera rigs, the commentator's booth and the audience stands surround it.
 
-**The floor is out.** On every set the floor is a hazard (water, a "lava" carpet or a drop into the studio pit), so each course is a chain of platforms to climb onto and leap between. The balloon has to cross every gap too: slap it across first, then leap after it before it sinks.
+**The floor is out.** The lawn is flooded, so the course is a chain of platforms to climb onto and leap between. The balloon has to cross every gap too: slap it across first, then leap after it before it sinks.
 
-| Course | Climb and jump focus | Key obstacles | Signature moment |
-| --- | --- | --- | --- |
-| Giant Backyard | Fence climbing, stepping-stone hops, swings | Fence slats to climb, flower pots and stepping stones over a flooded lawn, spinning clothesline, washing-line swing, trampoline up to a treehouse finish | Slapping the balloon across the flooded lawn, then swinging from the washing line after it |
-| Giant Kitchen | Vertical climb from floor to shelves | Open drawers as a staircase, stove burners, cereal-box towers, spoon bridge over the sink, closing cupboard doors, butter-slick counter, ceiling fan near the top | Climbing the drawer staircase while a teammate keeps the balloon up above |
-| Giant Rooftops | Big leaps, height and wind | Chimney climbs, rooftop gaps, antenna-wire swings, wrecking-ball piñata, collapsing cardboard boxes, wind fans | Two balloons in the air while the team leaps a rooftop gap between piñata swings |
+**Three sections, rising difficulty.** The course crosses the garden and climbs to the roof of the house. Each section introduces new traps, then combines them with the ones before, and ends at a section gate: a rest platform and checkpoint.
+
+| Section | Goal | Traps and obstacles | Item stash | Signature moment |
+| --- | --- | --- | --- | --- |
+| 1. The Flooded Lawn (about 40 s) | Learn to slap, pass and hop | Stepping stones and flower pots over water, sinking lily pads, a rotating sprinkler arm, cactus pots, a mousetrap or two | Pillows, beach balls, rubber ducks, darts (trap) | Slapping the balloon across the first big gap, then leaping after it |
+| 2. The Fence and Washing Line (about 45 s) | Climb and swing while passing | Fence slats to climb, the spinning clothesline, a washing-line swing over the pond, flapping laundry, collapsing cardboard boxes | Leaf blower, umbrella, frying pans, a rake (trap) | Swinging from the washing line while a crewmate keeps the balloon up through the laundry |
+| 3. The Patio to the Roof (about 50 s) | Everything at once | Barbecue flames on a rhythm, a bug zapper, a trampoline up to the gutter, slippery roof tiles, a wind fan, a wrecking-ball piñata, the final leap to the finish | Watermelons, fish, tennis racket, forks (trap) | Passing the balloon over the grill between flame bursts, then leaping the last gap between piñata swings |
+
+**What makes it challenging:**
+
+- **Traps stack.** Section 1 has one hazard at a time. By section 3, every stretch combines two or three, such as wind pushing the balloon toward the piñata while roof tiles slide away underfoot.
+- **New traps in every section.** No section repeats the last one's trick, so the crew keeps reading new rhythms all the way to the finish.
+- **Trap items in the stashes.** Darts, rakes and forks look helpful but hurt the balloon, so grabbing blindly gets punished.
+- **Hero leaps.** Each section has one optional shortcut that saves several seconds but is easy to miss. Gold usually needs at least one.
+- **The pass rule never lets up.** Narrow spots force players to bunch together, where spikes and double hits cause most pops.
 
 **Set design rules:**
 
-- **Three gap sizes:** easy hops, full-effort leaps, and optional hero leaps that offer a shortcut.
-- **Rest platforms** after every hard section, where the team can regroup and line up the balloon.
-- **Big checkpoint platforms**, so a missed jump costs a short climb, not the whole course.
+- **Three gap sizes:** easy hops, full-effort leaps, and the optional hero leaps.
+- **Rest platforms** at every section gate, where the crew can catch their breath, regroup and line up the balloon.
+- **Big checkpoint platforms**, so a missed jump costs a short climb, not the whole section.
 - **Readable climbing:** Climbable surfaces share one look (bright grip tape or a ribbed texture), so players always know where they can go next.
 - **Climb up, jump across:** Alternate vertical climbing sections with horizontal leaping sections to keep the rhythm varied.
+- **Build traps as prefabs:** Every trap is one reusable prefab with its own rhythm settings, so section 3 is mostly a combination of traps that already work.
 
-**Route structure:** Each route has two or three checkpoints. A player who falls off the map respawns at the last checkpoint after 3 seconds. The balloon has no checkpoint: if it pops, the whole team resets to the start line with a fresh balloon, and the timer keeps running.
+**Route structure:** The three section gates are the checkpoints. A player who falls off the map respawns at the last gate after 3 seconds. If the balloon pops, the whole crew resets to the start of the current section with a fresh balloon, and the timer keeps running.
 
-**Studio:** The game show studio between legs, with the host's stage, the scoreboard, a cheering Jman audience and a pile of items to mess around with while waiting. It doubles as a safe place to learn slapping and throwing.
+**Start line:** A big starting platform with the host's stage, the scoreboard, a cheering Jman audience and a pile of items to mess around with while the crew gets ready. It doubles as a safe place to learn slapping and throwing before the timer starts.
 
 ## UI, audio and feedback
 
@@ -274,11 +286,11 @@ All UI lives in the world, not on a flat screen overlay, so players never look a
 
 **In the world:**
 
-- **Wrist watch:** The leg timer, on the player's left glove. It ticks louder in the last 20 seconds.
+- **Wrist watch:** The run timer, on the player's left glove. It ticks louder in the last 20 seconds.
 - **Balloon shadow:** A clear shadow on the ground below the balloon, so players can track it without looking straight up.
 - **Rally counter:** A floating number above the balloon that counts consecutive passes between players without the balloon touching anything.
 - **Spike warning:** Your suit spikes rattle and the controllers buzz when the balloon gets close to your body.
-- **Scoreboard:** In the studio, showing points earned against the qualifying score.
+- **Scoreboard:** At the start line, showing the crew's best score and medal.
 
 **Audio:**
 
@@ -301,7 +313,7 @@ The game is built in Unity 6000.3.8f1 with Photon Fusion 2 in Shared Mode for 2 
 | Balloon | Whoever slapped or hit it last | Position, velocity, condition, last hitter |
 | Items | Whoever grabbed or threw it last | Position, rotation, velocity |
 | Ragdoll | The hit player | An RPC with knockback direction and force |
-| Game state (timer, points, qualifying score, leg result, pop reset) | Shared Mode master client | Networked properties |
+| Game state (timer, points, medal, run result, section reset) | Shared Mode master client | Networked properties |
 | Voice | Each player | A Photon Voice stream from their avatar |
 
 **Balloon authority:** On each hit, the slapping player requests state authority over the balloon, so slaps feel instant for whoever made them. Keep the balloon slow so the small corrections when authority changes hands are barely visible. Occasional jank is acceptable in this genre. The balloon stores its last hitter as a networked property, and every new hit is checked against it; if two hits land at the same moment, the first one received wins.
@@ -310,7 +322,7 @@ The game is built in Unity 6000.3.8f1 with Photon Fusion 2 in Shared Mode for 2 
 
 **Master client loss:** In Shared Mode the game-state object belongs to the master client. If that player leaves, another player must take over its state authority so the timer and score carry on. Test this on Day 1.
 
-**Voice chat:** Photon Voice 2 with its Fusion integration, installed from the Addons tab of the Fusion Hub. Add a FusionVoiceClient next to the NetworkRunner, and a VoiceNetworkObject, Recorder and Speaker on the Jman avatar prefab, so each player's voice comes from their avatar in 3D. The team talks over proximity voice; if a player needs a private channel with one other player, use Photon Voice interest groups. On Quest, request microphone permission before enabling the Recorder.
+**Voice chat:** Photon Voice 2 with its Fusion integration, installed from the Addons tab of the Fusion Hub. Add a FusionVoiceClient next to the NetworkRunner, and a VoiceNetworkObject, Recorder and Speaker on the Jman avatar prefab, so each player's voice comes from their avatar in 3D. The crew talks over proximity voice; if a player needs a private channel with one other player, use Photon Voice interest groups. On Quest, request microphone permission before enabling the Recorder.
 
 **Setup:** Create a Fusion App ID and a Voice App ID in the Photon dashboard and set both in Fusion's Realtime Settings. Photon's cloud hosts the sessions, so headsets can join from any network; fix the region during playtests to keep latency low.
 
@@ -331,8 +343,8 @@ The make-or-break goal is a slap that feels great with friends online by the end
 
 **Scope:**
 
-- **Must have:** 2 to 4 players online with voice chat, gorilla locomotion, slap-only balloon with spike pops, about 10 items, ragdoll on heavy hits, one obstacle course with 4 or 5 moving obstacles and a timer, leg result screen.
-- **Should have:** All three routes, the qualifying score and studio, slow leaks, rally counter, commentator lines.
+- **Must have:** 2 to 4 players online with voice chat, gorilla locomotion, slap-only balloon with spike pops, about 10 items, ragdoll on heavy hits, sections 1 and 2 of the course with their traps, a timer and a result screen.
+- **Should have:** Section 3, medals, slow leaks, rally counter, commentator lines.
 - **Stretch:** Balloon types, the full item list, host banter.
 
 **Three-day plan:**
@@ -340,8 +352,8 @@ The make-or-break goal is a slap that feels great with friends online by the end
 | Day | Goal | Tasks |
 | --- | --- | --- |
 | Day 1: Discover | Slap a balloon together online | Gorilla locomotion in Unity; Fusion Shared Mode session with synced Jmans and working voice; balloon physics and slap feel; spike pop on body contact; grab and throw one item |
-| Day 2: Build | One full playable leg | Backyard course with checkpoints and moving obstacles; timer and result screen; 10 items; ragdoll and friendly fire; first group playtests and tuning |
-| Day 3: Refine | Polish and demo | Kitchen and Rooftops routes if time allows; audio and haptics; comfort pass; performance on Quest; record gameplay capture; prepare the pitch |
+| Day 2: Build | A playable run through sections 1 and 2 | Trap prefabs; sections 1 and 2 with checkpoints and moving obstacles; timer and result screen; 10 items; ragdoll and friendly fire; first group playtests and tuning |
+| Day 3: Refine | Polish and demo | Section 3 built from the trap prefabs; medals; hero leaps; audio and haptics; comfort pass; performance on Quest; record gameplay capture; prepare the pitch |
 
 **Risks:**
 
@@ -354,7 +366,7 @@ The make-or-break goal is a slap that feels great with friends online by the end
 | Held items colliding with your own body | Gorilla locomotion uses hand colliders | Held items ignore your own body and climbing surfaces |
 | Testing needs several headsets | Every multiplayer test needs 2 to 4 people | Book a daily group playtest slot; use an editor test mode for solo work |
 
-**Cut order if time runs short:** Rooftops route, then Kitchen, then the qualifying score (keep single legs), then extra items.
+**Cut order if time runs short:** Section 3 (end the course at the top of the fence), then medals (keep a simple time score), then extra items. Build the sections in order so the course is always playable from start to finish.
 
 ## Showcase plan
 
@@ -362,10 +374,10 @@ The showcase needs a playable build, a short pitch and a 3 to 5 minute gameplay 
 
 **Capture outline (about 4 minutes):**
 
-1. **0:00 to 0:30:** The pitch in one line, then the team in the studio slapping items at each other.
-2. **0:30 to 1:30:** The Backyard leg: first slaps, a trampoline friend launch, crossing the finish line and the commentator cheering.
-3. **1:30 to 3:00:** The Kitchen or Rooftops: a near miss with spikes, a frying pan ragdoll, a balloon popping right before the finish and the whole crew snapping back to the start with the clock still ticking.
-4. **3:00 to 4:00:** The scoreboard, the host's verdict, and a short note on what the team learned.
+1. **0:00 to 0:30:** The pitch in one line, then the crew at the start line slapping items at each other.
+2. **0:30 to 1:30:** The Flooded Lawn and the Fence: first slaps and passes, a mousetrap snap, a frying pan ragdoll and a washing-line swing.
+3. **1:30 to 3:00:** The Patio to the Roof: passing over the grill between flame bursts, a trampoline friend launch, a pop right before the finish with the crew snapping back to the section start, then the run that makes it, with the commentator cheering.
+4. **3:00 to 4:00:** The medal, the host's verdict, and a short note on what the team learned.
 
 **Capture tips:** Record from a spectator camera as well as a headset, so viewers can see the ragdolls and spikes. Prepare a highlight of the best accidental friend hit from playtests.
 
