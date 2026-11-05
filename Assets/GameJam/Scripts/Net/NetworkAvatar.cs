@@ -11,7 +11,11 @@ namespace GameJam.Net
     /// roster's characters (Jmancurly, Squoof, Protobro, Elliot). The owner copies their local rig into it and chooses the
     /// character (default by player slot, changeable at the start-stage pedestals). Knockbacks arrive here: the hit player
     /// gets a straight-line shove (comfortable in VR) and everyone else sees a floppy ragdoll.
+    /// With a <see cref="GorillaBodyRig"/> the avatar is the skinned gorilla-locomotion body (fur in the character's
+    /// colour) whose arms reach the synced gloves; you see your own arms, everyone else sees all of you.
+    /// Runs after gorilla locomotion (LateUpdate, order 0) so the arms meet the hands where they were drawn this frame.
     /// </summary>
+    [DefaultExecutionOrder(100)]
     public sealed class NetworkAvatar : NetworkBehaviour, IKnockbackRelay, ICharacterSelector
     {
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -31,8 +35,11 @@ namespace GameJam.Net
         [SerializeField] private TextMesh _nameTag;
         [Tooltip("The model's top sits this far above the head, so the camera eye lines up with the model's face.")]
         [SerializeField] private float _modelTopAboveHead = 0.12f;
+        [Tooltip("Optional skinned gorilla body; when set it replaces the character model on players.")]
+        [SerializeField] private GorillaBodyRig _bodyRig;
 
         private float _hiddenUntil;
+        private int _ownArmsShown = -1;
         private bool _isVisible = true;
         private int _shownCharacter = -1;
         private Vector3 _lastBodyPosition;
@@ -65,6 +72,8 @@ namespace GameJam.Net
             _characterVisual = characterVisual;
             _nameTag = nameTag;
         }
+
+        public void ConfigureBody(GorillaBodyRig bodyRig) => _bodyRig = bodyRig;
 
         /// <summary>Knocks this player over. Anyone can call it: slaps, thrown items, hazards, pop blasts.</summary>
         public void SendKnockback(Vector3 direction, float force, float seconds) => RpcKnockback(direction, force, seconds);
@@ -129,16 +138,23 @@ namespace GameJam.Net
         {
             _shownCharacter = CharacterIndex;
             CharacterDefinition character = _roster != null ? _roster.Get(CharacterIndex) : null;
-            if (character == null || _characterVisual == null)
+            if (character == null)
             {
                 return;
             }
 
-            // Feet so the model's top sits just above the head: the camera eye lines up with the character's face.
-            float height = character.Height;
-            _characterVisual.transform.localPosition = new Vector3(0f, _bodyDrop + _modelTopAboveHead - height, 0f);
-            _characterVisual.Show(character, height);
-            _characterVisual.SetVisible(_isVisible);
+            if (_bodyRig != null)
+            {
+                _bodyRig.SetFurColor(character.Tint);
+            }
+            else if (_characterVisual != null)
+            {
+                // Feet so the model's top sits just above the head: the camera eye lines up with the character's face.
+                float height = character.Height;
+                _characterVisual.transform.localPosition = new Vector3(0f, _bodyDrop + _modelTopAboveHead - height, 0f);
+                _characterVisual.Show(character, height);
+                _characterVisual.SetVisible(_isVisible);
+            }
 
             if (_nameTag != null)
             {
@@ -166,7 +182,18 @@ namespace GameJam.Net
             if (HasStateAuthority)
             {
                 FollowRig();
+                ShowOwnArms();
+                if (_bodyRig != null)
+                {
+                    _bodyRig.Solve();
+                }
+
                 return;
+            }
+
+            if (_bodyRig != null && _isVisible)
+            {
+                _bodyRig.Solve();
             }
 
             // Smoothed body motion of this remote player, handed to the ragdoll so a knockback continues their momentum.
@@ -225,6 +252,29 @@ namespace GameJam.Net
 
             Quaternion yaw = Quaternion.Euler(0f, head.eulerAngles.y, 0f);
             _body.SetPositionAndRotation(head.position + Vector3.down * _bodyDrop, yaw);
+        }
+
+        /// <summary>
+        /// Your own avatar stays hidden except, with PlayerRigConfig.ShowOwnArms, the gorilla arms, whose mitts then
+        /// replace the rig's glove spheres. Applied only when the setting changes, so it can be toggled live.
+        /// </summary>
+        private void ShowOwnArms()
+        {
+            LocalRig rig = LocalRig.Instance;
+            if (_bodyRig == null || rig == null || rig.Config == null)
+            {
+                return;
+            }
+
+            int show = rig.Config.ShowOwnArms ? 1 : 0;
+            if (show == _ownArmsShown)
+            {
+                return;
+            }
+
+            _ownArmsShown = show;
+            _bodyRig.SetPartsVisible(false, show == 1);
+            rig.SetGloveVisualsVisible(show == 0);
         }
 
         private void Tint(Color color)

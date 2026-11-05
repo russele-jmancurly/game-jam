@@ -82,19 +82,38 @@ namespace GameJam.Editor
             bodyCollider.height = 0.6f;
             bodyCollider.isTrigger = true;
 
-            // The character model rides on the body (follows the player's yaw); NetworkAvatar picks which one.
-            var model = new GameObject("CharacterModel");
-            model.transform.SetParent(body, false);
-            var visual = model.AddComponent<CharacterVisual>();
-            visual.Configure(PlaceholderAssets.Material("CharacterPlaceholder", Color.white, 0.3f));
+            // The gorilla-locomotion body rides on the body transform (player's yaw), origin at the eyes; its arms reach
+            // the gloves. Without the FBX, fall back to the roster's static character model.
+            GorillaBodyRig bodyRig = GorillaBodyBuilder.Build(body, head.localPosition.y - body.localPosition.y, glove);
+            CharacterVisual visual = null;
+            if (bodyRig != null)
+            {
+                // Hitbox matches the smaller gorilla torso (eyes - 0.14 m down to eyes - 0.57 m).
+                bodyCollider.radius = 0.19f;
+                bodyCollider.height = 0.5f;
+                bodyCollider.center = new Vector3(0f, 0.09f, 0f);
+            }
+            else
+            {
+                var model = new GameObject("CharacterModel");
+                model.transform.SetParent(body, false);
+                visual = model.AddComponent<CharacterVisual>();
+                visual.Configure(PlaceholderAssets.Material("CharacterPlaceholder", Color.white, 0.3f));
+            }
+
             TextMesh nameTag = PlaceholderShapes.Text("NameTag", head, new Vector3(0f, 0.45f, 0f), 0.012f, string.Empty, Color.white);
 
-            // Gloves: the only safe part.
-            Transform leftHand = Glove("LeftHand", root.transform, glove);
-            Transform rightHand = Glove("RightHand", root.transform, glove);
+            // Gloves: the only safe part. With the gorilla body its mitts draw them, so no extra sphere.
+            Transform leftHand = Glove("LeftHand", root.transform, bodyRig == null ? glove : null);
+            Transform rightHand = Glove("RightHand", root.transform, bodyRig == null ? glove : null);
+            if (bodyRig != null)
+            {
+                bodyRig.SetTargets(head, leftHand, rightHand);
+            }
 
             avatar.Configure(head, body, leftHand, rightHand, System.Array.Empty<Renderer>(), skin);
             avatar.ConfigureCharacter(configs.Roster, visual, nameTag);
+            avatar.ConfigureBody(bodyRig);
             AddVoice(root, head);
 
             PlaceholderShapes.SetLayerRecursively(root, GameLayers.IgnoreRaycast);
@@ -335,7 +354,11 @@ namespace GameJam.Editor
             var hand = new GameObject(name);
             hand.transform.SetParent(parent, false);
             hand.AddComponent<NetworkTransform>();
-            PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Glove", hand.transform, Vector3.zero, Vector3.one * 0.12f, material, false);
+            if (material != null)
+            {
+                PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Glove", hand.transform, Vector3.zero, Vector3.one * 0.12f, material, false);
+            }
+
             return hand.transform;
         }
     }

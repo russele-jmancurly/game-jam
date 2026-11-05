@@ -35,6 +35,8 @@ namespace GameJam.Core
         [Range(0f, 1f)] public float SlideHapticStrength = 0.075f;
 
         [Header("Body")]
+        [Tooltip("See your own gorilla arms (shoulder to glove) in first person; off = floating glove spheres only.")]
+        public bool ShowOwnArms = true;
         [Tooltip("The body collider's centre sits this far below the head.")]
         public float BodyDrop = 0.4f;
         [Tooltip("Falling below this height respawns you at the current section.")]

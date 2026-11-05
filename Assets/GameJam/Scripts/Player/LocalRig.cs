@@ -99,6 +99,24 @@ namespace GameJam.Player
 
         public void Turn(float degrees) => _locomotion.Turn(degrees);
 
+        /// <summary>Shows or hides the rig's own glove spheres (hidden while your avatar's gorilla arms draw the hands).</summary>
+        public void SetGloveVisualsVisible(bool isVisible)
+        {
+            foreach (Transform follower in new[] { _leftHandFollower, _rightHandFollower })
+            {
+                if (follower == null)
+                {
+                    continue;
+                }
+
+                Transform glove = follower.Find("Glove");
+                if (glove != null && glove.TryGetComponent(out Renderer gloveRenderer))
+                {
+                    gloveRenderer.enabled = isVisible;
+                }
+            }
+        }
+
         /// <summary>
         /// Knocks the local player over through the network, so friends see the ragdoll.
         /// Falls back to a local shove while offline.
