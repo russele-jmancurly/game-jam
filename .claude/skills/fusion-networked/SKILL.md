@@ -93,9 +93,9 @@ this skill if it has drifted.
 | Ragdoll | `NetworkAvatar.RpcKnockback` (All → All, `TickAligned = false`) | The owner gets `LocalRig.ApplyKnockback` (straight shove, noodle hands); everyone else spawns a local `RagdollPuppet` that inherits the avatar's body velocity, springs back toward the real body over the last 45% of its life and shrinks away as the avatar reappears. Local code calls it through `GameServices.LocalKnockback`. |
 | Game state | `GameState` | Master Client Object, does not die with its owner; `NetworkBootstrap.PlayerLeft` requests authority as a backup, and the heartbeat watchdog requests master reassignment when the master freezes. Owns `State`, `TickTimer`, `HoopMask` (bit per hoop, any order), `LastHoop` (checkpoint for balloon respawn), `Pops`, scores, `Headline`, `Heartbeat`. The finish only counts when every hoop is cleared; a pop respawns only the balloon (beside the last hoop), never the crew. |
 | Avatar | `NetworkAvatar` + `AvatarHitbox` | One `NetworkTransform` per head/body/hand child; the owner copies `LocalRig` into them and hides its own renderers. `DestroyWhenStateAuthorityLeaves` on. |
-| Characters | `NetworkAvatar.CharacterIndex` | Networked int written by the owner (default by player slot, changed via `CharacterPedestal` → `GameServices.LocalCharacter`); every client swaps its `CharacterVisual` in `Render`. |
+| Characters | (none networked) | Every player is the same porcupine; no character choice is synced. Jmancurly and Squoof are static map figures; only `MischiefMaker.CharacterIndex` (master-owned) picks which one is the giant. |
 | Roaming giant | `MischiefMaker` | Master Client Object with NetworkTransform (no Rigidbody). Authority runs a wander/chase/wind-up/bonk state machine in `FixedUpdateNetwork`; the bonk is `NetworkBalloon.RequestHit(PlayerRef.None, ...)` (nobody's hit). `GameState` re-rolls its character at each run start. Implements `IKnockbackSource`, so `RigHazardSensor` knocks players it walks into. |
-| Voice | `AvatarVoice` + Photon `VoiceNetworkObject` | See "Voice wiring" above. Tested offline only (mic starts, no errors); hearing each other needs both App IDs and two clients. |
+| Voice | `AvatarVoice` + Photon `VoiceNetworkObject` | See "Voice wiring" above. Online without a Voice App ID, `NetworkBootstrap` sets `FusionVoiceClient.AutoConnectAndJoin = false` (never destroy the client: `VoiceNetworkObject.Spawned` needs it and throws a NullReferenceException) and `NetworkBootstrap.VoiceEnabled` keeps avatars off the microphone. Hearing each other needs both App IDs and two clients (untested). |
 
 ## Wiring in the Editor
 
@@ -118,4 +118,23 @@ It regenerates prefabs, materials and `Scenes/Prototype.unity`, but keeps existi
   `unity command editor.playmode list_instances` lists clones; target one with `--instance <name>`.
   **MPPM needs the Fusion App ID**: offline Single mode gives every instance its own separate world.
   Virtual players have no headset, so they run in PC test mode.
+- **Driving a clone from the CLI**: `--project-path` with the main path doesn't match a clone, and `--instance` didn't
+  either; target it with `--pid <pid from list_instances>`. A clone resolves `script eval --file` relative paths against
+  its own project folder, so pass absolute paths. Each CLI call takes ~2 s: give timed effects (knockback) >= 5 s.
+- **Clone floods "Failed to load NetworkProjectConfigAsset"** (its read-only AssetDatabase never re-imported the
+  `.fusion` config because MPPM doesn't sync Fusion's custom dependencies). Temporary recovery, both Editors open and out
+  of Play mode: in main, `Refresh(true)` the three static `FusionCustomDependency` fields of
+  `Fusion.Editor.NetworkProjectConfigImporter` (`.claude/unity-snippets/mppm_fusion_refresh_main.cs`); in each clone, run
+  `FusionMppmRegisterCustomDependencyCommand.Execute()` with the values from main's
+  `Temp/FusionMppm/Dependency_Fusion.*.json` (`mppm_fusion_apply_virtual.cs`), then `NetworkProjectConfig.UnloadGlobal()`
+  and remove only `NetworkProjectConfigAsset` from `FusionGlobalScriptableObject._typesFailedToLoad`
+  (`mppm_fusion_reload_virtual.cs`). Verified to survive a script recompile; not proven to survive an Editor restart.
+- **A rebuilt scene does not reach a clone by itself**: after `BuildFromCli`, the clone keeps the old scene (it once ran
+  the old hoops as balloon owner). With both out of Play mode, in the clone run `AssetDatabase.Refresh()` and
+  `EditorSceneManager.OpenScene(<active scene path>)`, then compare a few object positions with main before playing.
+- **2-player test recipe (2026-11-06, all passed)**: both join `BalloonDrop-Dev`, each sees the other's porcupine with
+  arms on its hands (`mp_remote_avatar_check.cs`); the non-master starts the run; `RequestHit` from either side reaches the
+  balloon owner, a same-player double hit pops; a real glove slap (`mp_real_slap.cs` then `mp_real_slap_swing.cs`)
+  registers from owner and guest; `SendKnockback` knocks the owner down while the other side shows a ragdoll.
+  Expected noise: "no scene in StartGameArgs.Scene" (by design), clone-only Package Manager / ProjectSettingsWindow logs.
 - Report what was only tested solo. Authority hand-off, voice and master-client loss need a real multi-player test.

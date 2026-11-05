@@ -15,6 +15,9 @@ namespace GameJam.Net
     [RequireComponent(typeof(NetworkRunner))]
     public sealed class NetworkBootstrap : SimulationBehaviour, IPlayerJoined, IPlayerLeft
     {
+        /// <summary>False online without a Voice App ID: the voice client is removed and avatars leave the microphone off.</summary>
+        public static bool VoiceEnabled { get; private set; } = true;
+
         [Header("Session")]
         [Tooltip("Everyone using the same session name ends up together. Change it to keep playtests apart.")]
         [SerializeField] private string _sessionName = "BalloonDrop-Dev";
@@ -106,9 +109,16 @@ namespace GameJam.Net
                                  "Set the App ID in Tools > Fusion > Realtime Settings to play online.");
             }
 
-            if (mode == GameMode.Shared && !HasVoiceAppId())
+            VoiceEnabled = mode == GameMode.Single || HasVoiceAppId();
+            if (!VoiceEnabled)
             {
+                // Without a Voice App ID the voice client would still try to connect and log errors on every start. Keep
+                // the component (VoiceNetworkObject on each avatar needs it) but never let it connect.
                 Debug.LogWarning("[Voice] No Voice App ID set: voice chat stays off. Set it in Tools > Fusion > Realtime Settings.");
+                if (TryGetComponent(out Photon.Voice.Fusion.FusionVoiceClient voiceClient))
+                {
+                    voiceClient.AutoConnectAndJoin = false;
+                }
             }
 
             Debug.Log($"[Net] Starting {mode} session '{_sessionName}'...");

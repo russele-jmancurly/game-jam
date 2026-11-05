@@ -38,6 +38,12 @@ namespace GameJam.Net
                 return;
             }
 
+            if (!NetworkBootstrap.VoiceEnabled)
+            {
+                _recorder.RecordingEnabled = false; // no voice session: don't ask for (or open) the microphone
+                return;
+            }
+
             MicrophoneAccess.Request(OnMicrophoneAccess);
         }
 

@@ -88,7 +88,9 @@ Assets/GameJam/
   builder. Dressing never gets colliders, so it can't change gameplay.
 - Map: an open backyard (GDD: Levels), not a linear course. `BackyardCourseBuilder` holds the zone layout constants
   (pool, washing line, tree, playground, BBQ, porch), the six `HoopCheckpoint`s (any order; checkpoint k = beside hoop
-  k-1), `BalloonGround` surfaces (balloon pops on touch, players walk freely) and every mover. Passing objects are
+  k-1), sized from measured reach (`HoopRingRadius`, `HoopAboveFloor`, `HoopAbovePerch`: eyes ~0.65 m up, standing reach
+  ~1.25 m, a good jump ~2.3 m; re-run `.claude/unity-snippets/hoop_reach_test.cs` after moving one), `BalloonGround` surfaces
+  (balloon pops on touch, players walk freely) and every mover. Passing objects are
   `MovingObstacle` in `Path` mode on the shared `CourseClock` (no network cost); check new routes don't clip set pieces.
 - Movement: `Scripts/Player/Locomotion/` is a port of GorillaPlus (github.com/baggZ-idk/GorillaPlus), keep `Player.cs`
   close to upstream and list every project change in that folder's README. Feel tuning (jump, slide, arm length, tap

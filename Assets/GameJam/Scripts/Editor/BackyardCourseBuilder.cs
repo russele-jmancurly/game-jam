@@ -589,17 +589,41 @@ namespace GameJam.Editor
 
         // ------------------------------------------------------------------ hoops, spawns, items
 
+        // Hoop sizing, measured from the player and the balloon (see the numbers below) rather than eyeballed.
+        // Player (gorilla locomotion): the body collider rests on the floor 0.4 m under the eyes, so eyes sit ~0.65 m up
+        // (in VR too: you are gorilla-sized). Arms reach ~0.6 m above the eyes: standing reach ~1.25 m. A jump rises
+        // v^2 / 2g: a casual 3 m/s push +0.46 m (reach ~1.7 m), a strong 4.5 m/s push +1.03 m (reach ~2.3 m).
+        // Balloon (gravity 1 m/s^2, drag 1.2/s, slap = hand speed x 0.9 + 0.6): a medium slap (3 m/s hand) rises ~1.6 m,
+        // a full one ~3.5 m. A hoop counts while the balloon (r 0.25) overlaps its trigger, i.e. inside the ring.
+        private const float HoopRingRadius = 1f;            // 2 m across: ~2.5x a player, 4 balloons wide
+        private const float HoopTriggerRadius = HoopRingRadius - 0.25f;
+        private const float HoopAboveFloor = 2.4f;          // ring bottom 1.4 m: just above standing reach; centre within a good jump,
+                                                            // and a medium slap from shoulder height carries the balloon through
+        private const float HoopAbovePerch = 1.9f;          // on a high perch you can't jump safely: ring bottom ~0.9 m, a tap away
+
         private static void BuildHoops()
         {
             // Six hoops, any order. Each has a checkpoint beside it where the balloon returns after a pop.
+            const float diveBoardTop = 1.625f;  // BuildPool: board centre 1.5 m, 0.25 m thick; its tip is 6 m west of the pool centre
+            const float merryTop = 0.35f;       // BuildPlayground: disc centre 0.25 m, 0.2 m thick
+            const float flamesTop = 2.15f;      // BuildBbq: flame trigger centre 1.9 m, 0.5 m tall
+            const float branchHighTop = 9.45f;  // BuildTree: BranchHigh centre 9.2 m, 0.5 m thick, spans z -4.0..-0.8 around the trunk
+            const float fenceTop = 7f;          // BuildFence: picket height
             (Vector3 hoop, Vector3 checkpoint, float yaw)[] hoops =
             {
-                (PoolCenter + new Vector3(-3f, 4.2f, 0f), PoolCenter + new Vector3(-13f, 0f, -6f), 60f),      // over the paddling pool
-                (WashingLineCenter + new Vector3(0f, 3.4f, -7f), WashingLineCenter + new Vector3(8f, 0f, -12f), -20f), // through the laundry
-                (TreeCenter + new Vector3(0f, 10.6f, -3.5f), TreeCenter + new Vector3(0f, 0f, -14f), 0f),     // top of the tree
-                (PlaygroundCenter + new Vector3(4f, 4.2f, -2f), PlaygroundCenter + new Vector3(6f, 0f, -12f), 0f), // above the merry-go-round
-                (BbqCenter + new Vector3(0f, 3.8f, -6f), BbqCenter + new Vector3(-8f, 0f, -14f), 0f),          // over the grill flames
-                (new Vector3(-43f, 8.6f, 94f), new Vector3(-36f, 0f, 86f), -45f),                             // on top of the fence
+                // Over the pool, 1 m past the diving board's tip: slap it through from the board (or after a spring bounce).
+                (PoolCenter + new Vector3(-5f, diveBoardTop + HoopAboveFloor, 0f), PoolCenter + new Vector3(-13f, 0f, -6f), 60f),
+                // Through the laundry: the sheets hang from 2.3 m, so they brush the top of the ring and swat the balloon.
+                (WashingLineCenter + new Vector3(0f, HoopAboveFloor, -7f), WashingLineCenter + new Vector3(8f, 0f, -12f), -20f),
+                // Top of the tree, above the end of the highest branch.
+                (TreeCenter + new Vector3(0.4f, branchHighTop + HoopAbovePerch, -3.2f), TreeCenter + new Vector3(0f, 0f, -14f), 0f),
+                // Above the merry-go-round: ride it and slap the balloon up through as you spin past.
+                (PlaygroundCenter + new Vector3(4f, merryTop + HoopAboveFloor, -2f), PlaygroundCenter + new Vector3(6f, 0f, -12f), 0f),
+                // Over the grill: the ring's bottom clears the flames by 0.1 m, so a low balloon still gets burnt.
+                (BbqCenter + new Vector3(0f, flamesTop + 0.1f + HoopRingRadius, -6f), BbqCenter + new Vector3(-8f, 0f, -14f), 0f),
+                // On top of the west fence (pickets at x = -HalfWidth, 0.4 m thick): the ring hangs just inside it, so a player
+                // clinging to the picket tops slaps the balloon up and slightly inward through it.
+                (new Vector3(-HalfWidth + 0.2f + HoopRingRadius + 0.3f, fenceTop + HoopAbovePerch - 0.5f, 94f), new Vector3(-36f, 0f, 86f), -45f),
             };
 
             for (int i = 0; i < hoops.Length; i++)
@@ -616,23 +640,23 @@ namespace GameJam.Editor
             root.transform.position = center;
             var trigger = root.AddComponent<SphereCollider>();
             trigger.isTrigger = true;
-            trigger.radius = 1.35f;
+            trigger.radius = HoopTriggerRadius;
             root.layer = GameLayers.IgnoreRaycast;
 
             var spinner = new GameObject("Ring").transform;
             spinner.SetParent(root.transform, false);
             Material ring = PlaceholderAssets.Emissive("HoopRing", ArtPalette.Accent, 1.2f);
             var renderers = new List<Renderer>();
-            const int beads = 18;
+            const int beads = 16;
             for (int b = 0; b < beads; b++)
             {
                 float angle = b * Mathf.PI * 2f / beads;
-                var local = new Vector3(Mathf.Cos(angle) * 1.6f, Mathf.Sin(angle) * 1.6f, 0f);
-                GameObject bead = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Bead", spinner, local, Vector3.one * 0.38f, ring, false);
+                var local = new Vector3(Mathf.Cos(angle) * HoopRingRadius, Mathf.Sin(angle) * HoopRingRadius, 0f);
+                GameObject bead = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Bead", spinner, local, Vector3.one * 0.26f, ring, false);
                 renderers.Add(bead.GetComponent<Renderer>());
             }
 
-            PlaceholderShapes.Text($"Hoop{index + 1}Label", root.transform, new Vector3(0f, 2.2f, 0f), 0.05f, $"HOOP {index + 1}", ArtPalette.Accent);
+            PlaceholderShapes.Text($"Hoop{index + 1}Label", root.transform, new Vector3(0f, HoopRingRadius + 0.5f, 0f), 0.04f, $"HOOP {index + 1}", ArtPalette.Accent);
             root.AddComponent<HoopCheckpoint>().Configure(index, renderers.ToArray(), spinner);
         }
 

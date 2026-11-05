@@ -337,8 +337,12 @@ namespace GameJam.Net
         /// </summary>
         private void TeleportTo(Vector3 position)
         {
-            _body.linearVelocity = Vector3.zero;
-            _body.angularVelocity = Vector3.zero;
+            if (!_body.isKinematic) // frozen between runs: Unity warns when a kinematic body's velocity is set
+            {
+                _body.linearVelocity = Vector3.zero;
+                _body.angularVelocity = Vector3.zero;
+            }
+
             if (_networkTransform != null)
             {
                 _networkTransform.Teleport(position, Quaternion.identity);
