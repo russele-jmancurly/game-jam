@@ -20,7 +20,7 @@ namespace GameJam.Editor
     {
         public const string ScenePath = PlaceholderAssets.SceneFolder + "/Prototype.unity";
 
-        private static readonly Vector3 RigStartPosition = new Vector3(0f, 1.05f, -1f);
+        private static readonly Vector3 RigStartPosition = new Vector3(0f, 0.45f, -9f);
 
         [MenuItem("Game Jam/Build Prototype Scene")]
         public static void BuildFromMenu()
@@ -48,6 +48,7 @@ namespace GameJam.Editor
         private static string Build()
         {
             PlaceholderAssets.EnsureFolders();
+            ProjectLayers.Ensure();
             PrototypeConfigSet configs = PrototypeConfigSet.LoadOrCreate();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
@@ -60,10 +61,14 @@ namespace GameJam.Editor
             NetworkObject balloon = PlaceholderPrefabBuilder.BuildBalloon(configs);
             NetworkObject gameState = PlaceholderPrefabBuilder.BuildGameState(configs);
             NetworkObject[] items = PlaceholderPrefabBuilder.BuildItems(configs);
+            NetworkObject roamer = PlaceholderPrefabBuilder.BuildRoamer(configs, BackyardCourseBuilder.RoamerWanderPoints,
+                BackyardCourseBuilder.RoamerAvoidCircles, BackyardCourseBuilder.RoamerBounds);
 
-            CourseGreyboxBuilder.Build();
+            BackyardCourseBuilder.Build(configs.Roster);
+            EnvironmentLightingBuilder.Build();
+            EnvironmentDressingBuilder.Build();
             BuildRig(configs);
-            BuildNetwork(avatar, balloon, gameState, items);
+            BuildNetwork(avatar, balloon, gameState, items, roamer);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddToBuildSettings(ScenePath);
@@ -91,6 +96,8 @@ namespace GameJam.Editor
             head.transform.SetParent(trackingSpace, false);
             head.transform.localPosition = new Vector3(0f, 1.6f, 0f);
             head.AddComponent<Camera>().nearClipPlane = 0.02f;
+            // Script-created cameras default to no post-processing; LocalRig turns it on for PC mode at runtime.
+            head.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>().renderPostProcessing = true;
             head.AddComponent<AudioListener>();
             var headCollider = head.AddComponent<SphereCollider>();
             headCollider.radius = 0.12f;
@@ -135,13 +142,14 @@ namespace GameJam.Editor
             PlaceholderShapes.SetLayerRecursively(root, GameLayers.IgnoreRaycast);
         }
 
-        private static void BuildNetwork(NetworkObject avatar, NetworkObject balloon, NetworkObject gameState, NetworkObject[] items)
+        private static void BuildNetwork(NetworkObject avatar, NetworkObject balloon, NetworkObject gameState, NetworkObject[] items, NetworkObject roamer)
         {
             var network = new GameObject("Network");
             network.AddComponent<NetworkRunner>();
             network.AddComponent<NetworkSceneManagerDefault>();
             network.AddComponent<NetworkObjectProviderDefault>();
-            network.AddComponent<NetworkBootstrap>().Configure(avatar, balloon, gameState, items);
+            network.AddComponent<Photon.Voice.Fusion.FusionVoiceClient>(); // follows the Fusion session; offline in Single mode
+            network.AddComponent<NetworkBootstrap>().Configure(avatar, balloon, gameState, items, roamer, BackyardCourseBuilder.RoamerSpawn);
         }
 
         private static Transform Child(string name, Transform parent, Vector3 localPosition)

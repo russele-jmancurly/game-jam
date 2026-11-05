@@ -7,21 +7,36 @@ using UnityEngine;
 namespace GameJam.Net
 {
     /// <summary>
-    /// The run: lobby, countdown, a timed run through the sections, then a medal. Owned by the Shared Mode
-    /// master client (Master Client Object flag), so it moves to a new master if the owner leaves.
+    /// The run in the open backyard: lobby, countdown, then 3:00 to guide the balloon through every hoop (any order) and
+    /// onto the finish pad, then a medal. A pop sends the balloon back beside the last hoop cleared; the crew stays put.
+    /// Owned by the Shared Mode master client (Master Client Object flag), so it moves to a new master if the owner leaves.
     /// Anyone can report events; only the owner decides.
     /// </summary>
     public sealed class GameState : NetworkBehaviour, IRunStatus
     {
+        private const float MasterStallSeconds = 2.5f;
+        private const float ReassignRetrySeconds = 3f;
+        private const int NoHoop = -1;
+        private const float LockedFinishReportSeconds = 2f;
+
         [SerializeField] private RunConfig _config;
 
         private FusionTimeSource _timeSource;
+        private int _hoopCount;
+        private int _lastSeenHeartbeat = -1;
+        private float _heartbeatChangedAt;
+        private float _nextReassignRequestAt;
+        private float _nextLockedFinishReport;
 
         public static GameState Instance { get; private set; }
 
         [Networked] public RunState State { get; private set; }
 
-        [Networked] public int Section { get; private set; }
+        /// <summary>Bit i set = hoop i cleared this run.</summary>
+        [Networked] public int HoopMask { get; private set; }
+
+        /// <summary>The last hoop cleared, or -1 before the first one.</summary>
+        [Networked] public int LastHoop { get; private set; }
 
         [Networked] public int Pops { get; private set; }
 
@@ -33,10 +48,19 @@ namespace GameJam.Net
 
         [Networked] private NetworkString<_64> Headline { get; set; }
 
+        /// <summary>Incremented by the master every tick; other clients watch it to spot a frozen master.</summary>
+        [Networked] private int Heartbeat { get; set; }
+
         /// <summary>The balloon only moves in the lobby (free play) and during a run.</summary>
         public bool IsBalloonLive => State == RunState.Lobby || State == RunState.Running;
 
-        public int CurrentSection => Section;
+        public int CurrentCheckpoint => LastHoop + 1;
+
+        public int HoopCount => _hoopCount;
+
+        public int HoopsCleared => CountBits(HoopMask);
+
+        public bool AllHoopsCleared => _hoopCount > 0 && HoopsCleared >= _hoopCount;
 
         public float TimeLeft => State switch
         {
@@ -47,7 +71,7 @@ namespace GameJam.Net
 
         public string WristText => State switch
         {
-            RunState.Running => TimeFormat.MinutesSeconds(TimeLeft),
+            RunState.Running => $"{TimeFormat.MinutesSeconds(TimeLeft)}  {HoopsCleared}/{_hoopCount}",
             RunState.Countdown => "Ready",
             RunState.Finished => LastScore > 0 ? MedalText(LastScore) : "Time up",
             _ => "Lobby",
@@ -55,30 +79,45 @@ namespace GameJam.Net
 
         public void Configure(RunConfig config) => _config = config;
 
+        public bool IsHoopCleared(int hoopIndex) => hoopIndex >= 0 && hoopIndex < 32 && (HoopMask & (1 << hoopIndex)) != 0;
+
         public void RequestStart() => RpcRequestStart();
 
-        public void ReportGate(int sectionIndex)
+        public void ReportHoop(int hoopIndex)
         {
-            if (State == RunState.Running && sectionIndex > Section)
+            if (State == RunState.Running && !IsHoopCleared(hoopIndex))
             {
-                RpcReportGate(sectionIndex);
+                RpcReportHoop(hoopIndex);
             }
         }
 
         public void ReportFinish(BalloonCondition condition, int bestRally)
         {
-            if (State == RunState.Running)
+            if (State != RunState.Running)
             {
-                RpcReportFinish(condition, bestRally);
+                return;
             }
+
+            // While the finish is locked the balloon may sit on the pad every physics step; nag at most every 2 seconds.
+            if (!AllHoopsCleared && Time.time < _nextLockedFinishReport)
+            {
+                return;
+            }
+
+            _nextLockedFinishReport = Time.time + LockedFinishReportSeconds;
+            RpcReportFinish(condition, bestRally);
         }
 
         public void ReportPop(string line) => RpcReportPop(line);
+
+        /// <summary>A one-off commentator line (the roaming character's antics).</summary>
+        public void Announce(string line) => RpcAnnounce(line);
 
         public override void Spawned()
         {
             Instance = this;
             GameServices.Run = this;
+            _hoopCount = FindObjectsByType<HoopCheckpoint>(FindObjectsSortMode.None).Length; // same scene on every client
 
             // A spawned network object means the simulation state has arrived, so the clock is readable now.
             _timeSource = new FusionTimeSource(Runner);
@@ -87,6 +126,7 @@ namespace GameJam.Net
             if (HasStateAuthority)
             {
                 State = RunState.Lobby;
+                LastHoop = NoHoop;
                 Headline = "Slap the red button to start!";
             }
         }
@@ -113,11 +153,13 @@ namespace GameJam.Net
                 return;
             }
 
+            Heartbeat++;
+
             if (State == RunState.Countdown && Timer.Expired(Runner))
             {
                 State = RunState.Running;
                 Timer = TickTimer.CreateFromSeconds(Runner, _config.RunSeconds);
-                Headline = "GO! Don't let the balloon drop!";
+                Headline = "GO! Find the hoops!";
             }
             else if (State == RunState.Running && Timer.Expired(Runner))
             {
@@ -129,6 +171,8 @@ namespace GameJam.Net
 
         public override void Render()
         {
+            WatchMasterClient();
+
             CommentatorBoard board = CommentatorBoard.Instance;
             if (board == null)
             {
@@ -145,7 +189,7 @@ namespace GameJam.Net
             string soloNote = balloon != null && balloon.IsPassRuleSuspended ? "\nSOLO TEST: pass rule off" : string.Empty;
             board.SetScoreboard(
                 $"Time  {TimeFormat.MinutesSeconds(TimeLeft)}\n" +
-                $"Section  {Mathf.Min(Section + 1, _config.SectionCount)}/{_config.SectionCount}\n" +
+                $"Hoops  {HoopsCleared}/{_hoopCount}\n" +
                 $"Pops  {Pops}   Best rally  {bestRally}\n" +
                 $"Last  {LastScore}   Best  {BestScore}" +
                 soloNote);
@@ -161,7 +205,8 @@ namespace GameJam.Net
 
             State = RunState.Countdown;
             Timer = TickTimer.CreateFromSeconds(Runner, _config.CountdownSeconds);
-            Section = 0;
+            HoopMask = 0;
+            LastHoop = NoHoop;
             Pops = 0;
             Headline = "Get ready...";
 
@@ -170,28 +215,36 @@ namespace GameJam.Net
                 NetworkBalloon.Instance.ResetTo(CourseLayout.BalloonSpawn(0));
             }
 
-            RpcRespawnCrew(0);
+            if (MischiefMaker.Instance != null)
+            {
+                MischiefMaker.Instance.Reroll(); // a different giant troublemaker every run
+            }
+
+            RpcRespawnCrewAtStart();
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        private void RpcRespawnCrew(int section)
+        private void RpcRespawnCrewAtStart()
         {
             if (LocalRig.Instance != null)
             {
-                LocalRig.Instance.RespawnAt(CourseLayout.PlayerSpawn(section, Runner.LocalPlayer.PlayerId));
+                LocalRig.Instance.RespawnAt(CourseLayout.PlayerSpawn(0, Runner.LocalPlayer.PlayerId));
             }
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        private void RpcReportGate(int sectionIndex)
+        private void RpcReportHoop(int hoopIndex)
         {
-            if (State != RunState.Running || sectionIndex <= Section)
+            if (State != RunState.Running || hoopIndex < 0 || hoopIndex >= 32 || IsHoopCleared(hoopIndex))
             {
                 return;
             }
 
-            Section = Mathf.Min(sectionIndex, _config.SectionCount - 1);
-            Headline = $"Section {Section + 1}! Keep it up!";
+            HoopMask |= 1 << hoopIndex;
+            LastHoop = hoopIndex;
+            Headline = AllHoopsCleared
+                ? "All hoops! Get it to the finish on the porch!"
+                : $"Hoop {HoopsCleared}/{_hoopCount}! Keep it up!";
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -202,13 +255,28 @@ namespace GameJam.Net
                 return;
             }
 
+            if (!AllHoopsCleared)
+            {
+                Headline = $"Finish is locked! {_hoopCount - HoopsCleared} hoops to go.";
+                return;
+            }
+
             float secondsLeft = Timer.RemainingTime(Runner) ?? 0f;
-            int score = ScoreCalculator.FinishScore(_config, secondsLeft, condition, bestRally);
+            int score = ScoreCalculator.FinishScore(_config, secondsLeft, condition, bestRally, HoopsCleared);
 
             LastScore = score;
             BestScore = Mathf.Max(BestScore, score);
             State = RunState.Finished;
             Headline = $"{MedalText(score)}! {score} points!";
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RpcAnnounce(string line)
+        {
+            if (State == RunState.Lobby || State == RunState.Running)
+            {
+                Headline = line;
+            }
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -219,11 +287,54 @@ namespace GameJam.Net
                 return;
             }
 
+            // Open yard: the balloon comes back beside the last hoop (NetworkBalloon does that); the crew stays put and
+            // runs over, with the clock still running.
             Pops++;
             Headline = line;
-            RpcRespawnCrew(Section); // the whole crew goes back to the start of this section, clock still running
+        }
+
+        /// <summary>
+        /// Fusion 2.1 master client recovery: if the master stops ticking (its headset went to sleep, its app froze),
+        /// ask to take over. Fusion only grants it after the master has been idle past
+        /// NetworkProjectConfig.MasterClientRequestReassignThreshold (2 s), and the Master Client Object flag then moves
+        /// the game state and the balloon to the new master, so the timer and score carry on.
+        /// </summary>
+        private void WatchMasterClient()
+        {
+            if (Runner.GameMode != GameMode.Shared || HasStateAuthority || Runner.IsSharedModeMasterClient)
+            {
+                _lastSeenHeartbeat = -1;
+                return;
+            }
+
+            float now = Time.unscaledTime;
+            if (Heartbeat != _lastSeenHeartbeat)
+            {
+                _lastSeenHeartbeat = Heartbeat;
+                _heartbeatChangedAt = now;
+                return;
+            }
+
+            if (now - _heartbeatChangedAt > MasterStallSeconds && now >= _nextReassignRequestAt)
+            {
+                _nextReassignRequestAt = now + ReassignRetrySeconds;
+                Debug.LogWarning("[Net] Master client looks frozen; requesting to take over the game state.");
+                Runner.RequestMasterClientReassign();
+            }
         }
 
         private string MedalText(int score) => ScoreCalculator.MedalFor(_config, score).ToString().ToUpperInvariant();
+
+        private static int CountBits(int mask)
+        {
+            int count = 0;
+            while (mask != 0)
+            {
+                mask &= mask - 1;
+                count++;
+            }
+
+            return count;
+        }
     }
 }

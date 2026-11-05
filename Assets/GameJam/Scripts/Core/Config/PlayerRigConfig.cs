@@ -9,6 +9,11 @@ namespace GameJam.Core
         [Header("Comfort")]
         [Range(15f, 90f)] public float SnapTurnDegrees = 45f;
 
+        [Header("Rendering")]
+        [Tooltip("Post-processing (colour grading, vignette) costs a full-screen pass. Off in the headset by default " +
+                 "to protect Quest frame time; always on in PC test mode.")]
+        public bool PostProcessingInHeadset;
+
         [Header("Body")]
         [Tooltip("The body collider sits this far below the head.")]
         public float BodyDrop = 0.4f;

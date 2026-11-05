@@ -7,14 +7,19 @@ using UnityEngine;
 namespace GameJam.Net
 {
     /// <summary>
-    /// The networked balloon. Its state authority (the master client, via the Master Client Object flag)
-    /// runs <see cref="BalloonPhysics"/>; everyone else sends hits through an RPC, and the first hit the
+    /// The networked balloon, a Rigidbody synced with Fusion 2.1 Forecast Physics: every client extrapolates it into its
+    /// own local time, so a slap lands where the balloon visibly is instead of where it was a round trip ago.
+    /// Its state authority (the master client, via the Master Client Object flag) applies the game rules from
+    /// <see cref="BalloonPhysics"/> in FixedUpdate; everyone else sends hits through an RPC, and the first hit the
     /// authority receives wins. Enforces the pass rule: the same player can never hit it twice in a row.
     /// </summary>
+    [RequireComponent(typeof(Rigidbody))]
     public sealed class NetworkBalloon : NetworkBehaviour, ISlappable
     {
         private const float WobbleSpeed = 6f;
         private const float WobbleAmount = 0.03f;
+        private const int SendEveryTick = 1;
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         [SerializeField] private BalloonConfig _config;
         [SerializeField] private SlapConfig _slapConfig;
@@ -22,14 +27,13 @@ namespace GameJam.Net
         [SerializeField] private TextMesh _rallyText;
         [SerializeField] private Material _effectMaterial;
 
+        private Rigidbody _body;
+        private NetworkTransform _networkTransform;
         private BalloonPhysics _physics;
         private Vector3 _baseVisualScale;
         private MaterialPropertyBlock _colorBlock;
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         public static NetworkBalloon Instance { get; private set; }
-
-        [Networked] public Vector3 Velocity { get; private set; }
 
         [Networked] public PlayerRef LastHitter { get; private set; }
 
@@ -45,13 +49,18 @@ namespace GameJam.Net
 
         [Networked] private TickTimer HitGrace { get; set; }
 
+        /// <summary>The balloon's current velocity (synced by the NetworkTransform's physics state).</summary>
+        public Vector3 Velocity => _body != null ? _body.linearVelocity : Vector3.zero;
+
         /// <summary>
-        /// True while a lone player is testing: the pass rule (no double hits) is off so one person can
-        /// play the whole loop. Turns itself back on as soon as a second player joins.
+        /// True while a lone player is testing: the pass rule (no double hits) is off so one person can play the whole
+        /// loop. Turns itself back on as soon as a second player joins.
         /// </summary>
         public bool IsPassRuleSuspended => _config.AllowSoloDoubleHits && CountPlayers() < 2;
 
         private bool IsLive => GameState.Instance == null || GameState.Instance.IsBalloonLive;
+
+        private bool IsReady => Object != null && Object.IsValid;
 
         public void Configure(BalloonConfig config, SlapConfig slapConfig, Renderer visual, TextMesh rallyText, Material effectMaterial)
         {
@@ -66,7 +75,7 @@ namespace GameJam.Net
         {
             feedback = HapticPulse.None;
             float speed = slap.Speed;
-            if (speed < _slapConfig.MinBalloonSlapSpeed || Object == null || !Object.IsValid)
+            if (speed < _slapConfig.MinBalloonSlapSpeed || !IsReady)
             {
                 return false;
             }
@@ -79,7 +88,7 @@ namespace GameJam.Net
         /// <summary>A player's hit (slap, thrown or swung item). PlayerRef.None counts as nobody's hit.</summary>
         public void RequestHit(PlayerRef hitter, Vector3 velocity)
         {
-            if (Object != null && Object.IsValid)
+            if (IsReady)
             {
                 RpcApplyHit(hitter, velocity);
             }
@@ -87,7 +96,7 @@ namespace GameJam.Net
 
         public void RequestPop(string reason)
         {
-            if (Object != null && Object.IsValid)
+            if (IsReady)
             {
                 RpcForcePop(reason);
             }
@@ -98,11 +107,20 @@ namespace GameJam.Net
         public override void Spawned()
         {
             Instance = this;
+            _body = GetComponent<Rigidbody>();
+            _networkTransform = GetComponent<NetworkTransform>();
             _physics = new BalloonPhysics(_config, transform);
             _colorBlock = new MaterialPropertyBlock();
             if (_visual != null)
             {
                 _baseVisualScale = _visual.transform.localScale;
+            }
+
+            // Fusion 2.1 send priority: on this client, receive the balloon's state every send tick (it is the object
+            // everyone is looking at). Shared Mode only accepts the local player here.
+            if (Runner.GameMode == GameMode.Shared)
+            {
+                Object.SetPriority(Runner.LocalPlayer, SendEveryTick);
             }
         }
 
@@ -114,27 +132,33 @@ namespace GameJam.Net
             }
         }
 
-        public override void FixedUpdateNetwork()
+        /// <summary>Forecast Physics requires physics code in FixedUpdate (Unity's physics step), not FixedUpdateNetwork.</summary>
+        private void FixedUpdate()
         {
-            if (!HasStateAuthority)
+            if (!IsReady || !HasStateAuthority)
             {
                 return;
             }
 
-            if (!IsLive)
+            bool isLive = IsLive;
+            if (_body.isKinematic == isLive)
             {
-                Velocity = Vector3.zero;
+                _body.isKinematic = !isLive; // frozen during the countdown and after the run; Fusion syncs isKinematic
+            }
+
+            if (!isLive)
+            {
                 return;
             }
 
             var input = new BalloonStepInput
             {
-                Position = transform.position,
-                Velocity = Velocity,
+                Position = _body.position,
+                Velocity = _body.linearVelocity,
                 Condition = Condition,
                 AreSpikesArmed = HitGrace.ExpiredOrNotRunning(Runner),
                 CanLeak = LeakCooldown.ExpiredOrNotRunning(Runner),
-                DeltaTime = Runner.DeltaTime,
+                DeltaTime = Time.fixedDeltaTime,
             };
 
             BalloonStepResult result = _physics.Step(input);
@@ -145,6 +169,21 @@ namespace GameJam.Net
             }
 
             ApplyStep(result);
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (!IsReady || !HasStateAuthority)
+            {
+                return;
+            }
+
+            // Bounces off walls, floors and furniture never clear the last hitter, but they end the rally.
+            // A thrown item's hit is a pass (counted when its RPC arrives), so it doesn't break the rally.
+            if (collision.collider.GetComponentInParent<NetworkItem>() == null)
+            {
+                Rally = 0;
+            }
         }
 
         public override void Render()
@@ -200,7 +239,8 @@ namespace GameJam.Net
             }
 
             Vector3 capped = Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed);
-            Velocity = Vector3.ClampMagnitude(capped + Vector3.up * _config.UpwardAssist, _config.MaxHitSpeed);
+            _body.isKinematic = false;
+            _body.linearVelocity = Vector3.ClampMagnitude(capped + Vector3.up * _config.UpwardAssist, _config.MaxHitSpeed);
             HitGrace = TickTimer.CreateFromSeconds(Runner, _config.HitGraceSeconds);
         }
 
@@ -216,8 +256,7 @@ namespace GameJam.Net
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         private void RpcResetTo(Vector3 position)
         {
-            transform.position = position;
-            Velocity = Vector3.zero;
+            TeleportTo(position);
             LastHitter = PlayerRef.None;
             Condition = BalloonCondition.Full;
             Rally = 0;
@@ -259,9 +298,9 @@ namespace GameJam.Net
             GameState gameState = GameState.Instance;
             if (gameState != null)
             {
-                if (result.GateReached != BalloonStepResult.NoGate)
+                if (result.HoopReached != BalloonStepResult.NoHoop)
                 {
-                    gameState.ReportGate(result.GateReached);
+                    gameState.ReportHoop(result.HoopReached);
                 }
 
                 if (result.FinishReached)
@@ -270,20 +309,18 @@ namespace GameJam.Net
                 }
             }
 
-            transform.position = result.Position;
-            Velocity = result.Velocity;
+            _body.linearVelocity = result.Velocity;
         }
 
         private void Pop(string reason)
         {
             PopCount++;
-            RpcPlayPopEffects(transform.position, LastHitter.ToPaletteColor());
+            RpcPlayPopEffects(_body.position, LastHitter.ToPaletteColor());
 
             GameState gameState = GameState.Instance;
-            int section = gameState != null ? gameState.Section : 0;
+            int checkpoint = gameState != null ? gameState.CurrentCheckpoint : 0;
 
-            transform.position = CourseLayout.BalloonSpawn(section);
-            Velocity = Vector3.zero;
+            TeleportTo(CourseLayout.BalloonSpawn(checkpoint)); // back beside the last hoop cleared
             LastHitter = PlayerRef.None;
             Condition = BalloonCondition.Full;
             Rally = 0;
@@ -291,6 +328,25 @@ namespace GameJam.Net
             if (gameState != null)
             {
                 gameState.ReportPop(reason);
+            }
+        }
+
+        /// <summary>
+        /// Moves the balloon without interpolating across the map: NetworkTransform.Teleport networks a teleport event
+        /// and adjusts the Rigidbody when Forecast Physics is on.
+        /// </summary>
+        private void TeleportTo(Vector3 position)
+        {
+            _body.linearVelocity = Vector3.zero;
+            _body.angularVelocity = Vector3.zero;
+            if (_networkTransform != null)
+            {
+                _networkTransform.Teleport(position, Quaternion.identity);
+            }
+            else
+            {
+                _body.position = position;
+                transform.position = position;
             }
         }
 

@@ -5,5 +5,8 @@ namespace GameJam.Gameplay
         Spin,
         Swing,
         PingPong,
+
+        /// <summary>Travels along waypoints through the yard (passing objects).</summary>
+        Path,
     }
 }

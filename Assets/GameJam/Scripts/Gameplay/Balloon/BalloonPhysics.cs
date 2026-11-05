@@ -4,15 +4,14 @@ using UnityEngine;
 namespace GameJam.Gameplay
 {
     /// <summary>
-    /// The balloon's local simulation: floaty fall, drag, bounces, wind, bounce pads, hazards and spikes.
-    /// Plain C# with no networking, so it can run solo and be tested. The networked balloon calls
-    /// <see cref="Step"/> on its state authority and syncs the result.
+    /// The balloon's game rules for one physics step: floaty fall, drag, wind, bounce pads, hazards, spikes, the ground,
+    /// hoops and the finish. Plain C# with no networking. The Rigidbody moves the balloon and handles bounces (so Fusion 2.1 Forecast
+    /// Physics can extrapolate it on every client); this class only decides the new velocity and what happened.
     /// </summary>
     public sealed class BalloonPhysics
     {
         private const int MaxOverlaps = 24;
-        private const float SkinWidth = 0.01f;
-        private const float CastRadiusScale = 0.95f;
+        private const float ContactSkin = 1.08f; // overlap a touch past the collider so resting contacts register
         private const float ObstacleSwatScale = 1.2f;
         private const float ObstaclePushSpeed = 1.5f;
 
@@ -28,35 +27,29 @@ namespace GameJam.Gameplay
 
         public BalloonStepResult Step(in BalloonStepInput input)
         {
-            var result = new BalloonStepResult { GateReached = BalloonStepResult.NoGate };
+            var result = new BalloonStepResult { HoopReached = BalloonStepResult.NoHoop, Position = input.Position };
             float dt = input.DeltaTime;
-            Vector3 position = input.Position;
             Vector3 velocity = input.Velocity;
 
-            // Floaty fall; leaking balloons are heavier.
+            // Floaty fall; leaking balloons are heavier. Drag uses the same formula every frame rate.
             float gravity = _config.Gravity * (1f + _config.GravityPerLeakStep * (int)input.Condition);
             velocity += Vector3.down * (gravity * dt);
             velocity *= 1f / (1f + _config.Drag * dt);
 
-            if (!ApplyContacts(input, position, ref velocity, ref result))
+            if (!ApplyContacts(input, ref velocity, ref result))
             {
                 return result;
             }
 
-            if (!MoveAndBounce(ref position, ref velocity, dt, ref result))
-            {
-                return result;
-            }
-
-            result.Position = position;
             result.Velocity = Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed * _config.FreeFlightSpeedMultiplier);
             return result;
         }
 
         /// <summary>Handles everything overlapping the balloon. Returns false if it popped.</summary>
-        private bool ApplyContacts(in BalloonStepInput input, Vector3 position, ref Vector3 velocity, ref BalloonStepResult result)
+        private bool ApplyContacts(in BalloonStepInput input, ref Vector3 velocity, ref BalloonStepResult result)
         {
-            int count = Physics.OverlapSphereNonAlloc(position, _config.Radius, _overlaps, ~0, QueryTriggerInteraction.Collide);
+            Vector3 position = input.Position;
+            int count = Physics.OverlapSphereNonAlloc(position, _config.Radius * ContactSkin, _overlaps, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < count; i++)
             {
                 Collider other = _overlaps[i];
@@ -92,10 +85,10 @@ namespace GameJam.Gameplay
                     velocity.y = pad.BalloonLaunchSpeed;
                 }
 
-                var gate = other.GetComponentInParent<SectionGate>();
-                if (gate != null)
+                var hoop = other.GetComponentInParent<HoopCheckpoint>();
+                if (hoop != null)
                 {
-                    result.GateReached = Mathf.Max(result.GateReached, gate.SectionIndex);
+                    result.HoopReached = hoop.Index;
                 }
 
                 if (other.GetComponentInParent<FinishLine>() != null)
@@ -115,13 +108,17 @@ namespace GameJam.Gameplay
             return true;
         }
 
-        private bool TryGetPopReason(Collider other, out string reason)
+        private static bool TryGetPopReason(Collider other, out string reason)
         {
             reason = null;
 
             if (other.GetComponentInParent<Water>() != null)
             {
                 reason = "Splash! Into the water!";
+            }
+            else if (!other.isTrigger && other.GetComponentInParent<BalloonGround>() is { } ground)
+            {
+                reason = ground.PopLine; // the title rule: don't let the balloon drop
             }
             else if (other.GetComponentInParent<Sharp>() is { IsActive: true } sharp)
             {
@@ -161,47 +158,6 @@ namespace GameJam.Gameplay
 
             Vector3 push = position - spikes.bounds.center;
             velocity += (push.sqrMagnitude > 0.0001f ? push.normalized : Vector3.up) * _config.SpikePushSpeed;
-            return true;
-        }
-
-        /// <summary>Moves the balloon, bouncing off the solid (Default layer) world. Returns false if it popped.</summary>
-        private bool MoveAndBounce(ref Vector3 position, ref Vector3 velocity, float dt, ref BalloonStepResult result)
-        {
-            Vector3 move = velocity * dt;
-            float distance = move.magnitude;
-            if (distance < 0.00001f)
-            {
-                return true;
-            }
-
-            Vector3 direction = move / distance;
-            bool hitSomething = Physics.SphereCast(
-                position, _config.Radius * CastRadiusScale, direction, out RaycastHit hit, distance,
-                GameLayers.DefaultMask, QueryTriggerInteraction.Ignore);
-
-            if (!hitSomething)
-            {
-                position += move;
-                return true;
-            }
-
-            if (TryGetPopReason(hit.collider, out string popReason))
-            {
-                result.PopReason = popReason;
-                return false;
-            }
-
-            position += direction * Mathf.Max(0f, hit.distance - SkinWidth);
-            velocity = Vector3.Reflect(velocity, hit.normal) * _config.Bounciness;
-
-            var obstacle = hit.collider.GetComponentInParent<MovingObstacle>();
-            if (obstacle != null)
-            {
-                velocity += obstacle.PointVelocity(hit.point);
-            }
-
-            // Bounces off walls, furniture and floors never clear the last hitter, but they end the rally.
-            result.RallyBroken = true;
             return true;
         }
     }

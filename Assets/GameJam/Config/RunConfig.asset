@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.RunConfig
   RunSeconds: 180
   CountdownSeconds: 3
-  SectionCount: 3
   BasePoints: 1000
   PointsPerSecondLeft: 10
+  PointsPerHoop: 150
   PointsPerRallyPass: 50
   ConditionMultipliers:
   - 1
   - 0.75
   - 0.5
-  SilverScore: 1700
-  GoldScore: 2300
+  SilverScore: 2100
+  GoldScore: 2700

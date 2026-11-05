@@ -19,7 +19,12 @@ namespace GameJam.Net
         [SerializeField] private ItemDefinition _definition;
         [SerializeField] private KnockbackConfig _knockbackConfig;
 
+        private const int MaxSwingOverlaps = 12;
+
+        private readonly Collider[] _swingOverlaps = new Collider[MaxSwingOverlaps];
         private Rigidbody _body;
+        private NetworkTransform _networkTransform;
+        private Collider _collider;
         private Transform _hand;
         private IHandVelocity _handVelocity;
         private Vector3 _homePosition;
@@ -86,6 +91,8 @@ namespace GameJam.Net
         public override void Spawned()
         {
             _body = GetComponent<Rigidbody>();
+            _networkTransform = GetComponent<NetworkTransform>();
+            _collider = GetComponent<Collider>();
             _body.mass = _definition.Mass;
             _homePosition = transform.position;
             _homeRotation = transform.rotation;
@@ -121,17 +128,49 @@ namespace GameJam.Net
                 SetLayer(_defaultLayer);
             }
 
-            // Fell off the course: put it back on its spot so the world never runs dry.
+            // Fell off the course: put it back on its spot so the world never runs dry. Teleport, so no client lerps it
+            // across the map.
             if (HasStateAuthority && _hand == null && transform.position.y < _definition.KillHeight)
             {
                 _body.linearVelocity = Vector3.zero;
                 _body.angularVelocity = Vector3.zero;
-                transform.SetPositionAndRotation(_homePosition, _homeRotation);
+                if (_networkTransform != null)
+                {
+                    _networkTransform.Teleport(_homePosition, _homeRotation);
+                }
+                else
+                {
+                    transform.SetPositionAndRotation(_homePosition, _homeRotation);
+                }
+
                 Holder = PlayerRef.None;
                 Thrower = PlayerRef.None;
             }
 
             ApplyPhysicsMode();
+        }
+
+        /// <summary>
+        /// A held item swung into the balloon or a friend: detected by overlap, since held items sit on the Ignore Raycast
+        /// layer that the balloon doesn't collide with (GDD: hits come from velocity, not collider contact alone).
+        /// </summary>
+        private void FixedUpdate()
+        {
+            if (_hand == null || !HasStateAuthority || _collider == null || Time.time < _nextHitTime)
+            {
+                return;
+            }
+
+            Bounds bounds = _collider.bounds;
+            int count = Physics.OverlapBoxNonAlloc(bounds.center, bounds.extents, _swingOverlaps, Quaternion.identity, ~0, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < count; i++)
+            {
+                Collider other = _swingOverlaps[i];
+                if (!other.transform.IsChildOf(transform))
+                {
+                    HandleContact(other);
+                }
+            }
         }
 
         private void LateUpdate()
@@ -155,17 +194,21 @@ namespace GameJam.Net
             _body.angularVelocity = Random.insideUnitSphere * RandomSpin;
         }
 
+        /// <summary>
+        /// Fusion 2.1 Forecast Physics owns proxy rigidbodies (it extrapolates them into local time), so only the state
+        /// authority toggles isKinematic: on while held, off otherwise. Fusion syncs the flag to everyone else.
+        /// </summary>
         private void ApplyPhysicsMode()
         {
-            if (_body == null || Object == null || !Object.IsValid)
+            if (_body == null || Object == null || !Object.IsValid || !HasStateAuthority)
             {
                 return;
             }
 
-            bool shouldSimulate = HasStateAuthority && _hand == null;
-            if (_body.isKinematic == shouldSimulate)
+            bool isHeld = _hand != null;
+            if (_body.isKinematic != isHeld)
             {
-                _body.isKinematic = !shouldSimulate;
+                _body.isKinematic = isHeld;
             }
         }
 

@@ -41,26 +41,82 @@ namespace GameJam.Editor
             return asset;
         }
 
-        /// <summary>A URP Lit material in the placeholder folder, reused if it exists.</summary>
-        public static Material Material(string name, Color color)
+        /// <summary>Matte "painted toy" finish by default; glossy only where the art bible wants shine.</summary>
+        public const float MatteSmoothness = 0.18f;
+
+        private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        private static readonly int SmoothnessId = Shader.PropertyToID("_Smoothness");
+        private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+
+        /// <summary>A URP Lit material in the placeholder folder, reused if it exists. Colours come from ArtPalette.</summary>
+        public static Material Material(string name, Color color, float smoothness = MatteSmoothness, Texture2D texture = null, Vector2? tiling = null)
         {
             if (MaterialCache.TryGetValue(name, out Material cached) && cached != null)
             {
                 return cached;
             }
 
+            Material material = LoadOrCreate(name, "Universal Render Pipeline/Lit");
+            material.color = color;
+            material.SetFloat(SmoothnessId, smoothness);
+            material.SetTexture(BaseMapId, texture);
+            material.SetTextureScale(BaseMapId, tiling ?? Vector2.one);
+            material.enableInstancing = true;
+            EditorUtility.SetDirty(material);
+            MaterialCache[name] = material;
+            return material;
+        }
+
+        /// <summary>A lit material that also glows (studio lamps, LIVE light). No real light, so it costs nothing extra on Quest.</summary>
+        public static Material Emissive(string name, Color color, float intensity = 1.5f)
+        {
+            Material material = Material(name, color, 0.5f);
+            material.EnableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            material.SetColor(EmissionColorId, color * intensity);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        /// <summary>URP Unlit, alpha-blended (decal-style blob shadow). Tinted per renderer with a property block.</summary>
+        public static Material TransparentUnlit(string name, Texture2D texture)
+        {
+            if (MaterialCache.TryGetValue(name, out Material cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Material material = LoadOrCreate(name, "Universal Render Pipeline/Unlit");
+            material.SetTexture(BaseMapId, texture);
+            material.SetFloat("_Surface", 1f); // transparent
+            material.SetFloat("_Blend", 0f);   // alpha
+            material.SetFloat("_ZWrite", 0f);
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.enableInstancing = true;
+            EditorUtility.SetDirty(material);
+            MaterialCache[name] = material;
+            return material;
+        }
+
+        private static Material LoadOrCreate(string name, string shaderName)
+        {
             string path = $"{MaterialFolder}/{name}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Shader shader = Shader.Find(shaderName) ?? Shader.Find("Standard");
             if (material == null)
             {
-                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
                 material = new Material(shader);
                 AssetDatabase.CreateAsset(material, path);
             }
+            else if (material.shader != shader)
+            {
+                material.shader = shader;
+            }
 
-            material.color = color;
-            EditorUtility.SetDirty(material);
-            MaterialCache[name] = material;
             return material;
         }
 

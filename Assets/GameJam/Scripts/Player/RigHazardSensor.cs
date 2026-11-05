@@ -24,7 +24,7 @@ namespace GameJam.Player
             PlayerRigConfig config = _rig.Config;
             if (_rig.Head.position.y < config.KillHeight)
             {
-                _rig.RespawnAtCurrentSection();
+                _rig.RespawnAtCheckpoint();
                 return;
             }
 
@@ -44,7 +44,7 @@ namespace GameJam.Player
         {
             if (other.GetComponentInParent<Water>() != null)
             {
-                _rig.RespawnAtCurrentSection();
+                _rig.RespawnAtCheckpoint();
                 return false;
             }
 
@@ -72,7 +72,8 @@ namespace GameJam.Player
             }
 
             KnockbackConfig knockback = _rig.KnockbackConfig;
-            var obstacle = other.GetComponentInParent<MovingObstacle>();
+            // Moving obstacles, passing objects and the roaming character all bowl players over the same way.
+            var obstacle = other.GetComponentInParent<IKnockbackSource>();
             if (obstacle != null && obstacle.KnocksPlayers)
             {
                 Vector3 surfaceVelocity = obstacle.PointVelocity(center);

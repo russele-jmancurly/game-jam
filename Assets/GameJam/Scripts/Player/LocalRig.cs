@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GameJam.Core;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 
 namespace GameJam.Player
@@ -131,8 +132,8 @@ namespace GameJam.Player
             XRHaptics.Send(XRNode.RightHand, pulse);
         }
 
-        public void RespawnAtCurrentSection() =>
-            RespawnAt(CourseLayout.PlayerSpawn(GameServices.CurrentSection, GameServices.LocalPlayerId));
+        public void RespawnAtCheckpoint() =>
+            RespawnAt(CourseLayout.PlayerSpawn(GameServices.CurrentCheckpoint, GameServices.LocalPlayerId));
 
         /// <summary>Moves the player so their feet (under their real head position) land on this point.</summary>
         public void RespawnAt(Vector3 feetPosition)
@@ -177,10 +178,18 @@ namespace GameJam.Player
                 subsystem.TrySetTrackingOriginMode(TrackingOriginModeFlags.Floor);
             }
 
-            // PC test mode with a headset plugged in: render to the Game view, not the headset.
-            if (_config.ForceDesktopMode && _head.TryGetComponent(out Camera view))
+            if (_head.TryGetComponent(out Camera view))
             {
-                view.stereoTargetEye = StereoTargetEyeMask.None;
+                // PC test mode with a headset plugged in: render to the Game view, not the headset.
+                if (_config.ForceDesktopMode)
+                {
+                    view.stereoTargetEye = StereoTargetEyeMask.None;
+                }
+
+                if (view.TryGetComponent(out UniversalAdditionalCameraData cameraData))
+                {
+                    cameraData.renderPostProcessing = !UsesHeadset || _config.PostProcessingInHeadset;
+                }
             }
         }
 

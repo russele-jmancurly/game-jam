@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace GameJam.Core
 {
-    /// <summary>Looks up per-section spawn positions for the crew and the balloon.</summary>
+    /// <summary>Looks up per-checkpoint spawn positions for the crew and the balloon.</summary>
     public static class CourseLayout
     {
         private const float PlayerSpacing = 1.2f;
@@ -10,23 +10,23 @@ namespace GameJam.Core
 
         private static SpawnPoint[] _points;
 
-        /// <summary>Where a player's feet go at the start of a section, spread out by player slot.</summary>
-        public static Vector3 PlayerSpawn(int section, int playerSlot)
+        /// <summary>Where a player's feet go at a checkpoint, spread out by player slot.</summary>
+        public static Vector3 PlayerSpawn(int checkpoint, int playerSlot)
         {
             int slot = Mathf.Abs(playerSlot) % 4;
             var offset = new Vector3((slot % 2) * PlayerSpacing - PlayerSpacing * 0.5f, 0f, (slot / 2) * -PlayerSpacing);
 
-            SpawnPoint point = Find(section);
+            SpawnPoint point = Find(checkpoint);
             return point == null ? Vector3.up + offset : point.transform.position + point.transform.rotation * offset;
         }
 
-        public static Vector3 BalloonSpawn(int section)
+        public static Vector3 BalloonSpawn(int checkpoint)
         {
-            SpawnPoint point = Find(section);
+            SpawnPoint point = Find(checkpoint);
             return point == null ? FallbackBalloonSpawn : point.BalloonPosition;
         }
 
-        private static SpawnPoint Find(int section)
+        private static SpawnPoint Find(int checkpoint)
         {
             if (_points == null || _points.Length == 0 || _points[0] == null)
             {
@@ -41,12 +41,12 @@ namespace GameJam.Core
                     continue;
                 }
 
-                if (point.Section == section)
+                if (point.Checkpoint == checkpoint)
                 {
                     return point;
                 }
 
-                if (point.Section == 0)
+                if (point.Checkpoint == 0)
                 {
                     fallback = point;
                 }

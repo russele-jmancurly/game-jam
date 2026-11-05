@@ -6,7 +6,10 @@
         "GameJam.Gameplay",
         "GameJam.Player",
         "Fusion.Unity",
-        "Photon.Realtime"
+        "Photon.Realtime",
+        "PhotonVoice",
+        "PhotonVoice.API",
+        "PhotonVoice.Fusion"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

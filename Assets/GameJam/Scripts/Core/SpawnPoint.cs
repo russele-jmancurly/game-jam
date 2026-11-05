@@ -2,19 +2,22 @@ using UnityEngine;
 
 namespace GameJam.Core
 {
-    /// <summary>Where the crew and the balloon start a section. Section 0 is the start line.</summary>
+    /// <summary>
+    /// Where the crew and the balloon come back for a checkpoint: 0 is the start line, k sits beside hoop k-1 so a popped
+    /// balloon returns next to the last hoop the crew cleared.
+    /// </summary>
     public sealed class SpawnPoint : MonoBehaviour
     {
-        [SerializeField, Min(0)] private int _section;
+        [SerializeField, Min(0)] private int _checkpoint;
         [SerializeField] private Vector3 _balloonOffset = new Vector3(0f, 1.6f, 1.2f);
 
-        public int Section => _section;
+        public int Checkpoint => _checkpoint;
 
         public Vector3 BalloonPosition => transform.position + transform.rotation * _balloonOffset;
 
-        public void Configure(int section, Vector3 balloonOffset)
+        public void Configure(int checkpoint, Vector3 balloonOffset)
         {
-            _section = section;
+            _checkpoint = checkpoint;
             _balloonOffset = balloonOffset;
         }
 

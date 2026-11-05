@@ -8,7 +8,7 @@ namespace GameJam.Gameplay
     /// in the same place without network traffic. Knocks players over and swats (or pops) the balloon.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
-    public sealed class MovingObstacle : MonoBehaviour
+    public sealed class MovingObstacle : MonoBehaviour, IKnockbackSource
     {
         [SerializeField] private MoveMode _mode = MoveMode.Spin;
         [Tooltip("Local axis to spin or swing around.")]
@@ -24,6 +24,16 @@ namespace GameJam.Gameplay
         [Tooltip("PingPong: share of the cycle spent waiting at each end.")]
         [SerializeField, Range(0f, 0.9f)] private float _holdFraction = 0.4f;
         [SerializeField] private float _phase;
+
+        [Header("Path (passing objects: lawnmower, toy train, RC car, paper plane)")]
+        [Tooltip("Path: world-space waypoints, travelled in order.")]
+        [SerializeField] private Vector3[] _pathPoints = System.Array.Empty<Vector3>();
+        [Tooltip("Path: metres per second along the route.")]
+        [SerializeField, Min(0.1f)] private float _pathSpeed = 3f;
+        [Tooltip("Path: loop back to the first point, or travel back and forth.")]
+        [SerializeField] private bool _pathLoops = true;
+        [Tooltip("Path: extra rotation on top of facing the direction of travel (model alignment, tilt).")]
+        [SerializeField] private Vector3 _pathRotationOffset;
 
         [SerializeField] private bool _knocksPlayers = true;
         [SerializeField] private bool _popsBalloon;
@@ -58,6 +68,23 @@ namespace GameJam.Gameplay
             _swingAngle = angle;
             _period = period;
             _knocksPlayers = knocksPlayers;
+        }
+
+        /// <summary>
+        /// Something that travels through the yard along a route (a passing object), on the shared clock so every player
+        /// sees it in the same spot without network traffic.
+        /// </summary>
+        public void ConfigurePath(Vector3[] worldPoints, float speed, bool loops, float phaseSeconds, bool knocksPlayers, bool popsBalloon,
+            Vector3 rotationOffset = default)
+        {
+            _mode = MoveMode.Path;
+            _pathPoints = worldPoints;
+            _pathSpeed = speed;
+            _pathLoops = loops;
+            _phase = phaseSeconds;
+            _knocksPlayers = knocksPlayers;
+            _popsBalloon = popsBalloon;
+            _pathRotationOffset = rotationOffset;
         }
 
         /// <summary>How fast the obstacle's surface moves at a point, for knockbacks and swats.</summary>
@@ -97,6 +124,9 @@ namespace GameJam.Gameplay
                 case MoveMode.PingPong:
                     position = _startPosition + _travel * PingPong01(t);
                     break;
+                case MoveMode.Path:
+                    SamplePath(t, out position, out rotation);
+                    break;
             }
 
             TrackVelocity(position, rotation, Time.fixedDeltaTime);
@@ -124,6 +154,67 @@ namespace GameJam.Gameplay
 
             _lastPosition = position;
             _lastRotation = rotation;
+        }
+
+        /// <summary>Position along the route at time t, facing the direction of travel (yaw only, plus the offset).</summary>
+        private void SamplePath(float t, out Vector3 position, out Quaternion rotation)
+        {
+            position = _startPosition;
+            rotation = _startRotation;
+            int count = _pathPoints?.Length ?? 0;
+            if (count < 2)
+            {
+                return;
+            }
+
+            int segments = _pathLoops ? count : count - 1;
+            float length = 0f;
+            for (int i = 0; i < segments; i++)
+            {
+                length += Vector3.Distance(_pathPoints[i], _pathPoints[(i + 1) % count]);
+            }
+
+            if (length < 0.001f)
+            {
+                return;
+            }
+
+            float distance = t * _pathSpeed;
+            bool isReturning = false;
+            if (_pathLoops)
+            {
+                distance = Mathf.Repeat(distance, length);
+            }
+            else
+            {
+                distance = Mathf.Repeat(distance, length * 2f);
+                if (distance > length)
+                {
+                    distance = length * 2f - distance;
+                    isReturning = true;
+                }
+            }
+
+            for (int i = 0; i < segments; i++)
+            {
+                Vector3 from = _pathPoints[i];
+                Vector3 to = _pathPoints[(i + 1) % count];
+                float segment = Vector3.Distance(from, to);
+                if (distance <= segment || i == segments - 1)
+                {
+                    position = Vector3.Lerp(from, to, segment > 0f ? Mathf.Clamp01(distance / segment) : 0f);
+                    Vector3 heading = isReturning ? from - to : to - from;
+                    heading.y = 0f;
+                    if (heading.sqrMagnitude > 0.0001f)
+                    {
+                        rotation = Quaternion.LookRotation(heading.normalized, Vector3.up) * Quaternion.Euler(_pathRotationOffset);
+                    }
+
+                    return;
+                }
+
+                distance -= segment;
+            }
         }
 
         private float PingPong01(float t)

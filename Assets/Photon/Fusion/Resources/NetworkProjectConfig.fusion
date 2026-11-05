@@ -9,13 +9,13 @@
         "HitboxDefaultCapacity": 512,
         "CachedStaticCollidersSize": 64
     },
-    "PhysicsForecast": false,
+    "PhysicsForecast": true,
     "EnqueueIncompleteSynchronousSpawns": false,
     "InvokeRenderMode": 1,
     "NetworkIdIsObjectName": false,
     "HideNetworkObjectInactivityGuard": false,
     "AllowClientServerModesInWebGL": false,
-    "AllowMasterClientReassignRequest": false,
+    "AllowMasterClientReassignRequest": true,
     "MasterClientRequestReassignThreshold": 2.0,
     "ClientsRecordFrameAndPacketTimingTraces": false,
     "Simulation": {
@@ -98,7 +98,8 @@
     "AssembliesToWeave": [
         "Assembly-CSharp",
         "Assembly-CSharp-firstpass",
-        "GameJam.Net"
+        "GameJam.Net",
+        "PhotonVoice.Fusion"
     ],
     "UseSerializableDictionary": true,
     "NullChecksForNetworkedProperties": true,

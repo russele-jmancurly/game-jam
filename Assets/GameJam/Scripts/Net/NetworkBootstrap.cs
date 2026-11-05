@@ -27,9 +27,15 @@ namespace GameJam.Net
         [SerializeField] private NetworkObject _balloonPrefab;
         [SerializeField] private NetworkObject _gameStatePrefab;
         [SerializeField] private NetworkObject[] _itemPrefabs = Array.Empty<NetworkObject>();
+        [Tooltip("The giant roaming mischief maker (optional).")]
+        [SerializeField] private NetworkObject _roamerPrefab;
+        [SerializeField] private Vector3 _roamerSpawn = new Vector3(0f, 0f, 60f);
 
-        public void Configure(NetworkObject avatarPrefab, NetworkObject balloonPrefab, NetworkObject gameStatePrefab, NetworkObject[] itemPrefabs)
+        public void Configure(NetworkObject avatarPrefab, NetworkObject balloonPrefab, NetworkObject gameStatePrefab, NetworkObject[] itemPrefabs,
+            NetworkObject roamerPrefab = null, Vector3? roamerSpawn = null)
         {
+            _roamerPrefab = roamerPrefab;
+            _roamerSpawn = roamerSpawn ?? _roamerSpawn;
             _avatarPrefab = avatarPrefab;
             _balloonPrefab = balloonPrefab;
             _gameStatePrefab = gameStatePrefab;
@@ -48,7 +54,7 @@ namespace GameJam.Net
 
             if (LocalRig.Instance != null)
             {
-                LocalRig.Instance.RespawnAt(CourseLayout.PlayerSpawn(GameServices.CurrentSection, player.PlayerId));
+                LocalRig.Instance.RespawnAt(CourseLayout.PlayerSpawn(GameServices.CurrentCheckpoint, player.PlayerId));
             }
 
             if (OwnsSharedObjects() && GameState.Instance == null)
@@ -100,6 +106,11 @@ namespace GameJam.Net
                                  "Set the App ID in Tools > Fusion > Realtime Settings to play online.");
             }
 
+            if (mode == GameMode.Shared && !HasVoiceAppId())
+            {
+                Debug.LogWarning("[Voice] No Voice App ID set: voice chat stays off. Set it in Tools > Fusion > Realtime Settings.");
+            }
+
             Debug.Log($"[Net] Starting {mode} session '{_sessionName}'...");
             try
             {
@@ -145,10 +156,20 @@ namespace GameJam.Net
                    && !string.IsNullOrWhiteSpace(settings.AppSettings.AppIdFusion);
         }
 
+        private static bool HasVoiceAppId()
+        {
+            return Fusion.Photon.Realtime.PhotonAppSettings.TryGetGlobal(out var settings)
+                   && !string.IsNullOrWhiteSpace(settings.AppSettings.AppIdVoice);
+        }
+
         private void SpawnSharedObjects()
         {
             Runner.Spawn(_gameStatePrefab, Vector3.zero, Quaternion.identity);
             Runner.Spawn(_balloonPrefab, CourseLayout.BalloonSpawn(0), Quaternion.identity);
+            if (_roamerPrefab != null)
+            {
+                Runner.Spawn(_roamerPrefab, _roamerSpawn, Quaternion.identity);
+            }
 
             if (_itemPrefabs == null || _itemPrefabs.Length == 0)
             {

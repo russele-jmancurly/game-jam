@@ -83,7 +83,24 @@ namespace GameJam.Player
                 return;
             }
 
-            _helpStyle ??= new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, fontSize = 14, padding = new RectOffset(10, 10, 8, 8) };
+            if (_helpStyle == null)
+            {
+                // Palette-styled panel instead of the default IMGUI skin.
+                var background = new Texture2D(1, 1);
+                Color panel = ArtPalette.TextDark;
+                panel.a = 0.85f;
+                background.SetPixel(0, 0, panel);
+                background.Apply();
+                _helpStyle = new GUIStyle(GUI.skin.box)
+                {
+                    alignment = TextAnchor.UpperLeft,
+                    fontSize = 14,
+                    fontStyle = FontStyle.Bold,
+                    padding = new RectOffset(12, 12, 10, 10),
+                };
+                _helpStyle.normal.background = background;
+                _helpStyle.normal.textColor = ArtPalette.Accent;
+            }
             string status = GameServices.Run != null ? $"\nRun: {GameServices.Run.State}  {GameServices.Run.WristText}" : "\nConnecting...";
             GUI.Box(new Rect(10f, 10f, 330f, 170f), ControlsHelp + status, _helpStyle);
         }
