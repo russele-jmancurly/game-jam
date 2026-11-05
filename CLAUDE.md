@@ -18,11 +18,21 @@ Read only the section you need (grep its `##` headings); never paste the whole G
 - Never hand-edit `.unity`, `.prefab` or `.asset` YAML while an Editor is reachable.
 - Once per machine, mirror the Pipeline package's own skill: `unity skill install claude-code --local`.
 
+## 1b. Drive Blender with the Blender CLI, never the Blender MCP server
+
+- All Blender work goes through `tools/blender/blender.sh <script.py> [args]` (headless Blender 5.2 LTS).
+  Do not call Blender MCP tools (`mcp__blender__*`); `.claude/settings.json` denies them in this project.
+- Load the `blender-cli` skill first. Use its scripts: `inspect.py` (what's in a model), `render_preview.py`
+  (see it), `export_unity_fbx.py` (Unity-ready FBX into `Assets/GameJam/Art/`); write new bpy scripts in
+  `tools/blender/scripts/` on top of `blender_common.py`.
+- Headless Blender never touches a file the user has open in Blender; ask them to save and close it first.
+
 ## 2. Which skill to load
 
 | Task | Skill |
 |---|---|
 | Any Editor operation (scene, prefab, component, play mode, console) | `unity-cli` + `unity-cli-loop` |
+| Any Blender / 3D-model work (inspect, preview, fix, export FBX) | `blender-cli` |
 | Building a GDD feature end to end (balloon, slap, item, hazard, timer...) | `jam-feature` |
 | Anything networked (NetworkObject, authority, RPC, voice) | `fusion-networked` |
 | Collisions/triggers not firing, slap passing through balloon | `unity:physics-3d-collision` |
@@ -50,7 +60,8 @@ Assets/GameJam/
                                                 input, Locomotion/ (third-party GorillaLocomotion, MIT)
   Scripts/Net/         GameJam.Net.asmdef       every NetworkBehaviour: GameState, NetworkBalloon,
                                                 NetworkItem, NetworkAvatar, NetworkBootstrap (Fusion-woven)
-  Scripts/Editor/      GameJam.Editor.asmdef    PrototypeSceneBuilder + placeholder prefab/course builders
+  Scripts/Editor/      GameJam.Editor.asmdef    PrototypeSceneBuilder + BackyardCourseBuilder (open yard)
+                                                + placeholder prefab, lighting and dressing builders
   Config/              tuning assets: Balloon/Slap/Run/PlayerRig/KnockbackConfig, Items/Item_*.asset
   Prefabs/Net/         generated network prefabs (do not hand-edit; change the builder)
   Scenes/Prototype.unity  generated placeholder prototype (Scene/Game.unity is the untouched original)
@@ -69,6 +80,23 @@ Assets/GameJam/
 - Photon: Fusion 2.1.4 only. Never import PUN 2 or the Asset Store Photon Voice 2 package: it breaks
   Fusion's Photon Realtime (see the `fusion-networked` skill). Without a Fusion App ID the game runs
   offline in Fusion's Single mode.
+- Look: the art bible is `Scripts/Core/ArtPalette.cs` (style, palette, mood in its summary); every environment
+  colour comes from it. `EnvironmentLightingBuilder` (sun, trilight ambient, procedural sky, fog, global Volume
+  without bloom since the Quest URP asset has HDR off; post-processing renders in PC mode only unless
+  `PlayerRigConfig.PostProcessingInHeadset`) and `EnvironmentDressingBuilder` (collider-free, static-batched set
+  dressing, including the Drive food props in `Art/Props/Food` with `T_ColorAtlas_v1`) run inside the prototype
+  builder. Dressing never gets colliders, so it can't change gameplay.
+- Map: an open backyard (GDD: Levels), not a linear course. `BackyardCourseBuilder` holds the zone layout constants
+  (pool, washing line, tree, playground, BBQ, porch), the six `HoopCheckpoint`s (any order; checkpoint k = beside hoop
+  k-1), `BalloonGround` surfaces (balloon pops on touch, players walk freely) and every mover. Passing objects are
+  `MovingObstacle` in `Path` mode on the shared `CourseClock` (no network cost); check new routes don't clip set pieces.
+- Characters: `Config/CharacterRoster.asset` lists Jmancurly, Squoof, Protobro, Elliot (`Config/Characters/`). Game models
+  live at `Assets/GameJam/Characters/<Name>/<Name>_Game.fbx`, made from source files with
+  `tools/blender/scripts/prepare_character.py` (static mesh, upright, <= 6000 tris); the prototype builder links them
+  automatically and shows a coloured placeholder while one is missing. Large .blend sources go in `ArtSource/` (gitignored).
+  The Drive connector can't download files over 10 MB: ask the user to fetch those by hand.
+- `MischiefMaker` is the roaming giant (random roster character per run, master-client owned, telegraphed bonks).
+- Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with
   `PlayerRigConfig.ForceDesktopMode`. Solo, the pass rule is suspended (`BalloonConfig.AllowSoloDoubleHits`).
   Two players in the Editor: Multiplayer Play Mode (Window > Multiplayer > Multiplayer Play Mode), which

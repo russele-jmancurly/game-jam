@@ -41,6 +41,10 @@ The players are contestants on **Pop or Glory: The Porcupine Relay**, a cheap bu
 
 **The crew (players):** Existing Jman characters in the show's official porcupine suits. The suit is a spiky vest, back spikes and a hood, built from simple shapes or existing props so no new character art is needed. Every part of the suit pops balloons; only the gloves are safe. Each player can pick a different Jman for identity.
 
+**Playable roster:** Jmancurly, Squoof, Protobro and Elliot. Each player starts as a different one (by player slot), and anyone can switch by slapping one of the four character statues at the back of the start stage. Everyone sees the others' characters with a name tag in their player colour.
+
+**The roaming mischief maker:** One random character from the roster, giant-sized, is loose in the yard every run (a new one each run). It wanders between open spots, and when the balloon drifts close and low it waddles over, winds up (it crouches and a "!" appears, so the crew can react) and bonks the balloon away. That bonk counts as nobody's hit. It bowls over players it walks into, the balloon bounces off it, and a brave player can climb it. The commentator calls out every bonk.
+
 **The commentator:** A Jman sports commentator in a booth above the course who narrates everything over loudspeakers: great saves, near misses, ragdolls and especially pops ("He's slapped it straight into his crewmate's spikes!"). They are the main voice of the game's humour.
 
 **The host:** The show's over-the-top Jman host greets the crew at the start line, then at the finish awards their medal in front of the audience, or eliminates them if the clock runs out.
@@ -54,18 +58,18 @@ The game is one short course, played as a single timed run. A clean crew can fin
 **One run:**
 
 1. The host introduces the crew at the start line, with the balloon floating in front of them.
-2. The timer starts. The crew slaps, throws and bonks the balloon through the three sections of the course.
-3. If the balloon pops, the whole crew and a fresh balloon go back to the start of the current section, and the timer keeps running.
-4. The run succeeds when the balloon crosses the finish line, and fails only when the timer hits zero.
+2. The timer starts. The crew roams the open backyard, slapping, throwing and bonking the balloon through six hoops in any order.
+3. If the balloon touches the ground or pops, a fresh balloon appears beside the last hoop cleared, and the timer keeps running. The crew stays where it is and runs over.
+4. Once every hoop is cleared, the finish pad on the porch unlocks. The run succeeds when the balloon reaches it, and fails only when the timer hits zero.
 5. The host awards a medal, and the crew is back at the start line for another go.
 
-A pop sends the crew back to the start of the current section with the clock still running; only running out of time ends a run without a medal.
+A pop sends the balloon back to the last hoop cleared with the clock still running; only running out of time ends a run without a medal.
 
 **Time limit:** 3:00 for the whole course (starting value, tune in playtest). A clean crew finishes in about 2:15, leaving slack for a pop or two and plenty of chaos.
 
-**Score and medals:** Base points for finishing, plus a bonus for time left, a multiplier for balloon condition (full, leaking, nearly flat) and a rally bonus for long chains of passes between players. The score earns bronze, silver or gold. A timeout scores nothing. Every pop costs the time it takes to redo that section, which shrinks the time-left bonus.
+**Score and medals:** Base points for finishing, plus points per hoop, a bonus for time left, a multiplier for balloon condition (full, leaking, nearly flat) and a rally bonus for long chains of passes between players. The score earns bronze, silver or gold. A timeout scores nothing. Every pop costs the time it takes to get the balloon going again from the last hoop, which shrinks the time-left bonus.
 
-**Why play again:** Gold needs a clean run with few pops, and each section has an optional hero leap that saves time but risks the balloon. The crew's best score and medal stay on the scoreboard at the start line.
+**Why play again:** Gold needs a clean run with few pops and a smart hoop order, and some hoops (the treetop, the fence top) reward a risky hero climb. The crew's best score and medal stay on the scoreboard at the start line.
 
 ## Movement and controls
 
@@ -247,38 +251,42 @@ Soft items and light slaps cause a mini-stun instead: a wobble, a noise and a ti
 
 ## Levels
 
-The game has one long course: **The Giant Backyard**, a studio set built at toy scale, where everyday garden things are blown up so the Jmans are tiny. Fences become cliffs, flower pots become stepping stones and the gaps between objects become leaps. The set is built by scaling up existing props and environment art, so no new art is needed. Studio lights, camera rigs, the commentator's booth and the audience stands surround it.
+The game has one big play space: **The Giant Backyard**, a studio set built at toy scale, where everyday garden things are blown up so the Jmans are tiny. It is an **open yard you can roam anywhere**, not a linear course: walkable lawn ringed by a giant picket fence (climbable) and the house, with zones full of things that move. Studio lights, the commentator's board and audience stands look in over the fence.
 
-**The floor is out.** The lawn is flooded, so the course is a chain of platforms to climb onto and leap between. The balloon has to cross every gap too: slap it across first, then leap after it before it sinks.
+**The ground is the enemy, not the floor.** Players run, climb and leap anywhere on the lawn. Only the balloon must never touch the ground (the title rule): lawn, flower beds and the sandbox pop it, and the paddling pool pops it and sends players who fall in back to their checkpoint.
 
-**Three sections, rising difficulty.** The course crosses the garden and climbs to the roof of the house. Each section introduces new traps, then combines them with the ones before, and ends at a section gate: a rest platform and checkpoint.
+**Six hoops, any order.** Glowing hoops are spread across the zones. The crew picks its own route; clearing every hoop unlocks the finish pad on the porch. A cleared hoop turns mint green and becomes the checkpoint where a fresh balloon appears after a pop.
 
-| Section | Goal | Traps and obstacles | Item stash | Signature moment |
-| --- | --- | --- | --- | --- |
-| 1. The Flooded Lawn (about 40 s) | Learn to slap, pass and hop | Stepping stones and flower pots over water, sinking lily pads, a rotating sprinkler arm, cactus pots, a mousetrap or two | Pillows, beach balls, rubber ducks, darts (trap) | Slapping the balloon across the first big gap, then leaping after it |
-| 2. The Fence and Washing Line (about 45 s) | Climb and swing while passing | Fence slats to climb, the spinning clothesline, a washing-line swing over the pond, flapping laundry, collapsing cardboard boxes | Leaf blower, umbrella, frying pans, a rake (trap) | Swinging from the washing line while a crewmate keeps the balloon up through the laundry |
-| 3. The Patio to the Roof (about 50 s) | Everything at once | Barbecue flames on a rhythm, a bug zapper, a trampoline up to the gutter, slippery roof tiles, a wind fan, a wrecking-ball piñata, the final leap to the finish | Watermelons, fish, tennis racket, forks (trap) | Passing the balloon over the grill between flame bursts, then leaping the last gap between piñata swings |
+| Zone | What's there | What moves | Hoop |
+| --- | --- | --- | --- |
+| Start stage (south) | Stage, START arch, item pile, scoreboard, the red start button | (the passing objects cross nearby) | none |
+| Paddling pool (east) | Giant inflatable pool, diving board that bounces players up | A rubber-duck float circling the pool | Over the water, reached from the diving board |
+| Washing line (west) | Two lines of laundry, flower beds with cactus pots, hose jets that blow the balloon | Spinning rotary clothesline at head height, flapping sheets | Between the laundry |
+| The big tree (centre) | Climbable trunk with holds and branch platforms | A toy train circling the tree | At the top of the tree |
+| Playground (north-west) | Swing set, slide tower, trampoline, sandbox | Swinging seats, a merry-go-round you can ride, a seesaw | Above the merry-go-round |
+| BBQ picnic (north-east) | Giant picnic table with giant food, bug zapper, box fan | Grill flames on a rhythm, the fan's gust | Right over the grill |
+| Fence top (north-west corner) | The fence itself | | On top of the fence: a hero climb |
+| Porch (north) | Finish pad, locked until all hoops are cleared | A pinata swinging across the steps | |
 
-**What makes it challenging:**
+**Passing objects** cross the whole yard on fixed routes and rhythms, so the crew has to watch for them wherever it is:
 
-- **Traps stack.** Section 1 has one hazard at a time. By section 3, every stretch combines two or three, such as wind pushing the balloon toward the piñata while roof tiles slide away underfoot.
-- **New traps in every section.** No section repeats the last one's trick, so the crew keeps reading new rhythms all the way to the finish.
-- **Trap items in the stashes.** Darts, rakes and forks look helpful but hurt the balloon, so grabbing blindly gets punished.
-- **Hero leaps.** Each section has one optional shortcut that saves several seconds but is easy to miss. Gold usually needs at least one.
-- **The pass rule never lets up.** Narrow spots force players to bunch together, where spikes and double hits cause most pops.
+- **Robot lawnmower:** laps the yard inside the fence. Its blades pop the balloon and it bowls players over.
+- **RC car:** zig-zags between the zones. Swats the balloon, knocks players.
+- **Paper plane:** glides a loop overhead and swats the balloon off course.
+- **Bowling ball:** rolls up and down a lane from the porch to the start stage.
+- **Toy train:** circles the big tree.
+
+Everything that moves runs on the shared clock, so every headset sees it in the same place without extra network traffic.
 
 **Set design rules:**
 
-- **Three gap sizes:** easy hops, full-effort leaps, and the optional hero leaps.
-- **Rest platforms** at every section gate, where the crew can catch their breath, regroup and line up the balloon.
-- **Big checkpoint platforms**, so a missed jump costs a short climb, not the whole section.
-- **Readable climbing:** Climbable surfaces share one look (bright grip tape or a ribbed texture), so players always know where they can go next.
-- **Climb up, jump across:** Alternate vertical climbing sections with horizontal leaping sections to keep the rhythm varied.
-- **Build traps as prefabs:** Every trap is one reusable prefab with its own rhythm settings, so section 3 is mostly a combination of traps that already work.
+- **Readable climbing:** climbable surfaces share one look (orange holds, the picket fence, ladders), so players always know where they can go.
+- **Every zone has a stash** of items within reach, and traps (darts) are mixed in.
+- **Every mover has a readable rhythm** (see Threats): learnable patterns, combined for difficulty, never surprises.
+- **Hoops at different heights:** low hoops anyone can make, high ones (tree, fence top) reward climbing and teamwork.
+- **Build traps as prefabs:** every trap is one reusable piece with its own rhythm settings.
 
-**Route structure:** The three section gates are the checkpoints. A player who falls off the map respawns at the last gate after 3 seconds. If the balloon pops, the whole crew resets to the start of the current section with a fresh balloon, and the timer keeps running.
-
-**Start line:** A big starting platform with the host's stage, the scoreboard, a cheering Jman audience and a pile of items to mess around with while the crew gets ready. It doubles as a safe place to learn slapping and throwing before the timer starts.
+**Start line:** the stage with the host's scoreboard, a cheering Jman audience and a pile of items to mess around with while the crew gets ready. It doubles as a safe place to learn slapping and throwing before the timer starts.
 
 ## UI, audio and feedback
 

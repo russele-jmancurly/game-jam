@@ -66,8 +66,8 @@ unity status --until-ready $P --format json
 unity command editor set_auto_tick $P                  # again: a domain reload on entering Play resets it
 unity command job wait $P -- --condition '{"member":"UnityEngine.Time.frameCount","op":"greaterThan","value":200}' --timeout 30
 unity command console get $P -- --level error --tail 50
-# only if the visual result is the question:
-unity command capture game_view $P -- --source camera --save_path Screenshots/check.png
+# only if the visual result is the question (the option is --output-path; --camera needs an enabled camera):
+unity command capture game_view $P -- --source camera --output-path Screenshots/check.png
 unity command editor.playmode stop $P
 unity command editor.playmode set_run_in_background $P -- --enable false
 unity command editor set_auto_tick $P -- --enable false
@@ -88,7 +88,11 @@ To slap with the real glove from a script (exercises the hand sweep, not just th
 balloon in front of the right hand, about `head + yaw * (0.2, -0.2, 0.55)`, then set `DesktopRigInput._slapTimer`
 to 0.2 by reflection. Wait ~0.6 s between slaps (the cooldown is 0.2 s) and read `NetworkBalloon.Instance.LastHitter`.
 A slapped balloon often ends up in the water, which pops it and resets `LastHitter`, so re-place it before every slap.
-`capture game_view` returned nothing in Play mode on 2026-11-05; OnGUI panels never show in camera captures anyway.
+Edit-mode look checks: `script eval --file .claude/unity-snippets/review_cameras.cs` places DontSave review cameras
+(start line, overview, roof) on display 8, then `capture game_view -- --source camera --camera ReviewCam_<Name>
+--output-path Screenshots/<name>.png`. Capture once to warm up (the first render after a rebuild can be blank). Delete
+the review cameras before `editor save_all`. `Screenshots/` is gitignored. `script eval_file` is deprecated: use
+`script eval --file <path>`. OnGUI panels never show in camera captures.
 
 VR note: there is no headset in this loop. Test gameplay logic with the XR Device Simulator or a
 debug script, and tell the user what still needs a real headset test.

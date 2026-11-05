@@ -21,8 +21,19 @@ this skill if it has drifted.
   happened on 2026-11-05; the PUN/Voice 2.64 files are quarantined in `_pending/_quarantine_photon_voice_r4/`.
   Fix if it recurs: move PUN, PhotonChat, PhotonVoice, PhotonRealtime and PhotonLibs out of `Assets/Photon`, then
   restore `PhotonRealtime` and `PhotonLibs` from the Fusion unitypackage.
-- **Voice is not installed yet.** Get the Fusion 2.1 Voice add-on from Tools > Fusion > Fusion Hub > Addons
-  (the Realtime 5 build), not the Asset Store package.
+- **Voice: Photon "Voice for Fusion" 2.63.0** as a UPM git package (`Packages/manifest.json`:
+  `com.photonengine.voice-fusion` → `https://github.com/Photon-Server/Photon-UPM.git#fusion/v2/voice-for-fusion`,
+  the same source the Fusion Hub's Voice add-on uses). It is the Realtime 5 build, ships no PUN and no
+  Realtime copy, and lives in `Library/PackageCache` (not committed). It added `PhotonVoice.Fusion` to
+  `AssembliesToWeave` on install, but the assembly was compiled before that, so `VoiceNetworkObject` threw
+  "has not been weaved" until a clean recompile
+  (`CompilationPipeline.RequestScriptCompilation(RequestScriptCompilationOptions.CleanBuildCache)`). Check weaving by
+  looking for `NetworkBehaviourWeavedAttribute` by name, not just "has attributes".
+- **Voice wiring**: `FusionVoiceClient` on the Network object (follows the Fusion session; offline mode in Single).
+  Avatar prefab root: `VoiceNetworkObject`, `Recorder` (48 kHz, `RecordWhenJoined` off, recording off) and
+  `AvatarVoice`, which starts recording for the local player only after `MicrophoneAccess` grants the mic
+  (Android runtime permission on Quest). Head child `VoiceSpeaker`: 3D `AudioSource` (linear 1.5–25 m) + `Speaker`
+  for proximity voice. A Voice App ID (`AppIdVoice`) is needed online; the bootstrap warns when it is missing.
 - **App ID**: `Assets/Photon/Fusion/Resources/PhotonAppSettings.asset` > `AppIdFusion` (Tools > Fusion >
   Realtime Settings). The user creates it in the Photon dashboard; never invent one. While it is empty,
   `NetworkBootstrap` starts Fusion in `GameMode.Single` (offline, solo) so the loop is still testable.
@@ -50,6 +61,21 @@ this skill if it has drifted.
 - Only the state-authority client writes `[Networked]` properties; check `HasStateAuthority`.
 - Simulation in `FixedUpdateNetwork`; visuals in `Render`. Initialise in `Spawned`, clean up in `Despawned`.
 
+## Fusion 2.1 features in use
+
+- **Forecast Physics** (`NetworkProjectConfig.PhysicsForecast = true`; per object
+  `NetworkTransform.PhysicsSettings.ForecastEnabled`, default true). Networked rigidbodies are extrapolated into each
+  client's local time. Rules: physics code in `FixedUpdate` (not `FixedUpdateNetwork`), Rigidbody interpolation
+  `Interpolate`, Unity physics simulation mode FixedUpdate, only the state authority toggles `isKinematic` (Fusion syncs
+  it; proxies are Fusion's), move objects with `NetworkTransform.Teleport(pos, rot)` (no lerp across the map).
+- **Send priority**: each client calls `Object.SetPriority(Runner.LocalPlayer, 1)` on the balloon (every send tick).
+  Shared Mode only accepts the local player; skip it in Single mode.
+- **Master client reassign**: `AllowMasterClientReassignRequest = true` (threshold 2 s). `GameState` bumps a networked
+  `Heartbeat` every tick; other clients call `Runner.RequestMasterClientReassign()` after 2.5 s without change.
+- **RPC `TickAligned = false`** for one-off reactions (knockback) so they play on arrival.
+- Not used: Input Delay and breakpoints (Host/Server only), large-data RPCs, AOI config, shared tick-rate overrides
+  (dashboard/webhook). Release notes: https://doc.photonengine.com/fusion/v2/getting-started/release-notes/whats-new-2-1
+
 ## Gotchas found in this project
 
 - `Runner.IsSharedModeMasterClient` **throws** outside Shared Mode. Check `Runner.GameMode` first.
@@ -62,12 +88,14 @@ this skill if it has drifted.
 
 | Thing | Class | Pattern |
 |---|---|---|
-| Balloon | `NetworkBalloon` | Master Client Object. Hits go to the authority through `RpcApplyHit(hitter, velocity)`; the first hit it receives wins. The authority runs `BalloonPhysics.Step` in `FixedUpdateNetwork` and syncs `Velocity`, `LastHitter`, `Condition`, `Rally`. Same hitter twice = pop (off solo via `BalloonConfig.AllowSoloDoubleHits`). The GDD's alternative, request authority on slap, is untested; switch only if RPC latency feels bad in a playtest. |
-| Items | `NetworkItem` | `AllowStateAuthorityOverride`. `RequestStateAuthority()` on grab; writes `Thrower` on release so a thrown hit counts as that player's hit; a throw before authority arrives is queued for 1 s. |
-| Ragdoll | `NetworkAvatar.RpcKnockback` (All → All) | The owner gets `LocalRig.ApplyKnockback` (straight shove, noodle hands); everyone else spawns a local `RagdollPuppet`. Local code calls it through `GameServices.LocalKnockback`. |
-| Game state | `GameState` | Master Client Object, does not die with its owner; `NetworkBootstrap.PlayerLeft` requests authority as a backup. Owns `State`, `TickTimer`, `Section`, `Pops`, scores, `Headline`. |
+| Balloon | `NetworkBalloon` | Master Client Object, Rigidbody on layer `Balloon` (8) with Forecast Physics (`GravityForecast.None`: its floaty gravity is custom). The authority runs `BalloonPhysics.Step` (rules only: gravity, drag, wind, pads, hazards, spikes, gates, finish) in `FixedUpdate` and writes the Rigidbody velocity; bounces are real physics (`BalloonBounce` material). Hits go to the authority through `RpcApplyHit(hitter, velocity)`; the first hit it receives wins. Same hitter twice = pop (off solo via `BalloonConfig.AllowSoloDoubleHits`). World bounces reset `Rally`; item hits don't. `PhysicsLayerRules` makes `Balloon` ignore `Ignore Raycast` (players' local rig colliders, held items), so all clients simulate the same collisions; slaps, spikes and swung items are overlap checks. |
+| Items | `NetworkItem` | `AllowStateAuthorityOverride`, Forecast Physics. `RequestStateAuthority()` on grab; kinematic only while held (authority side); writes `Thrower` on release so a thrown hit counts as that player's hit; a throw before authority arrives is queued for 1 s. Swung (held) items hit by an overlap box in `FixedUpdate`. Off-map items `Teleport` home. |
+| Ragdoll | `NetworkAvatar.RpcKnockback` (All → All, `TickAligned = false`) | The owner gets `LocalRig.ApplyKnockback` (straight shove, noodle hands); everyone else spawns a local `RagdollPuppet` that inherits the avatar's body velocity, springs back toward the real body over the last 45% of its life and shrinks away as the avatar reappears. Local code calls it through `GameServices.LocalKnockback`. |
+| Game state | `GameState` | Master Client Object, does not die with its owner; `NetworkBootstrap.PlayerLeft` requests authority as a backup, and the heartbeat watchdog requests master reassignment when the master freezes. Owns `State`, `TickTimer`, `HoopMask` (bit per hoop, any order), `LastHoop` (checkpoint for balloon respawn), `Pops`, scores, `Headline`, `Heartbeat`. The finish only counts when every hoop is cleared; a pop respawns only the balloon (beside the last hoop), never the crew. |
 | Avatar | `NetworkAvatar` + `AvatarHitbox` | One `NetworkTransform` per head/body/hand child; the owner copies `LocalRig` into them and hides its own renderers. `DestroyWhenStateAuthorityLeaves` on. |
-| Voice | not yet | `FusionVoiceClient` beside the `NetworkRunner`; `VoiceNetworkObject`, `Recorder`, `Speaker` on the avatar prefab. Request Quest microphone permission before enabling the Recorder. |
+| Characters | `NetworkAvatar.CharacterIndex` | Networked int written by the owner (default by player slot, changed via `CharacterPedestal` → `GameServices.LocalCharacter`); every client swaps its `CharacterVisual` in `Render`. |
+| Roaming giant | `MischiefMaker` | Master Client Object with NetworkTransform (no Rigidbody). Authority runs a wander/chase/wind-up/bonk state machine in `FixedUpdateNetwork`; the bonk is `NetworkBalloon.RequestHit(PlayerRef.None, ...)` (nobody's hit). `GameState` re-rolls its character at each run start. Implements `IKnockbackSource`, so `RigHazardSensor` knocks players it walks into. |
+| Voice | `AvatarVoice` + Photon `VoiceNetworkObject` | See "Voice wiring" above. Tested offline only (mic starts, no errors); hearing each other needs both App IDs and two clients. |
 
 ## Wiring in the Editor
 
@@ -80,7 +108,7 @@ It regenerates prefabs, materials and `Scenes/Prototype.unity`, but keeps existi
 
 - Solo: with no App ID, Play mode runs offline. Drive the loop with `script eval`, e.g.
   `GameJam.Core.GameServices.Run.RequestStart()`, `NetworkBalloon.Instance.RequestHit(...)`, or moving the
-  balloon onto a `Sharp`/`SectionGate`/`FinishLine`, then read `GameState.Instance` fields.
+  balloon onto a `Sharp`, a hoop or the `FinishLine` with `NetworkTransform.Teleport`, then read `GameState.Instance` fields.
 - Solo pass rule: `BalloonConfig.AllowSoloDoubleHits` (on) lets one player hit twice in a row while fewer
   than 2 players are in the session (`NetworkBalloon.IsPassRuleSuspended`); the scoreboard shows
   "SOLO TEST: pass rule off". It switches itself back on when a second player joins, so leave it on.
