@@ -13,6 +13,9 @@ namespace GameJam.Gameplay
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         [SerializeField] private Material _placeholderMaterial;
+        [Tooltip("Optional: a fixed character shown when the scene starts (map figures like the host and commentator).")]
+        [SerializeField] private CharacterDefinition _showOnStart;
+        [SerializeField] private float _showOnStartHeight = 1.6f;
 
         private GameObject _instance;
         private CharacterDefinition _shown;
@@ -21,6 +24,21 @@ namespace GameJam.Gameplay
         public CharacterDefinition Shown => _shown;
 
         public void Configure(Material placeholderMaterial) => _placeholderMaterial = placeholderMaterial;
+
+        /// <summary>Builder wiring: show this character at this height as soon as the scene starts.</summary>
+        public void ShowOnLoad(CharacterDefinition character, float height)
+        {
+            _showOnStart = character;
+            _showOnStartHeight = height;
+        }
+
+        private void Start()
+        {
+            if (_showOnStart != null && _shown == null)
+            {
+                Show(_showOnStart, _showOnStartHeight);
+            }
+        }
 
         public void Show(CharacterDefinition character, float height)
         {

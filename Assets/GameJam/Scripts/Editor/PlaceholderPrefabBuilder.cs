@@ -70,40 +70,26 @@ namespace GameJam.Editor
             Material skin = PlaceholderAssets.Material("AvatarSkin", new Color(0.7f, 0.7f, 0.7f));
             Material glove = PlaceholderAssets.Material("Glove", Color.white);
 
-            // Spiky head and body hitboxes (gameplay: the balloon leaks or pops on them). Their look comes from the character.
+            // Spiky head and body hitboxes (gameplay: the balloon leaks or pops on the porcupine's quills).
             Transform head = Hitbox("Head", root.transform, new Vector3(0f, 1.6f, 0f), avatar, configs.Slap, out _);
             var headCollider = head.gameObject.AddComponent<SphereCollider>();
             headCollider.radius = 0.14f;
             headCollider.isTrigger = true;
 
+            // Matches the porcupine torso (eyes - 0.14 m down to eyes - 0.6 m).
             Transform body = Hitbox("Body", root.transform, new Vector3(0f, 1.15f, 0f), avatar, configs.Slap, out _);
             var bodyCollider = body.gameObject.AddComponent<CapsuleCollider>();
-            bodyCollider.radius = 0.2f;
-            bodyCollider.height = 0.6f;
+            bodyCollider.radius = 0.21f;
+            bodyCollider.height = 0.52f;
+            bodyCollider.center = new Vector3(0f, 0.08f, 0f);
             bodyCollider.isTrigger = true;
 
-            // The gorilla-locomotion body rides on the body transform (player's yaw), origin at the eyes; its arms reach
-            // the gloves. Without the FBX, fall back to the roster's static character model.
-            GorillaBodyRig bodyRig = GorillaBodyBuilder.Build(body, head.localPosition.y - body.localPosition.y, glove);
-            CharacterVisual visual = null;
-            if (bodyRig != null)
-            {
-                // Hitbox matches the smaller gorilla torso (eyes - 0.14 m down to eyes - 0.57 m).
-                bodyCollider.radius = 0.19f;
-                bodyCollider.height = 0.5f;
-                bodyCollider.center = new Vector3(0f, 0.09f, 0f);
-            }
-            else
-            {
-                var model = new GameObject("CharacterModel");
-                model.transform.SetParent(body, false);
-                visual = model.AddComponent<CharacterVisual>();
-                visual.Configure(PlaceholderAssets.Material("CharacterPlaceholder", Color.white, 0.3f));
-            }
-
+            // Every player is the same porcupine: a skinned gorilla-locomotion body on the body transform (player's yaw),
+            // origin at the eyes, whose arms reach the gloves. Its paw mitts draw the gloves, so they get no sphere.
+            GorillaBodyRig bodyRig = GorillaBodyBuilder.Build(body, head.localPosition.y - body.localPosition.y);
             TextMesh nameTag = PlaceholderShapes.Text("NameTag", head, new Vector3(0f, 0.45f, 0f), 0.012f, string.Empty, Color.white);
 
-            // Gloves: the only safe part. With the gorilla body its mitts draw them, so no extra sphere.
+            // Gloves: the only safe part.
             Transform leftHand = Glove("LeftHand", root.transform, bodyRig == null ? glove : null);
             Transform rightHand = Glove("RightHand", root.transform, bodyRig == null ? glove : null);
             if (bodyRig != null)
@@ -112,8 +98,7 @@ namespace GameJam.Editor
             }
 
             avatar.Configure(head, body, leftHand, rightHand, System.Array.Empty<Renderer>(), skin);
-            avatar.ConfigureCharacter(configs.Roster, visual, nameTag);
-            avatar.ConfigureBody(bodyRig);
+            avatar.ConfigureBody(bodyRig, nameTag);
             AddVoice(root, head);
 
             PlaceholderShapes.SetLayerRecursively(root, GameLayers.IgnoreRaycast);

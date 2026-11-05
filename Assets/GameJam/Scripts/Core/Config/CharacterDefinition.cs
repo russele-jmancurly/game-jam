@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace GameJam.Core
 {
-    /// <summary>One playable character (Jmancurly, Squoof, Protobro, Elliot): model, size and colour.</summary>
+    /// <summary>One show character on the map (Jmancurly, Squoof): model, size and colour. Players are all the porcupine.</summary>
     [CreateAssetMenu(menuName = "Game Jam/Config/Character Definition", fileName = "Character_New")]
     public sealed class CharacterDefinition : ScriptableObject
     {

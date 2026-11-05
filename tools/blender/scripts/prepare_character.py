@@ -1,10 +1,12 @@
 """Makes a Quest-friendly character model for the game from a .blend/.fbx: static mesh, triangle budget, Unity FBX.
 
-    tools/blender/blender.sh tools/blender/scripts/prepare_character.py <in> <out.fbx> [--max-tris 6000] [--exclude GloveL,GloveR] [--rest-pose]
+    tools/blender/blender.sh tools/blender/scripts/prepare_character.py <in> <out.fbx> [--max-tris 6000] [--exclude GloveL,GloveR] [--budget Hair=3000] [--max-texture 1024] [--rest-pose]
 
 - Drops the objects named in --exclude (e.g. the model's own gloves: the avatar has networked gloves).
 - Bakes armatures into the rest pose and removes them, so Unity renders a plain mesh (no skinning cost on Quest).
-- Decimates every mesh by one shared ratio so the total stays under --max-tris (default 6000).
+- Decimates every mesh by one shared ratio so the total stays under --max-tris (default 6000). --budget Name=N gives a
+  mesh its own triangle budget (out of the total), for one dense part (e.g. 700k-triangle hair) that would starve the rest.
+- Writes packed base colour / normal maps into <out>.fbm (downscaled to --max-texture), where Unity finds them.
 - Exports with the same Unity settings as export_unity_fbx.py. Prints JSON with before/after triangle counts.
 """
 import os
@@ -23,6 +25,7 @@ if len(args) < 2:
 source, output = args[0], os.path.abspath(args[1])
 max_tris = int(args[args.index("--max-tris") + 1]) if "--max-tris" in args else 6000
 exclude = set(args[args.index("--exclude") + 1].split(",")) if "--exclude" in args else set()
+budgets = {k: int(v) for k, v in (p.split("=") for p in args[args.index("--budget") + 1].split(","))} if "--budget" in args else {}
 
 load(source)
 scene = bpy.context.scene
@@ -66,6 +69,9 @@ bpy.context.view_layer.update()
 for obj in [o for o in scene.objects if o.type == "MESH"]:
     bpy.context.view_layer.objects.active = obj
     for modifier in list(obj.modifiers):
+        if modifier.type == "ARMATURE" and modifier.object is None:
+            obj.modifiers.remove(modifier)  # points at no armature: a no-op Blender refuses to apply
+            continue
         if modifier.type == "ARMATURE":
             matrix = obj.matrix_world.copy()
             obj.parent = None
@@ -83,17 +89,78 @@ for obj in [o for o in scene.objects if o.type == "MESH"]:
     bpy.context.view_layer.objects.active = obj
 bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 
-# 3. Decimate to the triangle budget with one shared ratio.
-ratio = 1.0
-if before > max_tris:
-    ratio = max_tris / before
-    for obj in [o for o in scene.objects if o.type == "MESH"]:
+# 3. Decimate to the triangle budget: meshes named in --budget get their own share, the rest one shared ratio.
+def mesh_triangles(obj):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    mesh = obj.evaluated_get(depsgraph).to_mesh()
+    mesh.calc_loop_triangles()
+    count = len(mesh.loop_triangles)
+    obj.evaluated_get(depsgraph).to_mesh_clear()
+    return count
+
+
+def decimate(obj, obj_ratio):
+    if obj_ratio < 1.0:
         modifier = obj.modifiers.new("GameDecimate", "DECIMATE")
         modifier.decimate_type = "COLLAPSE"
-        modifier.ratio = ratio
+        modifier.ratio = obj_ratio
         modifier.use_collapse_triangulate = True
 
+
+ratio = 1.0
+if before > max_tris:
+    meshes = [o for o in scene.objects if o.type == "MESH"]
+    budgeted = [o for o in meshes if o.name in budgets]
+    for obj in budgeted:
+        decimate(obj, min(1.0, budgets[obj.name] / max(1, mesh_triangles(obj))))
+    rest = [o for o in meshes if o.name not in budgets]
+    rest_tris = sum(mesh_triangles(o) for o in rest)
+    remaining = max(0, max_tris - sum(min(budgets[o.name], mesh_triangles(o)) for o in budgeted))
+    ratio = min(1.0, remaining / rest_tris) if rest_tris else 1.0
+    for obj in rest:
+        decimate(obj, ratio)
+
 after = triangle_count()
+
+# 4a. Packed textures: the FBX exporter only copies images that exist as files, so write the base colour and normal maps
+#     the exported materials use into <name>.fbm next to the FBX (where Unity looks), downscaled to --max-texture.
+max_texture = int(args[args.index("--max-texture") + 1]) if "--max-texture" in args else 1024
+written = []
+
+
+def linked_image(socket):
+    """The image feeding a shader socket, directly or through a Normal Map node."""
+    if not socket.is_linked:
+        return None
+    node = socket.links[0].from_node
+    if node.type == "NORMAL_MAP":
+        return linked_image(node.inputs["Color"])
+    return node.image if node.type == "TEX_IMAGE" else None
+
+
+fbm = os.path.splitext(output)[0] + ".fbm"
+for material in {slot.material for obj in scene.objects if obj.type == "MESH" for slot in obj.material_slots if slot.material}:
+    if not material.use_nodes:
+        continue
+    for node in material.node_tree.nodes:
+        if node.type != "BSDF_PRINCIPLED":
+            continue
+        for socket_name in ("Base Color", "Normal"):
+            image = linked_image(node.inputs[socket_name])
+            if image is None or image.packed_file is None:
+                continue
+            os.makedirs(fbm, exist_ok=True)
+            name = os.path.splitext(bpy.path.basename(image.filepath) or image.name)[0] + ".png"
+            path = os.path.join(fbm, name)
+            copy = image.copy()
+            if max(copy.size) > max_texture:
+                copy.scale(min(copy.size[0], max_texture), min(copy.size[1], max_texture))
+            copy.filepath_raw = path
+            copy.file_format = "PNG"
+            copy.save()
+            image.filepath = path
+            image.source = "FILE"
+            written.append(name)
 
 # 4. Export for Unity (modifiers applied on export).
 meshes = [o for o in scene.objects if o.type == "MESH"]
@@ -132,4 +199,5 @@ emit({
     "meshes": [o.name for o in meshes],
     "boundsSize": [round(v, 4) for v in (hi - lo)],
     "bytes": os.path.getsize(output) if os.path.exists(output) else 0,
+    "texturesWritten": written,
 })

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Character_Squoof
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.CharacterDefinition
   DisplayName: Squoof
-  Model: {fileID: 0}
+  Model: {fileID: 919132149155446097, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
   Height: 1.6
   YawOffset: 0
   Tint: {r: 0.43529412, g: 0.8901961, b: 0.75686276, a: 1}

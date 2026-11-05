@@ -237,37 +237,69 @@ namespace GameJam.Editor
             TextMesh scoreboard = PlaceholderShapes.Text("Scoreboard", _course, new Vector3(-4.2f, 2.3f, -2.5f), 0.019f, string.Empty, ArtPalette.Picket);
             boardComponent.Configure(headline, scoreboard);
 
-            BuildCharacterPedestals(stage);
+            BuildShowCrew(stage, screen);
         }
 
-        /// <summary>Four character statues along the back of the stage: slap one to become that character.</summary>
-        private static void BuildCharacterPedestals(Vector3 stage)
+        /// <summary>
+        /// The show's crew as map entities (players are all the porcupine): Jman, the host, greets the crew on the start
+        /// stage; Squoof commentates from the top of the booth above the headline board. Static figures, purely visual.
+        /// </summary>
+        private static void BuildShowCrew(Vector3 stage, Vector3 screen)
         {
             if (_roster == null)
             {
                 return;
             }
 
-            Material plinthMaterial = PlaceholderAssets.Material("PedestalPlinth", Color.white, 0.4f);
-            Material statueFallback = PlaceholderAssets.Material("CharacterPlaceholder", Color.white, 0.3f);
-            for (int i = 0; i < _roster.Count; i++)
+            Material fallback = PlaceholderAssets.Material("CharacterPlaceholder", Color.white, 0.3f);
+            CharacterDefinition host = FindCharacter("Jmancurly");
+            if (host != null)
             {
-                var position = stage + new Vector3(-4.5f + i * 3f, 0.4f, -4f);
-                GameObject plinth = Box($"Pedestal_{_roster.Get(i).DisplayName}", position + new Vector3(0f, 0.25f, 0f), new Vector3(0.9f, 0.5f, 0.9f), plinthMaterial);
-
-                GameObject slapZone = PlaceholderShapes.TriggerBox($"PedestalSlap_{i}", _course, position + new Vector3(0f, 1.05f, 0f), new Vector3(1f, 1.1f, 1f));
-                var statue = new GameObject("Statue").AddComponent<CharacterVisual>();
-                statue.transform.SetParent(_course, false);
-                statue.transform.SetPositionAndRotation(position + new Vector3(0f, 0.5f, 0f), Quaternion.identity); // faces +Z: the crew spawns just north of it
-                statue.Configure(statueFallback);
-                TextMesh nameTag = PlaceholderShapes.Text($"PedestalName_{i}", _course, position + new Vector3(0f, 1.75f, 0f), 0.022f, _roster.Get(i).DisplayName, Color.white);
-                nameTag.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-
-                slapZone.AddComponent<CharacterPedestal>().Configure(_roster, i, statue, nameTag, plinth.GetComponent<Renderer>());
+                Vector3 spot = stage + new Vector3(-3.5f, 0.4f, 2.8f);
+                Box("HostPodium", spot + new Vector3(0f, 0.15f, 0f), new Vector3(1.1f, 0.3f, 1.1f), _palette.Gold);
+                // Faces the spawn (south); a solid capsule so players bump into the host instead of walking through.
+                CrewFigure("Host_Jman", host, spot + new Vector3(0f, 0.3f, 0f), 180f, host.Height, fallback, true);
+                PlaceholderShapes.Text("HostName", _course, spot + new Vector3(0f, host.Height + 0.65f, 0f), 0.022f, $"{host.DisplayName}  ·  HOST", ArtPalette.Accent);
             }
 
-            PlaceholderShapes.Text("PedestalSign", _course, stage + new Vector3(0f, 2.6f, -4f), 0.03f, "SLAP A STATUE TO PICK YOUR CHARACTER", ArtPalette.Accent)
-                .transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            CharacterDefinition commentator = FindCharacter("Squoof");
+            if (commentator != null)
+            {
+                // Booth: centre screen + (0, 2.4, 0.6), 1.6 m tall, so its roof is 3.2 m above the screen centre.
+                Vector3 roof = screen + new Vector3(0f, 3.2f, 0.6f);
+                float height = commentator.Height * 1.5f; // readable from across the yard
+                CrewFigure("Commentator_Squoof", commentator, roof, 180f, height, fallback, false);
+                PlaceholderShapes.Text("CommentatorName", _course, roof + new Vector3(0f, height + 0.5f, 0f), 0.05f, $"{commentator.DisplayName}  ·  COMMENTATOR", ArtPalette.Accent);
+            }
+        }
+
+        private static CharacterDefinition FindCharacter(string displayName)
+        {
+            for (int i = 0; i < _roster.Count; i++)
+            {
+                if (_roster.Get(i).DisplayName == displayName)
+                {
+                    return _roster.Get(i);
+                }
+            }
+
+            return null;
+        }
+
+        private static void CrewFigure(string name, CharacterDefinition character, Vector3 feet, float yaw, float height, Material fallback, bool solid)
+        {
+            var figure = new GameObject(name).AddComponent<CharacterVisual>();
+            figure.transform.SetParent(_course, false);
+            figure.transform.SetPositionAndRotation(feet, Quaternion.Euler(0f, yaw, 0f));
+            figure.Configure(fallback);
+            figure.ShowOnLoad(character, height);
+            if (solid)
+            {
+                var body = figure.gameObject.AddComponent<CapsuleCollider>();
+                body.height = height;
+                body.radius = height * 0.18f;
+                body.center = new Vector3(0f, height * 0.5f, 0f);
+            }
         }
 
         private static void BuildPool()

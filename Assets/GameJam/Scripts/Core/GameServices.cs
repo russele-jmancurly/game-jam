@@ -14,9 +14,6 @@ namespace GameJam.Core
         /// <summary>The local player's networked avatar, or null while offline.</summary>
         public static IKnockbackRelay LocalKnockback { get; set; }
 
-        /// <summary>The local player's avatar as a character switcher, or null while offline.</summary>
-        public static ICharacterSelector LocalCharacter { get; set; }
-
         /// <summary>The local player's network id, or -1 while offline. Used for spawn slots and colours.</summary>
         public static int LocalPlayerId { get; set; } = -1;
 
@@ -27,7 +24,6 @@ namespace GameJam.Core
         {
             Run = null;
             LocalKnockback = null;
-            LocalCharacter = null;
             LocalPlayerId = -1;
         }
     }

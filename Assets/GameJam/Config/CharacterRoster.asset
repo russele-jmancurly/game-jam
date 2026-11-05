@@ -15,8 +15,6 @@ MonoBehaviour:
   Characters:
   - {fileID: 11400000, guid: 39562f1a8d374834089811de403b8e21, type: 2}
   - {fileID: 11400000, guid: 9dc99aba37d5f1c4a8e37d0d6e19d698, type: 2}
-  - {fileID: 11400000, guid: 475856393dad0354a98a60713be50d3f, type: 2}
-  - {fileID: 11400000, guid: 6c53cb9c4408fe3459e2592ecab9cab9, type: 2}
   RoamerScale: 2.4
   RoamerWalkSpeed: 2
   RoamerChaseSpeed: 3.6

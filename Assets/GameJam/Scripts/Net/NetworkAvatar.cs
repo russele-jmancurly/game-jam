@@ -7,16 +7,15 @@ using UnityEngine;
 namespace GameJam.Net
 {
     /// <summary>
-    /// A player's networked body: head, body and two gloves, each synced by its own NetworkTransform, wearing one of the
-    /// roster's characters (Jmancurly, Squoof, Protobro, Elliot). The owner copies their local rig into it and chooses the
-    /// character (default by player slot, changeable at the start-stage pedestals). Knockbacks arrive here: the hit player
-    /// gets a straight-line shove (comfortable in VR) and everyone else sees a floppy ragdoll.
-    /// With a <see cref="GorillaBodyRig"/> the avatar is the skinned gorilla-locomotion body (fur in the character's
-    /// colour) whose arms reach the synced gloves; you see your own arms, everyone else sees all of you.
+    /// A player's networked body: head, body and two gloves, each synced by its own NetworkTransform. Every player is the
+    /// same porcupine (a skinned gorilla-locomotion body, <see cref="GorillaBodyRig"/>, in natural colours) whose arms reach
+    /// the synced gloves; a name tag in the player's colour tells the crew apart. You see your own arms, everyone else
+    /// sees all of you. Knockbacks arrive here: the hit player gets a straight-line shove (comfortable in VR) and everyone
+    /// else sees a floppy ragdoll.
     /// Runs after gorilla locomotion (LateUpdate, order 0) so the arms meet the hands where they were drawn this frame.
     /// </summary>
     [DefaultExecutionOrder(100)]
-    public sealed class NetworkAvatar : NetworkBehaviour, IKnockbackRelay, ICharacterSelector
+    public sealed class NetworkAvatar : NetworkBehaviour, IKnockbackRelay
     {
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
@@ -28,33 +27,21 @@ namespace GameJam.Net
         [SerializeField] private Material _ragdollMaterial;
         [Tooltip("The body sits this far below the head.")]
         [SerializeField] private float _bodyDrop = 0.45f;
-
-        [Header("Character")]
-        [SerializeField] private CharacterRoster _roster;
-        [SerializeField] private CharacterVisual _characterVisual;
         [SerializeField] private TextMesh _nameTag;
-        [Tooltip("The model's top sits this far above the head, so the camera eye lines up with the model's face.")]
-        [SerializeField] private float _modelTopAboveHead = 0.12f;
-        [Tooltip("Optional skinned gorilla body; when set it replaces the character model on players.")]
+        [Tooltip("The porcupine body; without it only the gloves show.")]
         [SerializeField] private GorillaBodyRig _bodyRig;
 
         private float _hiddenUntil;
         private int _ownArmsShown = -1;
         private bool _isVisible = true;
-        private int _shownCharacter = -1;
         private Vector3 _lastBodyPosition;
         private Vector3 _bodyVelocity;
 
         public static NetworkAvatar Local { get; private set; }
 
-        /// <summary>Index into the roster; written only by this player.</summary>
-        [Networked] public int CharacterIndex { get; private set; }
-
         public bool IsLocal => Object != null && Object.IsValid && HasStateAuthority;
 
         public Color PlayerColor => Object.StateAuthority.ToPaletteColor();
-
-        public int CurrentCharacter => CharacterIndex;
 
         public void Configure(Transform head, Transform body, Transform leftHand, Transform rightHand, Renderer[] tintRenderers, Material ragdollMaterial)
         {
@@ -66,52 +53,30 @@ namespace GameJam.Net
             _ragdollMaterial = ragdollMaterial;
         }
 
-        public void ConfigureCharacter(CharacterRoster roster, CharacterVisual characterVisual, TextMesh nameTag)
+        public void ConfigureBody(GorillaBodyRig bodyRig, TextMesh nameTag)
         {
-            _roster = roster;
-            _characterVisual = characterVisual;
+            _bodyRig = bodyRig;
             _nameTag = nameTag;
         }
 
-        public void ConfigureBody(GorillaBodyRig bodyRig) => _bodyRig = bodyRig;
-
         /// <summary>Knocks this player over. Anyone can call it: slaps, thrown items, hazards, pop blasts.</summary>
         public void SendKnockback(Vector3 direction, float force, float seconds) => RpcKnockback(direction, force, seconds);
-
-        /// <summary>Called by the start-stage pedestals on the local player's own avatar.</summary>
-        public void SelectCharacter(int rosterIndex)
-        {
-            if (HasStateAuthority && _roster != null && _roster.Count > 0)
-            {
-                CharacterIndex = ((rosterIndex % _roster.Count) + _roster.Count) % _roster.Count;
-            }
-        }
 
         public override void Spawned()
         {
             Tint(PlayerColor);
             _lastBodyPosition = _body.position;
+            if (_nameTag != null)
+            {
+                _nameTag.text = $"Player {Mathf.Max(1, Object.StateAuthority.PlayerId)}";
+                _nameTag.color = PlayerColor;
+            }
 
             if (HasStateAuthority)
             {
                 Local = this;
                 GameServices.LocalKnockback = this;
-                GameServices.LocalCharacter = this;
-
-                // Default: a different character per player slot, so a full crew is all four.
-                int count = _roster != null ? _roster.Count : 0;
-                CharacterIndex = count > 0 ? Mathf.Max(0, Object.StateAuthority.PlayerId - 1) % count : 0;
-                SetVisible(false); // you never see your own avatar; your rig has its own gloves
-            }
-
-            ApplyCharacter();
-        }
-
-        public override void Render()
-        {
-            if (CharacterIndex != _shownCharacter)
-            {
-                ApplyCharacter();
+                SetVisible(false); // you never see your own body; ShowOwnArms brings back just the arms
             }
         }
 
@@ -125,42 +90,6 @@ namespace GameJam.Net
             if (ReferenceEquals(GameServices.LocalKnockback, this))
             {
                 GameServices.LocalKnockback = null;
-            }
-
-            if (ReferenceEquals(GameServices.LocalCharacter, this))
-            {
-                GameServices.LocalCharacter = null;
-            }
-        }
-
-        /// <summary>Swaps the visible model to the networked character choice and updates the name tag.</summary>
-        private void ApplyCharacter()
-        {
-            _shownCharacter = CharacterIndex;
-            CharacterDefinition character = _roster != null ? _roster.Get(CharacterIndex) : null;
-            if (character == null)
-            {
-                return;
-            }
-
-            if (_bodyRig != null)
-            {
-                _bodyRig.SetFurColor(character.Tint);
-            }
-            else if (_characterVisual != null)
-            {
-                // Feet so the model's top sits just above the head: the camera eye lines up with the character's face.
-                float height = character.Height;
-                _characterVisual.transform.localPosition = new Vector3(0f, _bodyDrop + _modelTopAboveHead - height, 0f);
-                _characterVisual.Show(character, height);
-                _characterVisual.SetVisible(_isVisible);
-            }
-
-            if (_nameTag != null)
-            {
-                _nameTag.text = character.DisplayName;
-                _nameTag.color = PlayerColor;
-                _nameTag.GetComponent<Renderer>().enabled = _isVisible;
             }
         }
 

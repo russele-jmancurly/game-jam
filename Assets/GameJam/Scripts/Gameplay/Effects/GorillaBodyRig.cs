@@ -4,8 +4,8 @@ using UnityEngine;
 namespace GameJam.Gameplay
 {
     /// <summary>
-    /// Poses the skinned gorilla-locomotion body (Art/Characters/GorillaBody.fbx, built by
-    /// tools/blender/scripts/build_gorilla_body.py) from three tracked points: the head turns with the player's look and
+    /// Poses the skinned porcupine player body (Art/Characters/PorcupineBody.fbx, built by
+    /// tools/blender/scripts/build_porcupine_body.py) from three tracked points: the head turns with the player's look and
     /// each arm reaches its glove with a two-bone IK from the shoulder, stretching a little past full reach like a
     /// cartoon arm. This transform is the model root: place it at the head with the body's yaw. Purely visual and
     /// computed locally on every client from the already-synced head and hands, so it costs no network traffic.
@@ -13,8 +13,6 @@ namespace GameJam.Gameplay
     /// </summary>
     public sealed class GorillaBodyRig : MonoBehaviour
     {
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-
         [Serializable]
         public sealed class Arm
         {
@@ -40,10 +38,6 @@ namespace GameJam.Gameplay
         [SerializeField] private Arm _right = new Arm();
         [SerializeField] private Renderer _bodyRenderer;
         [SerializeField] private Renderer _armsRenderer;
-        [Tooltip("Material slot on the body mesh tinted with the character colour (Fur); -1 = none.")]
-        [SerializeField] private int _bodyFurSlot;
-        [Tooltip("Material slot on the arms mesh tinted with the character colour (Fur); -1 = none.")]
-        [SerializeField] private int _armsFurSlot;
 
         [Tooltip("Which way the elbows bend, in body space for the right arm (x is mirrored for the left): out, down, back.")]
         [SerializeField] private Vector3 _elbowHint = new Vector3(0.45f, -1f, -0.25f);
@@ -53,22 +47,19 @@ namespace GameJam.Gameplay
         [Range(0f, 90f)] [SerializeField] private float _maxHeadTilt = 70f;
 
         private Quaternion _headFromRoot = Quaternion.identity;
-        private MaterialPropertyBlock _block;
         private bool _isCached;
 
         public Renderer BodyRenderer => _bodyRenderer;
 
         public Renderer ArmsRenderer => _armsRenderer;
 
-        public void Configure(Transform head, Arm left, Arm right, Renderer bodyRenderer, int bodyFurSlot, Renderer armsRenderer, int armsFurSlot)
+        public void Configure(Transform head, Arm left, Arm right, Renderer bodyRenderer, Renderer armsRenderer)
         {
             _head = head;
             _left = left;
             _right = right;
             _bodyRenderer = bodyRenderer;
-            _bodyFurSlot = bodyFurSlot;
             _armsRenderer = armsRenderer;
-            _armsFurSlot = armsFurSlot;
         }
 
         public void SetTargets(Transform head, Transform leftHand, Transform rightHand)
@@ -90,25 +81,6 @@ namespace GameJam.Gameplay
             {
                 _armsRenderer.enabled = arms;
             }
-        }
-
-        public void SetFurColor(Color color)
-        {
-            _block ??= new MaterialPropertyBlock();
-            Tint(_bodyRenderer, _bodyFurSlot, color);
-            Tint(_armsRenderer, _armsFurSlot, color);
-        }
-
-        private void Tint(Renderer target, int slot, Color color)
-        {
-            if (target == null || slot < 0)
-            {
-                return;
-            }
-
-            target.GetPropertyBlock(_block, slot);
-            _block.SetColor(BaseColorId, color);
-            target.SetPropertyBlock(_block, slot);
         }
 
         private void Awake() => CacheRestPose();

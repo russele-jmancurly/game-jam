@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace GameJam.Core
 {
-    /// <summary>The characters players can be, and how the roaming mischief maker uses them.</summary>
+    /// <summary>The show characters that appear on the map (host, commentator, the roaming mischief maker).</summary>
     [CreateAssetMenu(menuName = "Game Jam/Config/Character Roster", fileName = "CharacterRoster")]
     public sealed class CharacterRoster : ScriptableObject
     {

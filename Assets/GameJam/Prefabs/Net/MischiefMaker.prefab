@@ -45,6 +45,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: GameJam.Gameplay::GameJam.Gameplay.CharacterVisual
   _placeholderMaterial: {fileID: 2100000, guid: 300fc13a2db70204fbbd86988b96dd92, type: 2}
+  _showOnStart: {fileID: 0}
+  _showOnStartHeight: 1.6
 --- !u!1 &905294576537688524
 GameObject:
   m_ObjectHideFlags: 0

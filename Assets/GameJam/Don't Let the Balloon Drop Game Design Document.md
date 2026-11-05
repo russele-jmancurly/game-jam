@@ -22,7 +22,7 @@ On a TV game show, a crew of 2 to 4 porcupine-suited Jmans work together to park
 
 - **Smooth VR movement:** Gorilla locomotion parkour is the heart of the game: leap, swing and climb through an obstacle course while dodging hazards that move.
 - **A world you can touch:** Hundreds of grabbable, throwable items are scattered everywhere. Slapping, throwing and bonking are the whole game.
-- **Jman personality:** Existing Jman characters in spiky porcupine suits, an overexcited Jman commentator, and ragdolling friends carry the humour.
+- **Jman personality:** A crew of balloon-popping porcupines, Jmancurly hamming it up as host, Squoof commentating, and ragdolling friends carry the humour.
 - **One great moment:** Saving the balloon with a perfect throw, only for it to bounce straight into your friend's spiky head.
 
 ## Design pillars
@@ -37,17 +37,17 @@ Every feature must serve at least one of these five rules. If it serves none, cu
 
 ## Fiction and characters
 
-The players are contestants on **Pop or Glory: The Porcupine Relay**, a cheap but wildly popular Jman TV game show. Crews of friends work together to get a balloon through moving obstacle courses, and the show's famous twist is that every contestant must wear a spiky porcupine suit. Only the show's padded gloves are safe to touch the balloon with.
+The players are contestants on **Pop or Glory: The Porcupine Relay**, a cheap but wildly popular Jman TV game show. Crews of porcupines work together to get a balloon through moving obstacle courses, and the show's famous twist is obvious: porcupines and balloons don't mix. Only their padded paws are safe to touch the balloon with.
 
-**The crew (players):** Existing Jman characters in the show's official porcupine suits. The suit is a spiky vest, back spikes and a hood, built from simple shapes or existing props so no new character art is needed. Every part of the suit pops balloons; only the gloves are safe. Each player can pick a different Jman for identity.
+**The crew (players):** Every player is the same porcupine, in natural colours: near-black brown fur, a warmer brown belly, a blunt dark snout and quills with pale cream tips swept back over the back, head and tail. Every quill pops balloons; only the light tan paw mitts are safe. The body is built for gorilla locomotion (long arms that reach your hands, no legs). Players are told apart by a name tag in their player colour.
 
-**Playable roster:** Jmancurly, Squoof, Protobro and Elliot. Each player starts as a different one (by player slot), and anyone can switch by slapping one of the four character statues at the back of the start stage. Everyone sees the others' characters with a name tag in their player colour.
+**The show's characters (on the map, not playable):** Jmancurly and Squoof.
 
-**The roaming mischief maker:** One random character from the roster, giant-sized, is loose in the yard every run (a new one each run). It wanders between open spots, and when the balloon drifts close and low it waddles over, winds up (it crouches and a "!" appears, so the crew can react) and bonks the balloon away. That bonk counts as nobody's hit. It bowls over players it walks into, the balloon bounces off it, and a brave player can climb it. The commentator calls out every bonk.
+**The roaming mischief maker:** Jmancurly or Squoof (picked at random each run), giant-sized, is loose in the yard. It wanders between open spots, and when the balloon drifts close and low it waddles over, winds up (it crouches and a "!" appears, so the crew can react) and bonks the balloon away. That bonk counts as nobody's hit. It bowls over players it walks into, the balloon bounces off it, and a brave player can climb it. The commentator calls out every bonk.
 
-**The commentator:** A Jman sports commentator in a booth above the course who narrates everything over loudspeakers: great saves, near misses, ragdolls and especially pops ("He's slapped it straight into his crewmate's spikes!"). They are the main voice of the game's humour.
+**The commentator:** Squoof, standing on top of the booth above the headline board, narrates everything over loudspeakers: great saves, near misses, ragdolls and especially pops ("They've slapped it straight into their crewmate's quills!"). The commentator is the main voice of the game's humour.
 
-**The host:** The show's over-the-top Jman host greets the crew at the start line, then at the finish awards their medal in front of the audience, or eliminates them if the clock runs out.
+**The host:** Jmancurly, the show's over-the-top host, stands on a podium on the start stage to greet the crew, then at the finish awards their medal in front of the audience, or eliminates them if the clock runs out.
 
 **Tone:** Cartoon slapstick. Nobody gets hurt; Jmans bounce, flop and get back up.
 

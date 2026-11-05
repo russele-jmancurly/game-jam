@@ -34,13 +34,11 @@ namespace GameJam.Editor
                 Roster = PlaceholderAssets.LoadOrCreateConfig<CharacterRoster>($"{folder}/CharacterRoster.asset"),
             };
 
+            RemapSquoofClothes();
             set.Roster.Characters = new[]
             {
                 Character("Jmancurly", ArtPalette.Accent, "Jmancurly/Jmancurly_Game.fbx", null),
                 Character("Squoof", ArtPalette.CandyMint, "Squoof/Squoof_Game.fbx", null),
-                Character("Protobro", ArtPalette.CandyPurple, "Protobro/Protobro_Game.fbx",
-                    PlaceholderAssets.Material("ProtobroSkin", Color.Lerp(ArtPalette.CandyPurple, ArtPalette.Picket, 0.35f), 0.35f)),
-                Character("Elliot", ArtPalette.CandyBlue, "Elliot/Elliot_Game.fbx", null),
             };
             EditorUtility.SetDirty(set.Roster);
             return set;
@@ -63,6 +61,7 @@ namespace GameJam.Editor
                 AssetDatabase.CreateAsset(character, path);
             }
 
+            MarkNormalMaps($"{CharacterFolder}/{modelPath}");
             character.Model = AssetDatabase.LoadAssetAtPath<GameObject>($"{CharacterFolder}/{modelPath}");
             if (materialOverride != null && character.MaterialOverride == null)
             {
@@ -71,6 +70,62 @@ namespace GameJam.Editor
 
             EditorUtility.SetDirty(character);
             return character;
+        }
+
+        /// <summary>
+        /// Squoof's clothes have no albedo texture, and their base colours don't survive the FBX export, so the polo,
+        /// shorts and sunglasses would import white and pink. Remap them to plain URP materials in the source's colours.
+        /// </summary>
+        private static void RemapSquoofClothes()
+        {
+            const string path = CharacterFolder + "/Squoof/Squoof_Game.fbx";
+            if (AssetImporter.GetAtPath(path) is not ModelImporter importer)
+            {
+                return;
+            }
+
+            Material navy = PlaceholderAssets.Material("SquoofNavy", new Color(0.09f, 0.12f, 0.2f), 0.2f);
+            Material lens = PlaceholderAssets.Material("SquoofLens", new Color(0.06f, 0.06f, 0.07f), 0.85f);
+            bool changed = false;
+            foreach ((string name, Material material) in new[] { ("outfit_top", navy), ("outfit_top.001", navy), ("Material_0.001", navy), ("MI_Pack1_003.001", lens) })
+            {
+                var id = new AssetImporter.SourceAssetIdentifier(typeof(Material), name);
+                if (!importer.GetExternalObjectMap().TryGetValue(id, out Object current) || current != material)
+                {
+                    importer.AddRemap(id, material);
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                importer.SaveAndReimport();
+            }
+        }
+
+        /// <summary>
+        /// prepare_character.py writes a model's textures into &lt;model&gt;.fbm; Unity imports their normal maps as plain
+        /// colour textures, which flattens the shading. Mark *_Normal / *_NRM images there as normal maps.
+        /// </summary>
+        private static void MarkNormalMaps(string modelPath)
+        {
+            string folder = System.IO.Path.ChangeExtension(modelPath, ".fbm");
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                return;
+            }
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { folder }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                string name = System.IO.Path.GetFileNameWithoutExtension(path);
+                bool isNormal = name.EndsWith("_Normal") || name.EndsWith("_NRM");
+                if (isNormal && AssetImporter.GetAtPath(path) is TextureImporter importer && importer.textureType != TextureImporterType.NormalMap)
+                {
+                    importer.textureType = TextureImporterType.NormalMap;
+                    importer.SaveAndReimport();
+                }
+            }
         }
     }
 }
