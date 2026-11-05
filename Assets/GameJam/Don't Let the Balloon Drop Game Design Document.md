@@ -75,6 +75,8 @@ A pop sends the balloon back to the last hoop cleared with the clock still runni
 
 Players move only with gorilla locomotion: push off the ground, walls and objects with their hands to run, climb and leap. There is no joystick movement.
 
+The locomotion is GorillaPlus (an updated April 2022 version of Another Axiom's GorillaLocomotion, both MIT). On top of the original it gives every hand touch a tap sound and a short rumble, icy surfaces you slide along (and push off to escape), and bouncy surfaces that fling you back. Credits: Kerestell / Another Axiom for GorillaLocomotion; GorillaPlus by baggZ-idk.
+
 | Action | Input |
 | --- | --- |
 | Move, climb, leap | Push off surfaces with either hand (gorilla locomotion) |
