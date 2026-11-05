@@ -86,6 +86,11 @@ Assets/GameJam/
   `PlayerRigConfig.PostProcessingInHeadset`) and `EnvironmentDressingBuilder` (collider-free, static-batched set
   dressing, including the Drive food props in `Art/Props/Food` with `T_ColorAtlas_v1`) run inside the prototype
   builder. Dressing never gets colliders, so it can't change gameplay.
+- Set-piece models: `Art/Set/*.fbx` (tree, paddling pool, grill, picnic table, playground pieces, rotary clothesline, fence
+  picket) from `tools/blender/scripts/build_set_pieces.py` (`--check` verifies walkable tops against the colliders).
+  `SetPieceModels.Apply` (end of `BackyardCourseBuilder.Build`) places each at its anchor and hides the primitives it
+  stands for, which keep their colliders; a missing FBX leaves the primitives. Item models: `Art/Props/Items/<Item>.fbx`
+  from `build_item_props.py`, used automatically by `PlaceholderPrefabBuilder` when present.
 - Map: an open backyard (GDD: Levels), not a linear course. `BackyardCourseBuilder` holds the zone layout constants
   (pool, washing line, tree, playground, BBQ, porch), the six `HoopCheckpoint`s (any order; checkpoint k = beside hoop
   k-1), sized from measured reach (`HoopRingRadius`, `HoopAboveFloor`, `HoopAbovePerch`: eyes ~0.65 m up, standing reach
@@ -111,6 +116,9 @@ Assets/GameJam/
   mesh). `GorillaBodyRig` (Gameplay) solves two-bone arm IK to the synced gloves and turns the head; the tan paw mitts are
   the gloves, and you see your own arms (`PlayerRigConfig.ShowOwnArms`). Change the body in the Blender script, then
   rebuild the prototype.
+- Items help with hoops (GDD: Items): `ItemDefinition.HoopAssist` steers an item hit through the nearest open hoop
+  (`HoopAim` solves the balloon flight); `ItemDefinition.Effect` = what a thrown item sets off on impact: bubble wand
+  `Updraft`, leaf blower `HoopGust` (a `WindVolume` that homes the balloon onto the hoop). `item_effect_test.cs` tests them.
 - `MischiefMaker` is the roaming giant (Jmancurly or Squoof per run, master-client owned, telegraphed bonks).
 - Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with

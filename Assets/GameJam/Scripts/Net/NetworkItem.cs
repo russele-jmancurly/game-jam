@@ -1,5 +1,6 @@
 using Fusion;
 using GameJam.Core;
+using GameJam.Gameplay;
 using UnityEngine;
 
 namespace GameJam.Net
@@ -15,9 +16,12 @@ namespace GameJam.Net
         private const float FriendHitCooldown = 0.5f;
         private const float RandomSpin = 5f;
         private const float HoldDistance = 0.08f;
+        private const float GustOvershoot = 1.5f; // a leaf-blower gust reaches this far past the hoop it aims at
 
         [SerializeField] private ItemDefinition _definition;
         [SerializeField] private KnockbackConfig _knockbackConfig;
+        [Tooltip("Wind zone this item sets off where it lands (bubble wand, leaf blower); null for plain items.")]
+        [SerializeField] private ItemEffectZone _effectZone;
 
         private const int MaxSwingOverlaps = 12;
 
@@ -34,16 +38,29 @@ namespace GameJam.Net
         private Vector3 _pendingThrowVelocity;
         private float _pendingThrowExpiry;
         private float _nextHitTime;
+        private bool _isEffectArmed;
+        private float _effectArmTime;
 
         [Networked] public PlayerRef Holder { get; private set; }
 
         [Networked] public PlayerRef Thrower { get; private set; }
+
+        /// <summary>Running while this item's landing effect (updraft, gust) blows; everyone shows the same zone.</summary>
+        [Networked] private TickTimer EffectTimer { get; set; }
+
+        [Networked] private Vector3 EffectOrigin { get; set; }
+
+        [Networked] private Quaternion EffectFlow { get; set; }
+
+        [Networked] private float EffectLength { get; set; }
 
         public ItemDefinition Definition => _definition;
 
         public bool IsHeld => _hand != null || (Object != null && Object.IsValid && Holder != PlayerRef.None);
 
         public Vector3 Position => transform.position;
+
+        public void ConfigureEffect(ItemEffectZone effectZone) => _effectZone = effectZone;
 
         public void Configure(ItemDefinition definition, KnockbackConfig knockbackConfig)
         {
@@ -97,6 +114,10 @@ namespace GameJam.Net
             _homePosition = transform.position;
             _homeRotation = transform.rotation;
             _defaultLayer = gameObject.layer;
+            if (_effectZone != null)
+            {
+                _effectZone.transform.SetParent(null, true); // the zone stays where the item landed, not on the item
+            }
             ApplyPhysicsMode();
         }
 
@@ -183,7 +204,40 @@ namespace GameJam.Net
 
         private void OnTriggerEnter(Collider other) => HandleContact(other);
 
-        private void OnCollisionEnter(Collision collision) => HandleContact(collision.collider);
+        private void OnCollisionEnter(Collision collision)
+        {
+            TriggerEffect();
+            HandleContact(collision.collider);
+        }
+
+        public override void Render()
+        {
+            if (_effectZone == null)
+            {
+                return;
+            }
+
+            bool isOn = EffectTimer.IsRunning && !EffectTimer.Expired(Runner);
+            Vector3? target = null;
+            float lift = 0f;
+            if (_definition.Effect == ItemEffect.HoopGust && EffectLength > GustOvershoot)
+            {
+                // The gust was aimed at a hoop GustOvershoot short of its far end: home the balloon onto the ring and hold it
+                // up against its own gravity (a flat wind alone carried it under the hoop in testing).
+                target = EffectOrigin + EffectFlow * Vector3.forward * (EffectLength - GustOvershoot);
+                lift = NetworkBalloon.Instance != null && NetworkBalloon.Instance.Config != null ? NetworkBalloon.Instance.Config.Gravity : 1f;
+            }
+
+            _effectZone.Show(isOn, EffectOrigin, EffectFlow, EffectLength, _definition.EffectWidth, _definition.EffectStrength, target, lift);
+        }
+
+        public override void Despawned(NetworkRunner runner, bool hasState)
+        {
+            if (_effectZone != null)
+            {
+                Destroy(_effectZone.gameObject);
+            }
+        }
 
         private void Throw(Vector3 velocity)
         {
@@ -192,6 +246,43 @@ namespace GameJam.Net
             _body.isKinematic = false;
             _body.linearVelocity = velocity;
             _body.angularVelocity = Random.insideUnitSphere * RandomSpin;
+            _isEffectArmed = _definition.Effect != ItemEffect.None;
+            _effectArmTime = Time.time;
+        }
+
+        /// <summary>
+        /// First impact after a throw sets off the item's effect where it is: a bubble updraft straight up, or a gust that
+        /// blows from here toward the nearest hoop not yet cleared (straight up when none is in range).
+        /// </summary>
+        private void TriggerEffect()
+        {
+            // Skip the first instant: a fresh throw can brush the thrower's own body.
+            if (!_isEffectArmed || Time.time < _effectArmTime + 0.15f || Object == null || !Object.IsValid || !HasStateAuthority)
+            {
+                return;
+            }
+
+            _isEffectArmed = false;
+            Vector3 origin = transform.position + Vector3.up * 0.1f;
+            Quaternion flow = Quaternion.LookRotation(Vector3.up, Vector3.forward);
+            float length = _definition.EffectLength;
+            HoopCheckpoint hoop = _definition.Effect == ItemEffect.HoopGust ? HoopCheckpoint.NearestOpen(origin, _definition.EffectLength * 2f) : null;
+            if (hoop != null)
+            {
+                Vector3 toHoop = hoop.transform.position - origin;
+                flow = Quaternion.LookRotation(toHoop.normalized, Vector3.up);
+                length = toHoop.magnitude + GustOvershoot; // blows just past the ring
+            }
+
+            EffectOrigin = origin;
+            EffectFlow = flow;
+            EffectLength = length;
+            EffectTimer = TickTimer.CreateFromSeconds(Runner, _definition.EffectSeconds);
+
+            if (GameState.Instance != null)
+            {
+                GameState.Instance.Announce(_definition.Effect == ItemEffect.Updraft ? "Bubbles! Ride them up!" : "The leaf blower's on, follow the wind!");
+            }
         }
 
         /// <summary>
@@ -238,7 +329,10 @@ namespace GameJam.Net
                 }
                 else
                 {
-                    balloon.RequestHit(hitter, velocity * _definition.BalloonPower);
+                    // Helpful items steer the knock toward the nearest open hoop (GDD: most items help with the balloon).
+                    Vector3 hit = HoopAim.Assist(balloon.transform.position, velocity * _definition.BalloonPower,
+                        _definition.HoopAssist, _definition.HoopAssistRange, balloon.Config);
+                    balloon.RequestHit(hitter, hit);
                 }
 
                 return;

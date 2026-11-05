@@ -161,6 +161,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: GameJam.Net::GameJam.Net.NetworkItem
   _definition: {fileID: 11400000, guid: 48b597a85c3c96e46bb802ae8d9c63dc, type: 2}
   _knockbackConfig: {fileID: 11400000, guid: 9e347150f0176ba4a9ce5f2a7564e560, type: 2}
+  _effectZone: {fileID: 0}
 --- !u!1001 &549074582753432216
 PrefabInstance:
   m_ObjectHideFlags: 0

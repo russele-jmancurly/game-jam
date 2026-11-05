@@ -76,7 +76,7 @@ namespace GameJam.Gameplay
                 var wind = other.GetComponentInParent<WindVolume>();
                 if (wind != null)
                 {
-                    velocity += wind.BalloonAcceleration * input.DeltaTime;
+                    velocity += wind.BalloonAccelerationAt(position) * input.DeltaTime;
                 }
 
                 var pad = other.GetComponentInParent<BouncePad>();

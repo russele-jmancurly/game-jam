@@ -92,6 +92,7 @@ namespace GameJam.Editor
             BuildPassingObjects();
             BuildHoops();
             BuildItemStashes();
+            SetPieceModels.Apply(_course); // real-looking models over the gameplay primitives (Art/Set), colliders unchanged
         }
 
         private static Palette CreatePalette()
@@ -389,18 +390,35 @@ namespace GameJam.Editor
             // A climbable giant tree in the middle, with branch platforms and the highest hoop above them.
             Vector3 c = TreeCenter;
             Material bark = PlaceholderAssets.Material("Bark", ArtPalette.TimberDark, 0.1f);
-            Box("TreeTrunk", c + new Vector3(0f, 5f, 0f), new Vector3(2.4f, 10f, 2.4f), bark);
+            // 3.2 m wide: matches the modelled bark (Art/Set/Tree), so climbing hands land on the trunk you see.
+            Box("TreeTrunk", c + new Vector3(0f, 5f, 0f), new Vector3(3.2f, 10f, 3.2f), bark);
             for (int i = 0; i < 8; i++)
             {
                 float y = 1.2f + i * 1.1f;
                 Quaternion around = Quaternion.Euler(0f, i * 90f + 45f, 0f);
-                PlaceholderShapes.Primitive(PrimitiveType.Sphere, "ClimbHold", _course, c + new Vector3(0f, y, 0f) + around * Vector3.forward * 1.25f,
+                PlaceholderShapes.Primitive(PrimitiveType.Sphere, "ClimbHold", _course, c + new Vector3(0f, y, 0f) + around * Vector3.forward * 1.85f,
                     new Vector3(0.45f, 0.3f, 0.3f), _palette.Climb, true);
             }
 
             Box("BranchLow", c + new Vector3(2.6f, 4f, 0f), new Vector3(3.5f, 0.5f, 1.4f), bark);
             Box("BranchMid", c + new Vector3(-2.4f, 6.5f, 0.6f), new Vector3(3.2f, 0.5f, 1.4f), bark);
             Box("BranchHigh", c + new Vector3(0.4f, 9.2f, -2.4f), new Vector3(1.4f, 0.5f, 3.2f), bark);
+
+            // Bounce mushroom beside the low branch: launches players ~4.6 m (9.5 m/s), enough to grab the branch (top 4.25 m)
+            // for the tree hoop above it. The balloon gets a gentler lift from it too.
+            Vector3 mushroom = c + new Vector3(2.6f, 0f, -1.9f);
+            Material stem = PlaceholderAssets.Material("MushroomStem", ArtPalette.Picket, 0.3f);
+            Material cap = PlaceholderAssets.Material("MushroomCap", ArtPalette.Hazard, 0.45f);
+            PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "MushroomStem", _course, mushroom + new Vector3(0f, 0.2f, 0f), new Vector3(0.7f, 0.2f, 0.7f), stem, false);
+            PlaceholderShapes.Primitive(PrimitiveType.Sphere, "MushroomCap", _course, mushroom + new Vector3(0f, 0.45f, 0f), new Vector3(1.8f, 0.5f, 1.8f), cap, false);
+            for (int i = 0; i < 5; i++)
+            {
+                Quaternion around = Quaternion.Euler(0f, i * 72f, 0f);
+                PlaceholderShapes.Primitive(PrimitiveType.Sphere, "MushroomSpot", _course, mushroom + new Vector3(0f, 0.62f, 0f) + around * new Vector3(0f, 0f, 0.5f),
+                    new Vector3(0.28f, 0.1f, 0.28f), stem, false);
+            }
+
+            PlaceholderShapes.TriggerBox("MushroomPad", _course, mushroom + new Vector3(0f, 0.75f, 0f), new Vector3(1.6f, 0.4f, 1.6f)).AddComponent<BouncePad>().Configure(9.5f);
 
             Material leaves = PlaceholderAssets.Material("Leaves", ArtPalette.LawnDark, 0.1f);
             foreach (Vector3 offset in new[] { new Vector3(0f, 13f, 0f), new Vector3(3.5f, 11.5f, 1.5f), new Vector3(-3.5f, 12f, -1f), new Vector3(1f, 12f, 3.5f), new Vector3(-1f, 12.5f, -3.5f) })
@@ -607,7 +625,7 @@ namespace GameJam.Editor
             const float diveBoardTop = 1.625f;  // BuildPool: board centre 1.5 m, 0.25 m thick; its tip is 6 m west of the pool centre
             const float merryTop = 0.35f;       // BuildPlayground: disc centre 0.25 m, 0.2 m thick
             const float flamesTop = 2.15f;      // BuildBbq: flame trigger centre 1.9 m, 0.5 m tall
-            const float branchHighTop = 9.45f;  // BuildTree: BranchHigh centre 9.2 m, 0.5 m thick, spans z -4.0..-0.8 around the trunk
+            const float branchLowTop = 4.25f;   // BuildTree: BranchLow centre 4 m, 0.5 m thick, spans x 0.85..4.35 from the trunk
             const float fenceTop = 7f;          // BuildFence: picket height
             (Vector3 hoop, Vector3 checkpoint, float yaw)[] hoops =
             {
@@ -615,8 +633,9 @@ namespace GameJam.Editor
                 (PoolCenter + new Vector3(-5f, diveBoardTop + HoopAboveFloor, 0f), PoolCenter + new Vector3(-13f, 0f, -6f), 60f),
                 // Through the laundry: the sheets hang from 2.3 m, so they brush the top of the ring and swat the balloon.
                 (WashingLineCenter + new Vector3(0f, HoopAboveFloor, -7f), WashingLineCenter + new Vector3(8f, 0f, -12f), -20f),
-                // Top of the tree, above the end of the highest branch.
-                (TreeCenter + new Vector3(0.4f, branchHighTop + HoopAbovePerch, -3.2f), TreeCenter + new Vector3(0f, 0f, -14f), 0f),
+                // In the tree, above the low branch: the mushroom pad at the trunk bounces you up onto it (playtest: the
+                // old spot above the top branch, 11.35 m up, was too high to work the balloon up to).
+                (TreeCenter + new Vector3(2.8f, branchLowTop + HoopAbovePerch, 0f), TreeCenter + new Vector3(0f, 0f, -14f), 0f),
                 // Above the merry-go-round: ride it and slap the balloon up through as you spin past.
                 (PlaygroundCenter + new Vector3(4f, merryTop + HoopAboveFloor, -2f), PlaygroundCenter + new Vector3(6f, 0f, -12f), 0f),
                 // Over the grill: the ring's bottom clears the flames by 0.1 m, so a low balloon still gets burnt.
@@ -663,7 +682,7 @@ namespace GameJam.Editor
         private static void BuildItemStashes()
         {
             // Start pile: one of everything. Zone stashes: a couple of items within reach everywhere (GDD: Items).
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 10; i++)
             {
                 ItemSpawn(i, new Vector3(-5f, 0.9f, -9.6f + i * 0.9f));
             }
@@ -675,6 +694,9 @@ namespace GameJam.Editor
                 (4, PlaygroundCenter + new Vector3(8f, 0.6f, -10f)), (5, PlaygroundCenter + new Vector3(10f, 0.6f, -10f)),
                 (6, BbqCenter + new Vector3(-2f, PicnicTableTop + 0.5f, 5f)), (7, BbqCenter + new Vector3(2f, PicnicTableTop + 0.5f, 5f)),
                 (1, TreeCenter + new Vector3(5f, 0.6f, -6f)), (3, TreeCenter + new Vector3(-5f, 0.6f, -6f)),
+                // Hoop helpers: bubble wands (updraft) under the high hoops, leaf blowers (gust to the nearest hoop) by the rest.
+                (8, TreeCenter + new Vector3(4.5f, 0.6f, -4.5f)), (8, new Vector3(-42f, 0.6f, 88f)), (8, PoolCenter + new Vector3(-13f, 0.6f, -2f)),
+                (9, BbqCenter + new Vector3(7f, 0.6f, -9f)), (9, WashingLineCenter + new Vector3(4f, 0.6f, -11f)), (9, PlaygroundCenter + new Vector3(9f, 0.6f, -6f)),
             };
 
             foreach ((int item, Vector3 position) in stashes)

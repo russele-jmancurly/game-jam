@@ -20,3 +20,10 @@ MonoBehaviour:
   KillHeight: -2
   Mass: 0.3
   HitCooldown: 0.3
+  HoopAssist: 0.6
+  HoopAssistRange: 9
+  Effect: 0
+  EffectSeconds: 6
+  EffectStrength: 3
+  EffectWidth: 1.8
+  EffectLength: 7

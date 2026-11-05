@@ -22,6 +22,11 @@ namespace GameJam.Gameplay
         private bool _wasCleared;
         private bool _hasPainted;
 
+        private static readonly System.Collections.Generic.List<HoopCheckpoint> ActiveHoops = new System.Collections.Generic.List<HoopCheckpoint>();
+
+        /// <summary>Every hoop in the loaded yard (for items that aim the balloon at one).</summary>
+        public static System.Collections.Generic.IReadOnlyList<HoopCheckpoint> All => ActiveHoops;
+
         public int Index => _index;
 
         public void Configure(int index, Renderer[] ringRenderers, Transform spinner)
@@ -31,7 +36,35 @@ namespace GameJam.Gameplay
             _spinner = spinner;
         }
 
+        /// <summary>The closest hoop not yet cleared within range of a point, or null.</summary>
+        public static HoopCheckpoint NearestOpen(Vector3 from, float range)
+        {
+            IRunStatus run = GameServices.Run;
+            HoopCheckpoint best = null;
+            float bestDistance = range * range;
+            foreach (HoopCheckpoint hoop in ActiveHoops)
+            {
+                if (run != null && run.IsHoopCleared(hoop._index))
+                {
+                    continue;
+                }
+
+                float distance = (hoop.transform.position - from).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = hoop;
+                }
+            }
+
+            return best;
+        }
+
         private void Awake() => _block = new MaterialPropertyBlock();
+
+        private void OnEnable() => ActiveHoops.Add(this);
+
+        private void OnDisable() => ActiveHoops.Remove(this);
 
         private void Update()
         {

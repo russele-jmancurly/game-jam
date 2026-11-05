@@ -58,6 +58,9 @@ namespace GameJam.Net
         /// </summary>
         public bool IsPassRuleSuspended => _config.AllowSoloDoubleHits && CountPlayers() < 2;
 
+        /// <summary>The balloon's flight tuning (items use it to aim a hit through a hoop).</summary>
+        public BalloonConfig Config => _config;
+
         private bool IsLive => GameState.Instance == null || GameState.Instance.IsBalloonLive;
 
         private bool IsReady => Object != null && Object.IsValid;
