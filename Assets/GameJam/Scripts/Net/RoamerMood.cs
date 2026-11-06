@@ -7,5 +7,7 @@ namespace GameJam.Net
         Chase,
         WindUp,
         Cooldown,
+        Slap,
+        Idle,
     }
 }

@@ -18,10 +18,15 @@ MonoBehaviour:
   RoamerScale: 2.4
   RoamerWalkSpeed: 2
   RoamerChaseSpeed: 3.6
+  RoamerAcceleration: 3
+  RoamerTurnSpeed: 140
+  RoamerIdleSeconds: {x: 1.5, y: 4}
   RoamerNoticeDistance: 10
   RoamerReachHeight: 6
   RoamerBonkDistance: 2.6
   RoamerWindUpSeconds: 0.8
+  RoamerSlapSwingSeconds: 0.22
   RoamerBonkSpeed: 5.5
+  RoamerSlapLift: 0.7
   RoamerBonkCooldown: 7
   RoamerBumpForce: 4

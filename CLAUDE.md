@@ -107,7 +107,11 @@ Assets/GameJam/
   mischief maker picks one of them per run. Game models live at `Assets/GameJam/Characters/<Name>/<Name>_Game.fbx`, made
   from source files with `tools/blender/scripts/prepare_character.py` (static mesh, upright, packed textures written to
   `<Name>_Game.fbm` at <= 1024 px, `--budget Mesh=N` for one dense part like hair; players <= 6000 tris, map
-  characters ~10000); the prototype builder links them automatically and shows a placeholder while one is missing.
+  characters ~10000); then `tools/blender/scripts/rig_character.py <Name>_Game.fbx <Name>_Game.fbx` rigs it in place
+  (fitted 19-bone humanoid, auto weights, one skinned mesh, clips Idle/Walk/WindUp/Slap/Wave; check poses with
+  `render_pose.py`). `ShowCharacterImport` names and loops the clips; the prototype builder links model and clips into
+  `CharacterDefinition`, and `CharacterVisual` plays them through `CharacterAnimator` (Playables, no controller asset).
+  A placeholder shows while a model is missing.
   Sources go in `ArtSource/<Name>/` with their `Textures/` (gitignored); the user drops large ones into `Assets/GameJam/`,
   then move them out. The Drive connector can't download files over 10 MB: ask the user to fetch those by hand.
 - Players are all the same porcupine in natural colours (no per-player tint; name tag in the player colour): the skinned
@@ -119,7 +123,10 @@ Assets/GameJam/
 - Items help with hoops (GDD: Items): `ItemDefinition.HoopAssist` steers an item hit through the nearest open hoop
   (`HoopAim` solves the balloon flight); `ItemDefinition.Effect` = what a thrown item sets off on impact: bubble wand
   `Updraft`, leaf blower `HoopGust` (a `WindVolume` that homes the balloon onto the hoop). `item_effect_test.cs` tests them.
-- `MischiefMaker` is the roaming giant (Jmancurly or Squoof per run, master-client owned, telegraphed bonks).
+- `MischiefMaker` is the roaming giant (Jmancurly or Squoof per run, master-client owned): eased walking, idle pauses, then
+  WindUp (held over the telegraph) and Slap clips timed so the hand lands on the hit. With an unrigged model it falls back
+  to procedural motion and a builder-made `SlapArm`/`SlapHand`. Movement and slap tuning: `CharacterRoster` (`Roamer*`).
+  The host and commentator on stage idle and wave now and then.
 - Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with
   `PlayerRigConfig.ForceDesktopMode`. Solo, the pass rule is suspended (`BalloonConfig.AllowSoloDoubleHits`).

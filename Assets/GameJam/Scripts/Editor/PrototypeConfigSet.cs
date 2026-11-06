@@ -63,6 +63,7 @@ namespace GameJam.Editor
 
             MarkNormalMaps($"{CharacterFolder}/{modelPath}");
             character.Model = AssetDatabase.LoadAssetAtPath<GameObject>($"{CharacterFolder}/{modelPath}");
+            LinkClips(character, $"{CharacterFolder}/{modelPath}");
             if (materialOverride != null && character.MaterialOverride == null)
             {
                 character.MaterialOverride = materialOverride;
@@ -70,6 +71,32 @@ namespace GameJam.Editor
 
             EditorUtility.SetDirty(character);
             return character;
+        }
+
+        /// <summary>
+        /// Links the clips of a rigged model (tools/blender/scripts/rig_character.py: Idle, Walk, WindUp, Slap, Wave;
+        /// named by ShowCharacterImport). A static model leaves them empty and the character stays unanimated.
+        /// </summary>
+        private static void LinkClips(CharacterDefinition character, string modelPath)
+        {
+            AnimationClip Find(string name)
+            {
+                foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(modelPath))
+                {
+                    if (asset is AnimationClip clip && clip.name == name)
+                    {
+                        return clip;
+                    }
+                }
+
+                return null;
+            }
+
+            character.Idle = Find("Idle");
+            character.Walk = Find("Walk");
+            character.WindUp = Find("WindUp");
+            character.Slap = Find("Slap");
+            character.Wave = Find("Wave");
         }
 
         /// <summary>

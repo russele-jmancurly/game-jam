@@ -16,6 +16,8 @@ namespace GameJam.Gameplay
         [Tooltip("Optional: a fixed character shown when the scene starts (map figures like the host and commentator).")]
         [SerializeField] private CharacterDefinition _showOnStart;
         [SerializeField] private float _showOnStartHeight = 1.6f;
+        [Tooltip("Rigged characters wave at the crowd now and then while standing (the host and commentator).")]
+        [SerializeField] private bool _ambientGestures;
 
         private GameObject _instance;
         private CharacterDefinition _shown;
@@ -23,13 +25,17 @@ namespace GameJam.Gameplay
 
         public CharacterDefinition Shown => _shown;
 
+        /// <summary>The clip player when the shown character is rigged and animated; null for static models and placeholders.</summary>
+        public CharacterAnimator Animation { get; private set; }
+
         public void Configure(Material placeholderMaterial) => _placeholderMaterial = placeholderMaterial;
 
         /// <summary>Builder wiring: show this character at this height as soon as the scene starts.</summary>
-        public void ShowOnLoad(CharacterDefinition character, float height)
+        public void ShowOnLoad(CharacterDefinition character, float height, bool ambientGestures = false)
         {
             _showOnStart = character;
             _showOnStartHeight = height;
+            _ambientGestures = ambientGestures;
         }
 
         private void Start()
@@ -83,6 +89,22 @@ namespace GameJam.Gameplay
             }
 
             FitToHeight(height);
+            if (character.IsAnimated)
+            {
+                StartAnimation(character, height);
+            }
+        }
+
+        private void StartAnimation(CharacterDefinition character, float height)
+        {
+            if (!_instance.TryGetComponent(out Animator animator))
+            {
+                animator = _instance.AddComponent<Animator>();
+            }
+
+            Animation = _instance.AddComponent<CharacterAnimator>();
+            Animation.Initialize(animator, character, height);
+            Animation.SetAmbientWave(_ambientGestures);
         }
 
         public void SetVisible(bool isVisible)
@@ -107,6 +129,7 @@ namespace GameJam.Gameplay
 
             _instance = null;
             _shown = null;
+            Animation = null;
         }
 
         /// <summary>Uniformly scales the instance to the height and puts its lowest point on this transform's origin.</summary>

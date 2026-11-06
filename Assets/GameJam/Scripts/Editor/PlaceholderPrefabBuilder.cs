@@ -147,7 +147,14 @@ namespace GameJam.Editor
             TextMesh alert = PlaceholderShapes.Text("Alert", root.transform, new Vector3(0f, height + 0.9f, 0f), 0.12f, "!", ArtPalette.Hazard);
             alert.fontStyle = FontStyle.Bold;
 
-            roamer.Configure(configs.Roster, visual, visualRoot, alert, wanderPoints, avoidCircles, bounds);
+            // The slap arm: a mitt and a forearm the roamer animates from its shoulder (visual only, no colliders).
+            Material mitt = PlaceholderAssets.Material("RoamerMitt", ArtPalette.Timber, 0.25f);
+            Transform slapArm = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "SlapArm", visualRoot, new Vector3(0.3f * height, 0.55f * height, 0f),
+                new Vector3(0.07f * height, 0.15f * height, 0.07f * height), mitt, false).transform;
+            Transform slapHand = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "SlapHand", visualRoot, new Vector3(0.3f * height, 0.42f * height, 0f),
+                Vector3.one * (0.17f * height), mitt, false).transform;
+
+            roamer.Configure(configs.Roster, visual, visualRoot, alert, slapHand, slapArm, wanderPoints, avoidCircles, bounds);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             return PlaceholderAssets.SavePrefab(root, "MischiefMaker");
         }

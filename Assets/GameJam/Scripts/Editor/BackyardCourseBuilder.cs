@@ -243,7 +243,7 @@ namespace GameJam.Editor
 
         /// <summary>
         /// The show's crew as map entities (players are all the porcupine): Jman, the host, greets the crew on the start
-        /// stage; Squoof commentates from the top of the booth above the headline board. Static figures, purely visual.
+        /// stage; Squoof commentates from the top of the booth above the headline board. Purely visual; rigged ones idle and wave.
         /// </summary>
         private static void BuildShowCrew(Vector3 stage, Vector3 screen)
         {
@@ -293,7 +293,7 @@ namespace GameJam.Editor
             figure.transform.SetParent(_course, false);
             figure.transform.SetPositionAndRotation(feet, Quaternion.Euler(0f, yaw, 0f));
             figure.Configure(fallback);
-            figure.ShowOnLoad(character, height);
+            figure.ShowOnLoad(character, height, true); // rigged crew idle and wave at the crowd now and then
             if (solid)
             {
                 var body = figure.gameObject.AddComponent<CapsuleCollider>();
