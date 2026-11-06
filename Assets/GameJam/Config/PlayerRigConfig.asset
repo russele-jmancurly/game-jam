@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.PlayerRigConfig
   SnapTurnDegrees: 45
   PostProcessingInHeadset: 0
+  HeadsetLightBoost: 1.35
   VelocityLimit: 0.4
   SlideVelocityLimit: 0.7
   MaxJumpSpeed: 7.5

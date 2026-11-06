@@ -159,6 +159,8 @@ Assets/GameJam/
   QuadraticDrag at 0: `HoopAim` assumes linear drag. Items and the giant bypass the slap shaping. Hits squash it along the hit direction, flash it white, rumble harder for harder slaps, and play one of three generated
   `Balloon_Slap_*` sounds for everyone. `balloon_smoothness.cs` (per-frame motion), `balloon_slap_flight.cs` (rise/travel of a given slap) and
   `slap_speed_record.cs` (your real slap speeds in a headset) are the tuning tools.
+- Balloon look per player: to whoever hit it last (pass rule on), it shows `BalloonConfig.NotYourTurnColor`, pulsing;
+  everyone else sees the hitter colour. In the headset (no colour grading) `LocalRig` multiplies sun and ambient by `PlayerRigConfig.HeadsetLightBoost`.
 - Bounce pads (trampoline, diving-board spring, tree mushroom) launch players only (`BouncePad._balloonFactor` 0): a
   balloon relaunched by a pad hovered over it forever.
 - Simple mode: water only pops the balloon (players can wade in the pool), and players hitting players (slaps, thrown or

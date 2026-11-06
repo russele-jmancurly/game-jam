@@ -271,8 +271,46 @@ namespace GameJam.Player
             }
         }
 
+        private float _appliedLightBoost = 1f;
+        private float _sunBaseIntensity = -1f;
+        private Color _ambientSky;
+        private Color _ambientEquator;
+        private Color _ambientGround;
+
+        /// <summary>
+        /// Headset only (no colour grading there): brighten the sun and the ambient light by
+        /// PlayerRigConfig.HeadsetLightBoost. Re-applied whenever the value changes, from the authored base values.
+        /// </summary>
+        private void UpdateHeadsetLighting()
+        {
+            float boost = UsesHeadset && !_config.PostProcessingInHeadset ? _config.HeadsetLightBoost : 1f;
+            if (Mathf.Approximately(boost, _appliedLightBoost))
+            {
+                return;
+            }
+
+            if (_sunBaseIntensity < 0f)
+            {
+                _sunBaseIntensity = RenderSettings.sun != null ? RenderSettings.sun.intensity : 1f;
+                _ambientSky = RenderSettings.ambientSkyColor;
+                _ambientEquator = RenderSettings.ambientEquatorColor;
+                _ambientGround = RenderSettings.ambientGroundColor;
+            }
+
+            _appliedLightBoost = boost;
+            if (RenderSettings.sun != null)
+            {
+                RenderSettings.sun.intensity = _sunBaseIntensity * boost;
+            }
+
+            RenderSettings.ambientSkyColor = _ambientSky * boost;
+            RenderSettings.ambientEquatorColor = _ambientEquator * boost;
+            RenderSettings.ambientGroundColor = _ambientGround * boost;
+        }
+
         private void Update()
         {
+            UpdateHeadsetLighting();
             if (UsesHeadset)
             {
                 UpdateTracking();

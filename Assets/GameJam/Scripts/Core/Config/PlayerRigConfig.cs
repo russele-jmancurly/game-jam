@@ -13,6 +13,9 @@ namespace GameJam.Core
         [Tooltip("Post-processing (colour grading, vignette) costs a full-screen pass. Off in the headset by default " +
                  "to protect Quest frame time; always on in PC test mode.")]
         public bool PostProcessingInHeadset;
+        [Tooltip("The headset skips the PC colour grading, so the same scene looks darker in it. Sun and ambient light " +
+                 "are multiplied by this in the headset only (applied live). 1 = as authored.")]
+        [Range(1f, 2f)] public float HeadsetLightBoost = 1.35f;
 
         [Header("Gorilla locomotion (GorillaPlus; applied every frame, so tune it live)")]
         [Tooltip("Hand speed (m/s, averaged) needed to launch off a surface. Lower = jumps trigger more easily.")]

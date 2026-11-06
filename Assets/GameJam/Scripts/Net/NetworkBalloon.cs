@@ -77,6 +77,10 @@ namespace GameJam.Net
         /// </summary>
         public bool IsPassRuleSuspended => _config.AllowSoloDoubleHits && CountPlayers() < 2;
 
+        /// <summary>The local player hit it last and the pass rule is on: their next touch would pop it.</summary>
+        private bool IsNotLocalPlayersTurn =>
+            Runner != null && LastHitter != PlayerRef.None && LastHitter == Runner.LocalPlayer && !IsPassRuleSuspended;
+
         /// <summary>The balloon's flight tuning (items use it to aim a hit through a hoop).</summary>
         public BalloonConfig Config => _config;
 
@@ -253,7 +257,17 @@ namespace GameJam.Net
                 // A white flash on contact, fading in a few frames.
                 float since = Time.time - _lastHitTime;
                 float flash = Mathf.Exp(-since * 22f) * _lastHitStrength;
-                _colorBlock.SetColor(BaseColorId, Color.Lerp(LastHitter.ToPaletteColor(), Color.white, flash * 0.8f));
+                Color color = LastHitter.ToPaletteColor();
+                if (IsNotLocalPlayersTurn)
+                {
+                    // You hit it last: touching it again pops it. Dull, gently pulsing, so you leave it to a friend.
+                    float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * _config.NotYourTurnPulse * Mathf.PI * 2f);
+                    Color dim = _config.NotYourTurnColor * 0.75f;
+                    dim.a = 1f;
+                    color = Color.Lerp(_config.NotYourTurnColor, dim, pulse);
+                }
+
+                _colorBlock.SetColor(BaseColorId, Color.Lerp(color, Color.white, flash * 0.8f));
                 _visual.SetPropertyBlock(_colorBlock);
 
                 // Idle breathing wobble, plus a squash along the hit direction that springs back and jiggles (latex).
