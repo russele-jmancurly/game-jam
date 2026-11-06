@@ -9,6 +9,15 @@ namespace GameJam.Core
     [CreateAssetMenu(menuName = "Game Jam/Config/Knockback Config", fileName = "KnockbackConfig")]
     public sealed class KnockbackConfig : ScriptableObject
     {
+        [Header("Players hitting players (friend slaps, thrown and swung items)")]
+        [Tooltip("Off (simple mode): a player's slap or item only shoves the other player a little; nobody gets " +
+                 "ragdolled or loses their hands. On: the old knockdowns (FriendKnockdownSeconds, item stun/knockdown).")]
+        public bool PlayerHitsKnockDown;
+        [Tooltip("Speed of the shove a player's slap or item gives another player while PlayerHitsKnockDown is off.")]
+        [Min(0f)] public float PlayerPushForce = 2.5f;
+        [Tooltip("How long the shoved player's hands let go of the ground so the shove can move them (seconds).")]
+        [Range(0.05f, 0.5f)] public float PlayerPushReleaseSeconds = 0.15f;
+
         [Header("Your own view (a straight shove, never a camera spin)")]
         [Tooltip("Minimum upward share of a knockback, so you never get pushed into the floor.")]
         [Range(0f, 1f)] public float MinUpward = 0.15f;

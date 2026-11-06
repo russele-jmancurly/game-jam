@@ -151,7 +151,9 @@ namespace GameJam.Editor
             Material lampGlow = PlaceholderAssets.Emissive("LampGlow", ArtPalette.SunLight, 2f);
             float w = BackyardCourseBuilder.HalfWidth;
 
-            foreach (float z in new[] { 0f, 40f, 80f })
+            float south = BackyardCourseBuilder.SouthEdge;
+            float north = BackyardCourseBuilder.NorthEdge;
+            foreach (float z in new[] { south + 16f, (south + north) / 2f, north - 10f })
             {
                 for (int side = -1; side <= 1; side += 2)
                 {
@@ -170,8 +172,8 @@ namespace GameJam.Editor
                 }
             }
 
-            Stand(staticParent, movingParent, new Vector3(-(w + 16f), 0f, 30f), 90f);
-            Stand(staticParent, movingParent, new Vector3(w + 16f, 0f, 66f), -90f);
+            Stand(staticParent, movingParent, new Vector3(-(w + 16f), 0f, (south + north) / 2f - 8f), 90f);
+            Stand(staticParent, movingParent, new Vector3(w + 16f, 0f, (south + north) / 2f + 8f), -90f);
             Stand(staticParent, movingParent, new Vector3(0f, 0f, BackyardCourseBuilder.SouthEdge - 14f), 0f);
         }
 
@@ -245,14 +247,10 @@ namespace GameJam.Editor
         private static void BuildPicnicFood(Transform parent)
         {
             // The studio's food props as giant picnic set pieces on the BBQ table, and ice-cream landmarks by the house.
-            Vector3 table = BackyardCourseBuilder.BbqCenter + new Vector3(0f, BackyardCourseBuilder.PicnicTableTop + 0.03f, 5f);
-            Food("Burger_Visual", parent, table + new Vector3(-4f, 0f, -1f), 10f, 25f);
-            Food("Hotdog_Visual", parent, table + new Vector3(4.2f, 0f, 1.2f), 8f, 70f);
-            Food("Pizza_Visual", parent, table + new Vector3(3.8f, 0f, -1.3f), 9f, -20f);
-            Food("Sushi_Visual", parent, table + new Vector3(-4f, 0f, 1.4f), 8f, 140f);
-
-            Food("IceCream_Visual", parent, new Vector3(-26f, 0f, 100f), 38f, 15f);
-            Food("IceCream_Visual", parent, new Vector3(28f, 0f, 99f), 32f, -30f);
+            float w = BackyardCourseBuilder.HalfWidth;
+            float north = BackyardCourseBuilder.NorthEdge;
+            Food("IceCream_Visual", parent, new Vector3(-(w - 8f), 0f, north - 3f), 38f, 15f);
+            Food("IceCream_Visual", parent, new Vector3(w - 7f, 0f, north - 4f), 32f, -30f);
         }
 
         /// <summary>Places one of the Drive food models at a scale, sitting on the given height, with the shared colour atlas.</summary>

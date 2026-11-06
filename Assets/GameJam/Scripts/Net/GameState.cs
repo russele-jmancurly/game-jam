@@ -33,6 +33,9 @@ namespace GameJam.Net
         [Networked] public RunState State { get; private set; }
 
         /// <summary>Bit i set = hoop i cleared this run.</summary>
+        [SerializeField] private AudioSource _winAudio;
+        private bool _playedWin;
+
         [Networked] public int HoopMask { get; private set; }
 
         /// <summary>The last hoop cleared, or -1 before the first one.</summary>
@@ -74,18 +77,37 @@ namespace GameJam.Net
             RunState.Running => $"{TimeFormat.MinutesSeconds(TimeLeft)}  {HoopsCleared}/{_hoopCount}",
             RunState.Countdown => "Ready",
             RunState.Finished => LastScore > 0 ? MedalText(LastScore) : "Time up",
-            _ => "Lobby",
+            _ => $"{_hoopCount} hoops\nslap one to start",
         };
 
+        /// <summary>Everyone hears the fanfare once when a run ends with a medal; it re-arms for the next run.</summary>
+        private void PlayWinOnce()
+        {
+            bool won = State == RunState.Finished && LastScore > 0;
+            if (won && !_playedWin && _winAudio != null)
+            {
+                _winAudio.Play();
+            }
+
+            _playedWin = won;
+        }
+
         public void Configure(RunConfig config) => _config = config;
+
+        /// <summary>Builder wiring: a 2D source that plays the win fanfare for everyone when a run ends with a medal.</summary>
+        public void ConfigureSounds(AudioSource winAudio) => _winAudio = winAudio;
 
         public bool IsHoopCleared(int hoopIndex) => hoopIndex >= 0 && hoopIndex < 32 && (HoopMask & (1 << hoopIndex)) != 0;
 
         public void RequestStart() => RpcRequestStart();
 
+        /// <summary>
+        /// The balloon went through a hoop. During a run it counts; in the lobby it starts the run on the spot (so playing
+        /// without pressing Start still counts) and counts that hoop.
+        /// </summary>
         public void ReportHoop(int hoopIndex)
         {
-            if (State == RunState.Running && !IsHoopCleared(hoopIndex))
+            if ((State == RunState.Running || State == RunState.Lobby) && !IsHoopCleared(hoopIndex))
             {
                 RpcReportHoop(hoopIndex);
             }
@@ -127,7 +149,7 @@ namespace GameJam.Net
             {
                 State = RunState.Lobby;
                 LastHoop = NoHoop;
-                Headline = "Slap the red button to start!";
+                Headline = "Slap the balloon through a hoop to start!";
             }
         }
 
@@ -164,13 +186,19 @@ namespace GameJam.Net
             else if (State == RunState.Running && Timer.Expired(Runner))
             {
                 State = RunState.Finished;
+                Timer = TickTimer.CreateFromSeconds(Runner, _config.ResultSeconds);
                 LastScore = 0;
-                Headline = "Time's up! No medal this time.";
+                Headline = "Time's up! Back to the start...";
+            }
+            else if (State == RunState.Finished && Timer.Expired(Runner))
+            {
+                ReturnToLobby();
             }
         }
 
         public override void Render()
         {
+            PlayWinOnce();
             WatchMasterClient();
 
             CommentatorBoard board = CommentatorBoard.Instance;
@@ -215,9 +243,9 @@ namespace GameJam.Net
                 NetworkBalloon.Instance.ResetTo(CourseLayout.BalloonSpawn(0));
             }
 
-            if (MischiefMaker.Instance != null)
+            foreach (MischiefMaker giant in MischiefMaker.Active)
             {
-                MischiefMaker.Instance.Reroll(); // a different giant troublemaker every run
+                giant.Reroll(); // fresh wander for every giant (each keeps its own character)
             }
 
             RpcRespawnCrewAtStart();
@@ -235,7 +263,17 @@ namespace GameJam.Net
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         private void RpcReportHoop(int hoopIndex)
         {
-            if (State != RunState.Running || hoopIndex < 0 || hoopIndex >= 32 || IsHoopCleared(hoopIndex))
+            if (hoopIndex < 0 || hoopIndex >= 32)
+            {
+                return;
+            }
+
+            if (State == RunState.Lobby)
+            {
+                BeginRunInPlace();
+            }
+
+            if (State != RunState.Running || IsHoopCleared(hoopIndex))
             {
                 return;
             }
@@ -243,8 +281,42 @@ namespace GameJam.Net
             HoopMask |= 1 << hoopIndex;
             LastHoop = hoopIndex;
             Headline = AllHoopsCleared
-                ? "All hoops! Get it to the finish on the porch!"
+                ? "All hoops! Get it to the finish pad!"
                 : $"Hoop {HoopsCleared}/{_hoopCount}! Keep it up!";
+        }
+
+        /// <summary>
+        /// After the result: hoops back, balloon back on station at the start, crew back on the stage, ready for another go
+        /// (the balloon used to stay frozen wherever the run ended until someone pressed the red button).
+        /// </summary>
+        private void ReturnToLobby()
+        {
+            State = RunState.Lobby;
+            HoopMask = 0;
+            LastHoop = NoHoop;
+            Pops = 0;
+            Headline = "Slap the balloon through a hoop to start!";
+            if (NetworkBalloon.Instance != null)
+            {
+                NetworkBalloon.Instance.ResetTo(CourseLayout.BalloonSpawn(0));
+            }
+
+            foreach (MischiefMaker giant in MischiefMaker.Active)
+            {
+                giant.Reroll();
+            }
+
+            RpcRespawnCrewAtStart();
+        }
+
+        /// <summary>A run started by playing (a hoop cleared in the lobby): no countdown, no reset, the clock starts now.</summary>
+        private void BeginRunInPlace()
+        {
+            State = RunState.Running;
+            Timer = TickTimer.CreateFromSeconds(Runner, _config.RunSeconds);
+            HoopMask = 0;
+            LastHoop = NoHoop;
+            Pops = 0;
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -267,6 +339,7 @@ namespace GameJam.Net
             LastScore = score;
             BestScore = Mathf.Max(BestScore, score);
             State = RunState.Finished;
+            Timer = TickTimer.CreateFromSeconds(Runner, _config.ResultSeconds);
             Headline = $"{MedalText(score)}! {score} points!";
         }
 

@@ -46,6 +46,9 @@ namespace GameJam.Player
             _wasDown = isDown;
         }
 
+        /// <summary>The trigger on this hand: uses the held item (its effect runs while pressed).</summary>
+        public void SetUse(bool isPressed) => Held?.Use(isPressed);
+
         public void Drop()
         {
             Held?.Release(Vector3.zero);

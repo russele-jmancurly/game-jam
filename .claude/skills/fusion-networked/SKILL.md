@@ -117,6 +117,8 @@ It regenerates prefabs, materials and `Scenes/Prototype.unity`, but keeps existi
   The user ticks Player 2 in Window > Multiplayer > Multiplayer Play Mode; the CLI has no command for that.
   `unity command editor.playmode list_instances` lists clones; target one with `--instance <name>`.
   **MPPM needs the Fusion App ID**: offline Single mode gives every instance its own separate world.
+  **Fixed region**: `NetworkBootstrap._fixedRegion` (default `asia`) pins the Photon region. With best-region picking two
+  Editors on one PC landed in `asia` and `hk`: same session name, two separate rooms, 1 player each.
   Virtual players have no headset, so they run in PC test mode.
 - **Driving a clone from the CLI**: `--project-path` with the main path doesn't match a clone, and `--instance` didn't
   either; target it with `--pid <pid from list_instances>`. A clone resolves `script eval --file` relative paths against
@@ -137,4 +139,8 @@ It regenerates prefabs, materials and `Scenes/Prototype.unity`, but keeps existi
   balloon owner, a same-player double hit pops; a real glove slap (`mp_real_slap.cs` then `mp_real_slap_swing.cs`)
   registers from owner and guest; `SendKnockback` knocks the owner down while the other side shows a ragdoll.
   Expected noise: "no scene in StartGameArgs.Scene" (by design), clone-only Package Manager / ProjectSettingsWindow logs.
+- **Giant test (2026-11-06, passed)**: whichever instance is master owns `MischiefMaker`. Run
+  `giant_slap_record.cs` (CHARACTER = Jmancurly/Squoof) on the owner and the same file with CHARACTER = OBSERVE on the
+  other instance first, then `giant_slap_report.cs` on each: the remote sees the same mood/clip sequence, the slap clip
+  and hit in step with the owner, and calibrated walking (planted foot vs body speed).
 - Report what was only tested solo. Authority hand-off, voice and master-client loss need a real multi-player test.

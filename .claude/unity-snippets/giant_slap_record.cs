@@ -2,17 +2,23 @@
 // in front of it, and installs a per-frame recorder (EditorApplication.update): mood, gesture, Hand.R and balloon positions,
 // foot positions, and side-view PNGs at mid wind-up, at the hit and just after. Read the result with giant_slap_report.cs.
 // Run once to reroll (if needed), wait ~0.5 s, run again to place and record.
+// CHARACTER = OBSERVE: record only (no reroll, no teleport) for 15 s, e.g. on a second MPPM player watching a giant the
+// master client owns; screenshots then land in that player's own project folder.
 var m = GameJam.Net.MischiefMaker.Instance;
-if (m.DisplayName != "CHARACTER") { m.Reroll(); return "rerolled from " + m.DisplayName + "; run again"; }
+bool observe = "CHARACTER" == "OBSERVE";
+if (!observe && m.DisplayName != "CHARACTER") { m.Reroll(); return "rerolled from " + m.DisplayName + "; run again"; }
 
 var domain = System.AppDomain.CurrentDomain;
 if (domain.GetData("giantRecorder") is UnityEditor.EditorApplication.CallbackFunction old) UnityEditor.EditorApplication.update -= old;
 
-var giantPos = new UnityEngine.Vector3(12.5f, 0f, 12f);
-var nt = m.GetComponent<Fusion.NetworkTransform>();
-nt.Teleport(giantPos, UnityEngine.Quaternion.LookRotation(UnityEngine.Vector3.left));
-m.transform.position = giantPos;
-GameJam.Net.NetworkBalloon.Instance.ResetTo(new UnityEngine.Vector3(10.2f, BALLOON_HEIGHT, 12f));
+if (!observe)
+{
+    var giantPos = new UnityEngine.Vector3(12.5f, 0f, 12f);
+    var nt = m.GetComponent<Fusion.NetworkTransform>();
+    nt.Teleport(giantPos, UnityEngine.Quaternion.LookRotation(UnityEngine.Vector3.left));
+    m.transform.position = giantPos;
+    GameJam.Net.NetworkBalloon.Instance.ResetTo(new UnityEngine.Vector3(10.2f, BALLOON_HEIGHT, 12f));
+}
 
 var log = new System.Collections.Generic.List<string>();
 var shots = new System.Collections.Generic.List<string>();
@@ -23,6 +29,8 @@ string lastMood = "", lastAction = "";
 float windUpStart = -1f, hitAt = -1f;
 bool shotWind = false, shotHit = false, shotAfter = false;
 UnityEngine.Vector3 lastBalloonVel = UnityEngine.Vector3.zero;
+UnityEngine.Vector3? lastBalloonPos = null;
+float lastSampleT = 0f;
 float minHandDist = 999f; string minHandInfo = "";
 
 UnityEngine.Transform Find(UnityEngine.Transform root, string name)
@@ -47,6 +55,7 @@ void Shot(string label)
     tex.Apply();
     UnityEngine.RenderTexture.active = null;
     string path = "Screenshots/giant_CHARACTER_" + label + ".png";
+    System.IO.Directory.CreateDirectory("Screenshots");
     System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
     UnityEngine.Object.DestroyImmediate(tex);
     cam.targetTexture = null;
@@ -75,8 +84,16 @@ tick = () =>
     if (mood == "WindUp" && windUpStart < 0f) windUpStart = t;
     if (!shotWind && windUpStart >= 0f && t > windUpStart + 0.5f) { Shot("1_windup"); shotWind = true; }
     if ((mood == "Slap" || (mood == "Cooldown" && hitAt < 0f)) && handDist < minHandDist) { minHandDist = handDist; minHandInfo = $"{t:F2}s hand={handPos:F2} balloon={balloon.transform.position:F2}"; }
-    var vel = rb != null ? rb.linearVelocity : UnityEngine.Vector3.zero;
-    if (hitAt < 0f && windUpStart >= 0f && (vel - lastBalloonVel).magnitude > 2f)
+    // Balloon velocity from its movement (works on a proxy too, whose rigidbody is kinematic); a slap is > 3 m/s.
+    // Sampled over >= 50 ms of real time (the editor update can tick several times per rendered frame).
+    var vel = lastBalloonVel;
+    if (!lastBalloonPos.HasValue || t - lastSampleT >= 0.05f)
+    {
+        vel = lastBalloonPos.HasValue ? (balloon.transform.position - lastBalloonPos.Value) / (t - lastSampleT) : UnityEngine.Vector3.zero;
+        lastBalloonPos = balloon.transform.position;
+        lastSampleT = t;
+    }
+    if (hitAt < 0f && windUpStart >= 0f && vel.magnitude > 3f && mood != "WindUp")
     {
         hitAt = t;
         log.Add($"{t:F2}s HIT balloonVel={vel:F1} handToBalloon={handDist:F2} hand={handPos:F2} balloon={balloon.transform.position:F2}");
@@ -91,8 +108,8 @@ tick = () =>
         log.Add($"F {t:F3} {anyFoot.position.x:F3} {anyFoot.position.y:F3} {anyFoot.position.z:F3} {(anyFoot == footL ? "L" : "R")} {m.transform.position.x:F3} {m.transform.position.z:F3} {local.z:F3}");
     }
     domain.SetData("giantMinHand", minHandDist.ToString("F2") + " at " + minHandInfo);
-    if (t > 9f) { UnityEditor.EditorApplication.update -= tick; log.Add("done"); }
+    if (t > (observe ? 15f : 9f)) { UnityEditor.EditorApplication.update -= tick; log.Add("done"); }
 };
 domain.SetData("giantRecorder", tick);
 UnityEditor.EditorApplication.update += tick;
-return "recording CHARACTER";
+return "recording CHARACTER; giant authority here=" + m.HasStateAuthority + " is " + m.DisplayName;

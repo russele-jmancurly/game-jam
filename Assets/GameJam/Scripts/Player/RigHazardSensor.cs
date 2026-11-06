@@ -44,8 +44,7 @@ namespace GameJam.Player
         {
             if (other.GetComponentInParent<Water>() != null)
             {
-                _rig.RespawnAtCheckpoint();
-                return false;
+                return true; // players can wade and swim in the pool; only the balloon pops in water
             }
 
             Rigidbody body = _rig.Body;
@@ -57,6 +56,7 @@ namespace GameJam.Player
                 {
                     velocity.y = pad.LaunchSpeed;
                     body.linearVelocity = velocity;
+                    pad.PlayBounce();
                 }
             }
 

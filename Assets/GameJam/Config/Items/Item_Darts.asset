@@ -20,3 +20,15 @@ MonoBehaviour:
   KillHeight: -2
   Mass: 0.05
   HitCooldown: 0.3
+  HoopAssist: 0
+  HoopAssistRange: 9
+  HoldOffset: {x: 0, y: 0, z: 0.05}
+  HoldEuler: {x: 90, y: 0, z: 0}
+  EffectEmitter: {x: 0, y: 0, z: 0}
+  EffectCooldown: 1
+  UsedUpRespawnSeconds: 30
+  Effect: 0
+  EffectSeconds: 6
+  EffectStrength: 3
+  EffectWidth: 1.8
+  EffectLength: 7

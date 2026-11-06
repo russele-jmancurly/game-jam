@@ -1,32 +1,45 @@
 using System.Collections.Generic;
 using GameJam.Core;
 using GameJam.Gameplay;
+using UnityEditor;
 using UnityEngine;
 
 namespace GameJam.Editor
 {
     /// <summary>
-    /// The Giant Backyard as an open yard (GDD: Levels): walkable lawn the balloon must never touch, ringed by a climbable
-    /// giant picket fence and the house. Five zones to roam between (start stage, paddling pool, washing line, playground,
-    /// BBQ picnic, plus the big tree in the middle), six hoops to clear in any order, a finish pad on the porch, and things
-    /// that move: local rhythm hazards in each zone plus passing objects that cross the whole yard (robot lawnmower, RC car,
-    /// toy train, paper plane, bowling ball). Everything moves on the shared CourseClock, so it costs no network traffic.
+    /// The Giant Backyard as a trail of stations (GDD: Levels): every hoop hangs at a set piece that is its obstacle, ~14 m
+    /// apart and getting harder: open lawn (warm-up), the washing line (sheets swat the ring), the paddling pool (off the
+    /// diving board, over the water), the merry-go-round (ride it or use the trampoline), the BBQ grill (flames on a beat,
+    /// a fan blowing across) and the tree (bounce on the mushroom to the low branch), then the finish pad under a swinging
+    /// pinata. Nothing is there that doesn't shape the way to a hoop (playtest: "what is the purpose of the other part of
+    /// the map?"). Lawn the balloon must never touch, ringed by a climbable giant picket fence. Everything that moves runs
+    /// on the shared CourseClock, so it costs no network traffic.
     /// </summary>
     public static class BackyardCourseBuilder
     {
-        // The yard: lawn top at y = 0, x -48..48, z -24..104.
-        public const float HalfWidth = 48f;
-        public const float SouthEdge = -24f;
-        public const float NorthEdge = 104f;
+        // The yard: lawn top at y = 0, x -26..26, z -16..84: the station trail plus a strip of lawn west for the giant.
+        public const float HalfWidth = 26f;
+        public const float SouthEdge = -16f;
+        public const float NorthEdge = 84f;
 
-        public static readonly Vector3 PoolCenter = new Vector3(24f, 0f, 28f);
+        // Station centres (each zone keeps its internal layout; its hoop and checkpoint are offsets from the centre).
+        // Order: washing line, pool, playground, BBQ, tree. Each is approached from its working side: the pool from the
+        // west (the diving board), the tree from the south-east (the mushroom pad), the others from the south.
+        public static readonly Vector3 WashingLineCenter = new Vector3(-4f, 0f, 21f);
+        public static readonly Vector3 PoolCenter = new Vector3(13f, 0f, 24f);
         public const float PoolRadius = 9f;
-        public static readonly Vector3 WashingLineCenter = new Vector3(-24f, 0f, 28f);
-        public static readonly Vector3 TreeCenter = new Vector3(0f, 0f, 40f);
-        public static readonly Vector3 PlaygroundCenter = new Vector3(-24f, 0f, 72f);
-        public static readonly Vector3 BbqCenter = new Vector3(24f, 0f, 72f);
-        public static readonly Vector3 PorchCenter = new Vector3(0f, 0f, 98f);
-        public const float PicnicTableTop = 3.25f;
+        public static readonly Vector3 PlaygroundCenter = new Vector3(0f, 0f, 42f);
+        public static readonly Vector3 BbqCenter = new Vector3(-6f, 0f, 56f);
+        public static readonly Vector3 TreeCenter = new Vector3(2f, 0f, 60f);
+
+        // Launch surfaces the hoop heights are measured from.
+        private const float DiveBoardTop = 1.625f;  // BuildPool: board centre 1.5 m, 0.25 m thick; its tip is 6 m west of the pool centre
+        private const float MerryTop = 0.35f;       // BuildPlayground: disc centre 0.25 m, 0.2 m thick
+        private const float FlamesTop = 2.15f;      // BuildBbq: flame trigger centre 1.9 m, 0.5 m tall
+        private const float BranchLowTop = 4.25f;   // BuildTree: BranchLow centre 4 m, 0.5 m thick, spans x 0.85..4.35 from the trunk
+
+        /// <summary>Centre of the headline board (Squoof's booth sits on it), behind the finish pad.</summary>
+        public static readonly Vector3 HeadlineScreen = new Vector3(-8f, 9f, 78f);
 
         private sealed class Palette
         {
@@ -48,28 +61,42 @@ namespace GameJam.Editor
             public Material Wall;
         }
 
-        /// <summary>Open lawn spots the roaming mischief maker wanders between.</summary>
+        /// <summary>Open lawn spots the roaming mischief maker wanders between: the west strip, the south and the gaps.</summary>
         public static readonly Vector3[] RoamerWanderPoints =
         {
-            new Vector3(-10f, 0f, 10f), new Vector3(10f, 0f, 8f), new Vector3(-34f, 0f, 6f), new Vector3(36f, 0f, 6f),
-            new Vector3(-12f, 0f, 46f), new Vector3(8f, 0f, 54f), new Vector3(-36f, 0f, 50f), new Vector3(36f, 0f, 48f),
-            new Vector3(-4f, 0f, 64f), new Vector3(6f, 0f, 78f), new Vector3(-30f, 0f, 90f), new Vector3(36f, 0f, 88f),
+            new Vector3(-20f, 0f, -10f), new Vector3(-20f, 0f, 8f), new Vector3(-20f, 0f, 26f), new Vector3(-18f, 0f, 44f),
+            new Vector3(-20f, 0f, 62f), new Vector3(-20f, 0f, 78f), new Vector3(12f, 0f, -10f), new Vector3(10f, 0f, 8f),
+            new Vector3(18f, 0f, 38f), new Vector3(16f, 0f, 52f), new Vector3(0f, 0f, 74f), new Vector3(-10f, 0f, 34f),
         };
 
-        /// <summary>Set pieces the roamer steers around: x, z, radius.</summary>
-        public static readonly Vector3[] RoamerAvoidCircles =
+        /// <summary>Set pieces the roamer steers around: x, z, radius (computed from the stations).</summary>
+        public static Vector3[] RoamerAvoidCircles
         {
-            new Vector3(24f, 28f, 10.5f), new Vector3(0f, 40f, 2.5f), new Vector3(24f, 77f, 6f), new Vector3(24f, 66f, 2.5f),
-            new Vector3(-24f, 28f, 4f), new Vector3(-38f, 16f, 3f), new Vector3(-38f, 28f, 3f), new Vector3(-38f, 40f, 3f),
-            new Vector3(-20f, 70f, 3.5f), new Vector3(-33f, 68f, 4.5f), new Vector3(-28f, 80f, 4.5f), new Vector3(-14f, 80f, 3.5f),
-            new Vector3(-34f, 81f, 4f), new Vector3(-12f, 66f, 2.5f), new Vector3(0f, -6f, 7f), new Vector3(6f, 22.5f, 0.8f),
-            new Vector3(-6f, 22.5f, 0.8f), new Vector3(34f, 66f, 2.5f),
-        };
+            get
+            {
+                Vector3 pinata = GapPoint(TrailHoops[TrailHoops.Length - 1], TrailFinish, PinataAlong, out _, out _, out _);
+                return new[]
+                {
+                    new Vector3(PoolCenter.x, PoolCenter.z, PoolRadius + 1.5f),
+                    new Vector3(PoolCenter.x - 12f, PoolCenter.z, 1.5f),                                   // diving board stand
+                    new Vector3(WashingLineCenter.x, WashingLineCenter.z, 4f),                              // rotary clothesline
+                    new Vector3(WashingLineCenter.x - 8f, WashingLineCenter.z - 7f, 0.8f), new Vector3(WashingLineCenter.x + 8f, WashingLineCenter.z - 7f, 0.8f),
+                    new Vector3(TreeCenter.x, TreeCenter.z, 2.5f), new Vector3(TreeCenter.x + 2.6f, TreeCenter.z - 1.9f, 1.2f),
+                    new Vector3(PlaygroundCenter.x + 4f, PlaygroundCenter.z - 2f, 3.5f), new Vector3(PlaygroundCenter.x, PlaygroundCenter.z - 6f, 2f),
+                    new Vector3(BbqCenter.x, BbqCenter.z - 6f, 2.5f), new Vector3(BbqCenter.x + 10f, BbqCenter.z - 6f, 2f),
+                    new Vector3(0f, -6f, 7f),                                                              // start stage
+                    new Vector3(TrailFinish.x, TrailFinish.z, 5f),                                          // finish pad
+                    new Vector3(HeadlineScreen.x - 6f, HeadlineScreen.z + 0.5f, 0.8f), new Vector3(HeadlineScreen.x + 6f, HeadlineScreen.z + 0.5f, 0.8f),
+                    new Vector3(pinata.x, pinata.z, 3f),                                                   // pinata frame
+                };
+            }
+        }
 
-        /// <summary>Where the roamer may walk: min x, min z, max x, max z (inside the fence, south of the porch).</summary>
-        public static readonly Vector4 RoamerBounds = new Vector4(-44f, -20f, 44f, 86f);
+        /// <summary>Where the roamer may walk: min x, min z, max x, max z (4 m inside the fence).</summary>
+        public static readonly Vector4 RoamerBounds = new Vector4(-HalfWidth + 4f, SouthEdge + 4f, HalfWidth - 4f, NorthEdge - 4f);
 
-        public static readonly Vector3 RoamerSpawn = new Vector3(0f, 0f, 60f);
+        /// <summary>Where the giants start: one per show character (west lawn strip, and east beyond the pool).</summary>
+        public static readonly Vector3[] RoamerSpawns = { new Vector3(-20f, 0f, 30f), new Vector3(18f, 0f, 38f) };
 
         private static Palette _palette;
         private static Transform _course;
@@ -89,10 +116,28 @@ namespace GameJam.Editor
             BuildTree();
             BuildPlayground();
             BuildBbq();
-            BuildPassingObjects();
             BuildHoops();
             BuildItemStashes();
             SetPieceModels.Apply(_course); // real-looking models over the gameplay primitives (Art/Set), colliders unchanged
+            BuildAmbience();
+        }
+
+        /// <summary>Ambient life: pollen drifting over the yard and leaves falling from the tree (no colliders).</summary>
+        private static void BuildAmbience()
+        {
+            var ambience = new GameObject("Ambience").transform;
+            ambience.SetParent(_course, false);
+            float middleZ = (SouthEdge + NorthEdge) * 0.5f;
+            AmbientEffectsBuilder.Pollen(ambience, new Vector3(0f, 3f, middleZ), new Vector3(HalfWidth * 2f, 5f, NorthEdge - SouthEdge));
+            Color leafLight = Color.Lerp(ArtPalette.LawnDark, ArtPalette.Accent, 0.35f);
+            AmbientEffectsBuilder.FallingLeaves(ambience, TreeCenter + new Vector3(0f, 11f, 0f), 4f, ArtPalette.LawnDark, leafLight);
+        }
+
+        /// <summary>A trigger that launches players (with a boing).</summary>
+        private static void BouncePadOn(GameObject trigger, float launchSpeed)
+        {
+            AudioSource boing = PlaceholderPrefabBuilder.Sound(trigger, GeneratedAudio.TrampolineBoing("Trampoline_Boing"), false, 20f, 0.9f);
+            trigger.AddComponent<BouncePad>().Configure(launchSpeed, boing);
         }
 
         private static Palette CreatePalette()
@@ -106,7 +151,7 @@ namespace GameJam.Editor
 
             return new Palette
             {
-                Lawn = PlaceholderAssets.Material("Lawn", Color.white, 0.1f, lawn, new Vector2(24f, 32f)),
+                Lawn = PlaceholderAssets.Material("Lawn", Color.white, 0.1f, lawn, new Vector2(13f, 25f)),
                 Deck = PlaceholderAssets.Material("Platform", Color.white, PlaceholderAssets.MatteSmoothness, deck, new Vector2(2f, 2f)),
                 Wood = PlaceholderAssets.Material("Wood", ArtPalette.TimberDark),
                 Picket = PlaceholderAssets.Material("Picket", ArtPalette.Picket),
@@ -170,35 +215,12 @@ namespace GameJam.Editor
 
         private static void BuildHouseAndFinish()
         {
-            // The house closes the north side; its wall is climbable, its porch holds the finish pad.
+            // The house closes the north side; its wall is climbable.
             Box("HouseBody", new Vector3(0f, 12f, NorthEdge + 10f), new Vector3(32f, 24f, 20f), _palette.Wall);
             Material roof = PlaceholderAssets.Material("HouseRoof", ArtPalette.Roof);
             Box("RoofLeft", new Vector3(-8.5f, 29f, NorthEdge + 10f), new Vector3(20f, 2f, 23f), roof, false).transform.rotation = Quaternion.Euler(0f, 0f, 32f);
             Box("RoofRight", new Vector3(8.5f, 29f, NorthEdge + 10f), new Vector3(20f, 2f, 23f), roof, false).transform.rotation = Quaternion.Euler(0f, 0f, -32f);
-
-            Vector3 porch = PorchCenter;
-            Box("Porch", porch + new Vector3(0f, 0.6f, 0f), new Vector3(16f, 1.2f, 9f), _palette.Deck);
-            Box("PorchStep", porch + new Vector3(0f, 0.3f, -5.4f), new Vector3(8f, 0.6f, 1.8f), _palette.Deck);
-            foreach (float x in new[] { -7.3f, 7.3f })
-            {
-                Box("PorchPost", porch + new Vector3(x, 3.6f, -4f), new Vector3(0.5f, 4.8f, 0.5f), _palette.Picket, false);
-            }
-
-            Box("PorchRoof", porch + new Vector3(0f, 6.1f, -0.5f), new Vector3(17f, 0.4f, 10f), roof, false);
-
-            // Finish pad: locked (red beacon) until every hoop is cleared.
-            Box("FinishMat", porch + new Vector3(0f, 1.22f, 0.5f), new Vector3(7f, 0.04f, 5f), _palette.Checker, false);
-            GameObject beacon = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "FinishBeacon", _course, porch + new Vector3(0f, 1.6f, 0.5f), new Vector3(1.4f, 0.35f, 1.4f),
-                PlaceholderAssets.Emissive("FinishBeacon", ArtPalette.Hazard, 1.3f), false);
-            GameObject finish = PlaceholderShapes.TriggerBox("FinishLine", _course, porch + new Vector3(0f, 2.8f, 0.5f), new Vector3(7f, 3f, 5f));
-            finish.AddComponent<FinishLine>().Configure(beacon.GetComponent<Renderer>());
-            PlaceholderShapes.Text("FinishSign", _course, porch + new Vector3(0f, 5.4f, -5.1f), 0.08f, "FINISH", ArtPalette.Accent);
-
-            // A pinata swings across the porch steps: time the final slap between swings.
-            MovingObstacle pinata = Mover("PorchPinata", porch + new Vector3(0f, 5.8f, -6.5f));
-            pinata.ConfigureSwing(Vector3.forward, 50f, 3.2f);
-            Box("Rope", pinata.transform, new Vector3(0f, -1.5f, 0f), new Vector3(0.05f, 3f, 0.05f), _palette.Wood, false);
-            Box("Pinata", pinata.transform, new Vector3(0f, -3.4f, 0f), Vector3.one * 1.1f, PlaceholderAssets.Material("Pinata", ArtPalette.CandyPink));
+            // The house is the backdrop behind the headline board; the finish is at the end of the hoop trail (BuildHoops).
         }
 
         // ------------------------------------------------------------------ zones
@@ -207,7 +229,8 @@ namespace GameJam.Editor
         {
             var stage = new Vector3(0f, 0f, -6f);
             Box("StartStage", stage + new Vector3(0f, 0.2f, 0f), new Vector3(12f, 0.4f, 9f), _palette.Deck);
-            SpawnPoint(0, new Vector3(0f, 0.4f, -8f), 0f, new Vector3(0f, 2.2f, 2.8f));
+            // The balloon waits (stationed, bobbing) just above head height in front of the start: reachable with a raised arm.
+            SpawnPoint(0, new Vector3(0f, 0.4f, -8f), 0f, new Vector3(0f, 1.4f, 1.8f));
 
             Box("ButtonPedestal", stage + new Vector3(4f, 0.65f, 2.5f), new Vector3(0.5f, 0.5f, 0.5f), _palette.Wood);
             GameObject button = PlaceholderShapes.Primitive(PrimitiveType.Cube, "StartButton", _course, stage + new Vector3(4f, 1.02f, 2.5f), new Vector3(0.4f, 0.25f, 0.4f), _palette.Hazard, true);
@@ -215,14 +238,14 @@ namespace GameJam.Editor
             button.AddComponent<StartButton>();
             button.layer = GameLayers.IgnoreRaycast;
 
-            // Commentator: a big board on stilts in the middle of the yard, readable from everywhere south of the tree.
+            // Commentator: a big board on stilts behind the finish pad, facing down the trail.
             Material board = PlaceholderAssets.Material("Backboard", ArtPalette.TextDark, 0.3f);
-            var screen = new Vector3(0f, 9f, 22f);
+            Vector3 screen = HeadlineScreen;
             Box("HeadlineBoard", screen + new Vector3(0f, 0f, 0.35f), new Vector3(13f, 2.4f, 0.3f), board, false);
             Box("HeadlineTrim", screen + new Vector3(0f, 1.25f, 0.35f), new Vector3(13.2f, 0.2f, 0.4f), _palette.Gold, false);
             foreach (float x in new[] { -6f, 6f })
             {
-                Box("HeadlineStilt", new Vector3(x, 4f, 22.5f), new Vector3(0.4f, 8f, 0.4f), _palette.Wood);
+                Box("HeadlineStilt", new Vector3(screen.x + x, 4f, screen.z + 0.5f), new Vector3(0.4f, 8f, 0.4f), _palette.Wood);
             }
 
             Box("CommentatorBooth", screen + new Vector3(0f, 2.4f, 0.6f), new Vector3(5f, 1.6f, 1.6f), _palette.Wood, false);
@@ -238,7 +261,29 @@ namespace GameJam.Editor
             TextMesh scoreboard = PlaceholderShapes.Text("Scoreboard", _course, new Vector3(-4.2f, 2.3f, -2.5f), 0.019f, string.Empty, ArtPalette.Picket);
             boardComponent.Configure(headline, scoreboard);
 
+            BuildMirror(stage);
             BuildShowCrew(stage, screen);
+        }
+
+        /// <summary>A tall wood-framed mirror at the stage's west edge, turned to the spawn so players see their porcupine.</summary>
+        private static void BuildMirror(Vector3 stage)
+        {
+            var size = new Vector2(1.6f, 2.2f);
+            var root = new GameObject("StageMirror").transform;
+            root.SetParent(_course, false);
+            // Visible face (quad -Z) toward +X, turned a little toward the spawn at the stage's south.
+            root.SetPositionAndRotation(stage + new Vector3(-5.6f, 0.4f + 0.15f + size.y * 0.5f, -1.2f), Quaternion.Euler(0f, -80f, 0f));
+            GameObject glass = PlaceholderShapes.Primitive(PrimitiveType.Quad, "MirrorGlass", root, Vector3.zero, new Vector3(size.x, size.y, 1f),
+                PlaceholderAssets.Unlit("MirrorGlass", Color.white), false);
+            glass.AddComponent<PlanarMirror>();
+            const float frame = 0.12f;
+            Material wood = _palette.Wood;
+            Box("MirrorFrameTop", root, new Vector3(0f, size.y * 0.5f + frame * 0.5f, 0.04f), new Vector3(size.x + frame * 2f, frame, 0.1f), wood, false);
+            Box("MirrorFrameBottom", root, new Vector3(0f, -size.y * 0.5f - frame * 0.5f, 0.04f), new Vector3(size.x + frame * 2f, frame, 0.1f), wood, false);
+            Box("MirrorFrameLeft", root, new Vector3(-size.x * 0.5f - frame * 0.5f, 0f, 0.04f), new Vector3(frame, size.y, 0.1f), wood, false);
+            Box("MirrorFrameRight", root, new Vector3(size.x * 0.5f + frame * 0.5f, 0f, 0.04f), new Vector3(frame, size.y, 0.1f), wood, false);
+            Box("MirrorBack", root, new Vector3(0f, 0f, 0.07f), new Vector3(size.x, size.y, 0.04f), wood);
+            Box("MirrorFoot", root, new Vector3(0f, -size.y * 0.5f - 0.1f, 0.25f), new Vector3(size.x + 0.3f, 0.1f, 0.6f), wood, false);
         }
 
         /// <summary>
@@ -328,8 +373,7 @@ namespace GameJam.Editor
             Vector3 board = c + new Vector3(-PoolRadius - 1f, 0f, 0f);
             Box("DivingBoardStand", board + new Vector3(-2f, 0.7f, 0f), new Vector3(1.4f, 1.4f, 1.6f), _palette.Steel);
             Box("DivingBoard", board + new Vector3(1f, 1.5f, 0f), new Vector3(6f, 0.25f, 1.4f), _palette.Deck);
-            PlaceholderShapes.TriggerBox("DivingBoardSpring", _course, board + new Vector3(3.4f, 1.9f, 0f), new Vector3(1.4f, 0.6f, 1.4f))
-                .AddComponent<BouncePad>().Configure(10f);
+            BouncePadOn(PlaceholderShapes.TriggerBox("DivingBoardSpring", _course, board + new Vector3(3.4f, 1.9f, 0f), new Vector3(1.4f, 0.6f, 1.4f)), 10f);
 
             // A rubber duck float paddles around the pool (passing object: swats the balloon, harmless to players).
             MovingObstacle duck = Mover("PoolDuck", c + new Vector3(5f, 1.2f, 0f));
@@ -352,8 +396,8 @@ namespace GameJam.Editor
             Box("LineA", rotary.transform, Vector3.zero, new Vector3(7f, 0.1f, 0.1f), _palette.Picket);
             Box("LineB", rotary.transform, Vector3.zero, new Vector3(0.1f, 0.1f, 7f), _palette.Picket);
 
-            // Two washing lines of flapping laundry (view blockers that swat the balloon).
-            foreach (float z in new[] { -7f, 7f })
+            // The washing line the hoop hangs on: its flapping sheets swing across the ring and swat the balloon.
+            foreach (float z in new[] { -7f })
             {
                 foreach (float x in new[] { -8f, 8f })
                 {
@@ -370,19 +414,7 @@ namespace GameJam.Editor
                 }
             }
 
-            // Flower beds with cactus pots along the west fence, and hose jets that blow the balloon toward the middle.
-            for (int i = 0; i < 3; i++)
-            {
-                var bed = new Vector3(c.x - 14f, 0f, c.z - 12f + i * 12f);
-                Box("FlowerBedFrame", bed + new Vector3(0f, 0.3f, 0f), new Vector3(5f, 0.6f, 8f), _palette.Wood);
-                Box("FlowerBedSoil", bed + new Vector3(0f, 0.62f, 0f), new Vector3(4.4f, 0.06f, 7.4f), _palette.Soil).AddComponent<BalloonGround>().Configure("Lost in the flower bed!");
-                CactusPot(bed + new Vector3(0f, 0.65f, -2f));
-                CactusPot(bed + new Vector3(0.6f, 0.65f, 2.2f));
-            }
-
-            Box("HoseReel", c + new Vector3(-12f, 0.8f, 12f), new Vector3(1.2f, 1.6f, 1.2f), PlaceholderAssets.Material("HoseGreen", ArtPalette.LawnDark, 0.4f));
-            PlaceholderShapes.TriggerBox("HoseJet", _course, c + new Vector3(-6f, 3f, 12f), new Vector3(12f, 4f, 3f), Quaternion.Euler(0f, 90f, 0f))
-                .AddComponent<WindVolume>().Configure(3f);
+            // (The trail's cactus garden and sprinkler gust replaced the old flower beds and hose jet here.)
         }
 
         private static void BuildTree()
@@ -418,7 +450,7 @@ namespace GameJam.Editor
                     new Vector3(0.28f, 0.1f, 0.28f), stem, false);
             }
 
-            PlaceholderShapes.TriggerBox("MushroomPad", _course, mushroom + new Vector3(0f, 0.75f, 0f), new Vector3(1.6f, 0.4f, 1.6f)).AddComponent<BouncePad>().Configure(9.5f);
+            BouncePadOn(PlaceholderShapes.TriggerBox("MushroomPad", _course, mushroom + new Vector3(0f, 0.75f, 0f), new Vector3(1.6f, 0.4f, 1.6f)), 9.5f);
 
             Material leaves = PlaceholderAssets.Material("Leaves", ArtPalette.LawnDark, 0.1f);
             foreach (Vector3 offset in new[] { new Vector3(0f, 13f, 0f), new Vector3(3.5f, 11.5f, 1.5f), new Vector3(-3.5f, 12f, -1f), new Vector3(1f, 12f, 3.5f), new Vector3(-1f, 12.5f, -3.5f) })
@@ -426,40 +458,15 @@ namespace GameJam.Editor
                 PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Canopy", _course, c + offset, new Vector3(6f, 4.5f, 6f), leaves, false);
             }
 
-            // Toy train track around the tree.
-            Material track = PlaceholderAssets.Material("Track", ArtPalette.Steel, 0.5f);
-            Vector3[] ring = Circle(c + Vector3.up * 0.03f, 11f, 28);
-            for (int i = 0; i < ring.Length; i++)
-            {
-                Vector3 a = ring[i];
-                Vector3 b = ring[(i + 1) % ring.Length];
-                Box("TrackPiece", (a + b) / 2f, new Vector3(1.6f, 0.06f, Vector3.Distance(a, b)), track, false).transform.rotation = Quaternion.LookRotation(b - a);
-            }
         }
 
         private static void BuildPlayground()
         {
             Vector3 c = PlaygroundCenter;
 
-            // Swing set: two seats on a swing rhythm that knock players over.
-            Vector3 swings = c + new Vector3(-9f, 0f, -4f);
-            foreach (float x in new[] { -3.5f, 3.5f })
-            {
-                Box("SwingFrame", swings + new Vector3(x, 2.5f, 0f), new Vector3(0.3f, 5f, 0.3f), _palette.Steel);
-            }
-
-            Box("SwingBar", swings + new Vector3(0f, 5f, 0f), new Vector3(7.4f, 0.3f, 0.3f), _palette.Steel);
-            for (int i = 0; i < 2; i++)
-            {
-                MovingObstacle seat = Mover("SwingSeat", swings + new Vector3(-1.6f + i * 3.2f, 5f, 0f));
-                seat.ConfigureSwing(Vector3.right, 45f, 2.6f + i * 0.4f);
-                Box("Chain", seat.transform, new Vector3(0f, -1.7f, 0f), new Vector3(0.05f, 3.4f, 0.05f), _palette.Steel, false);
-                Box("Seat", seat.transform, new Vector3(0f, -3.5f, 0f), new Vector3(1.2f, 0.2f, 0.7f), _palette.Hazard);
-            }
-
             // Merry-go-round you can ride (a spinning platform), with the playground hoop above it.
             MovingObstacle merry = Mover("MerryGoRound", c + new Vector3(4f, 0.25f, -2f));
-            merry.ConfigureSpin(28f);
+            merry.ConfigureSpin(28f, knocksPlayers: false, carriesPlayers: true); // a ride: it carries you, never knocks you off
             GameObject disc = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "MerryDisc", merry.transform, Vector3.zero, new Vector3(6f, 0.2f, 6f),
                 PlaceholderAssets.Material("MerryDisc", Color.white, 0.3f, GeneratedTextures.Stripes("T_MerryStripes", ArtPalette.CandyPink, ArtPalette.Picket, 4), Vector2.one), true);
             Object.DestroyImmediate(disc.GetComponent<Collider>());
@@ -467,34 +474,14 @@ namespace GameJam.Editor
             for (int i = 0; i < 4; i++)
             {
                 Quaternion around = Quaternion.Euler(0f, i * 90f, 0f);
-                Box("MerryBar", merry.transform, around * new Vector3(0f, 0.8f, 2.3f), new Vector3(0.12f, 1.4f, 0.12f), _palette.Steel);
+                // Decoration only (no collider): riders must be able to hop straight off in any direction.
+                Box("MerryBar", merry.transform, around * new Vector3(0f, 0.8f, 2.3f), new Vector3(0.12f, 1.4f, 0.12f), _palette.Steel, false);
             }
 
-            // Seesaw, slide tower and trampoline.
-            MovingObstacle seesaw = Mover("Seesaw", c + new Vector3(-4f, 0.7f, 8f));
-            seesaw.ConfigureSwing(Vector3.right, 14f, 3.5f, knocksPlayers: false);
-            Box("SeesawPlank", seesaw.transform, Vector3.zero, new Vector3(1.2f, 0.25f, 8f), _palette.Climb);
-            Box("SeesawPivot", c + new Vector3(-4f, 0.35f, 8f), new Vector3(0.8f, 0.7f, 0.8f), _palette.Steel, false);
-
-            Vector3 slide = c + new Vector3(10f, 0f, 8f);
-            Box("SlideTower", slide + new Vector3(0f, 3.2f, 0f), new Vector3(2.6f, 0.3f, 2.6f), _palette.Deck);
-            foreach (Vector2 corner in new[] { new Vector2(-1.2f, -1.2f), new Vector2(1.2f, -1.2f), new Vector2(-1.2f, 1.2f), new Vector2(1.2f, 1.2f) })
-            {
-                Box("SlideLeg", slide + new Vector3(corner.x, 1.6f, corner.y), new Vector3(0.25f, 3.2f, 0.25f), _palette.Steel);
-            }
-
-            Box("SlideLadder", slide + new Vector3(0f, 1.6f, 1.45f), new Vector3(1.4f, 3.2f, 0.25f), _palette.Climb);
-            Box("SlideChute", slide + new Vector3(0f, 1.65f, -3.6f), new Vector3(1.4f, 0.2f, 5.6f), PlaceholderAssets.Material("SlideChute", ArtPalette.CandyPurple, 0.7f))
-                .transform.rotation = Quaternion.Euler(-34f, 0f, 0f);
-
-            Vector3 trampoline = c + new Vector3(12f, 0f, -6f);
+            // Trampoline on the approach: bounce up beside the merry-go-round to slap the balloon through its hoop.
+            Vector3 trampoline = c + new Vector3(0f, 0f, -6f);
             PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "Trampoline", _course, trampoline + new Vector3(0f, 0.5f, 0f), new Vector3(3f, 0.05f, 3f), _palette.Hazard, false);
-            PlaceholderShapes.TriggerBox("TrampolinePad", _course, trampoline + new Vector3(0f, 0.7f, 0f), new Vector3(3f, 0.4f, 3f)).AddComponent<BouncePad>().Configure(9f);
-
-            // Sandbox: the balloon pops in the sand too.
-            Vector3 sandbox = c + new Vector3(-10f, 0f, 9f);
-            Box("SandboxFrame", sandbox + new Vector3(0f, 0.25f, 0f), new Vector3(6f, 0.5f, 6f), _palette.Wood);
-            Box("Sand", sandbox + new Vector3(0f, 0.52f, 0f), new Vector3(5.4f, 0.06f, 5.4f), _palette.Sand).AddComponent<BalloonGround>().Configure("Buried in the sandbox!");
+            BouncePadOn(PlaceholderShapes.TriggerBox("TrampolinePad", _course, trampoline + new Vector3(0f, 0.7f, 0f), new Vector3(3f, 0.4f, 3f)), 9f);
         }
 
         private static void BuildBbq()
@@ -515,148 +502,140 @@ namespace GameJam.Editor
             flameRenderer.sharedMaterial = PlaceholderAssets.Material("Flame", ArtPalette.Flame);
             flames.AddComponent<PulsingHazard>().Configure(flameRenderer);
 
-            // Giant picnic table (the food sits on it), climbable benches.
-            Vector3 table = c + new Vector3(0f, 0f, 5f);
-            Box("PicnicTop", table + new Vector3(0f, PicnicTableTop - 0.25f, 0f), new Vector3(10f, 0.5f, 5f), _palette.Wood);
-            foreach (float z in new[] { -4f, 4f })
-            {
-                Box("PicnicBench", table + new Vector3(0f, 1.5f, z), new Vector3(10f, 0.4f, 1.8f), _palette.Wood);
-            }
-
-            foreach (Vector2 corner in new[] { new Vector2(-4.4f, -2f), new Vector2(4.4f, -2f), new Vector2(-4.4f, 2f), new Vector2(4.4f, 2f) })
-            {
-                Box("PicnicLeg", table + new Vector3(corner.x, (PicnicTableTop - 0.5f) / 2f, corner.y), new Vector3(0.5f, PicnicTableTop - 0.5f, 0.5f), _palette.Wood);
-            }
-
-            Box("PicnicCloth", table + new Vector3(0f, PicnicTableTop + 0.01f, 0f), new Vector3(10.4f, 0.04f, 5.4f),
-                PlaceholderAssets.Material("Gingham", Color.white, 0.1f, GeneratedTextures.Checker("T_Gingham", ArtPalette.Hazard, ArtPalette.Picket, 8), new Vector2(3f, 2f)), false);
-
-            // Bug zapper (pops) and a box fan whose wind pushes the balloon west across the grill.
-            Box("ZapperPole", c + new Vector3(-6f, 2f, -9f), new Vector3(0.2f, 4f, 0.2f), _palette.Steel);
-            Box("BugZapper", c + new Vector3(-6f, 4.3f, -9f), new Vector3(0.6f, 0.9f, 0.6f), PlaceholderAssets.Emissive("Zapper", ArtPalette.CandyBlue, 1.5f))
-                .AddComponent<Sharp>().Configure("Zapped by the bug zapper!");
-
+            // A box fan whose wind pushes the balloon west across the grill and past its hoop.
             Box("BoxFan", c + new Vector3(10f, 1.8f, -6f), new Vector3(0.6f, 3.4f, 3.4f), PlaceholderAssets.Material("Fan", Color.Lerp(ArtPalette.Steel, ArtPalette.Picket, 0.5f)));
-            PlaceholderShapes.TriggerBox("FanGust", _course, c + new Vector3(4f, 2.5f, -6f), new Vector3(4f, 4f, 11f), Quaternion.Euler(0f, -90f, 0f))
+            // Spinning blades on the fan's face (decoration, no colliders), so it reads as switched on.
+            MovingObstacle blades = Mover("FanBlades", c + new Vector3(9.65f, 1.9f, -6f));
+            blades.transform.rotation = Quaternion.Euler(0f, 0f, 90f); // spin axis (local up) along -X, the way it blows
+            blades.ConfigureSpin(540f, knocksPlayers: false);
+            Material bladeMaterial = PlaceholderAssets.Material("FanBlade", ArtPalette.Picket, 0.4f);
+            Box("FanBladeA", blades.transform, Vector3.zero, new Vector3(2.9f, 0.06f, 0.45f), bladeMaterial, false);
+            Box("FanBladeB", blades.transform, Vector3.zero, new Vector3(0.45f, 0.06f, 2.9f), bladeMaterial, false);
+
+            // The wind itself, made visible: air streaks flowing from the fan across the grill and past its hoop.
+            var gustSize = new Vector3(4f, 4f, 11f);
+            GameObject gust = PlaceholderShapes.TriggerBox("FanGust", _course, c + new Vector3(4f, 2.5f, -6f), gustSize, Quaternion.Euler(0f, -90f, 0f));
+            PlaceholderPrefabBuilder.AirStream(gust.transform, gustSize, 4f);
+            gust
                 .AddComponent<WindVolume>().Configure(2.2f);
         }
 
-        // ------------------------------------------------------------------ passing objects
-
-        private static void BuildPassingObjects()
-        {
-            // Robot lawnmower: laps the whole yard inside the fence. Blades pop the balloon; it bowls players over.
-            MovingObstacle mower = Mover("RobotLawnmower", new Vector3(-42f, 0.55f, -18f));
-            mower.ConfigurePath(new[]
-            {
-                new Vector3(-42f, 0.55f, -18f), new Vector3(42f, 0.55f, -18f), new Vector3(42f, 0.55f, 88f), new Vector3(-42f, 0.55f, 88f),
-            }, 3.5f, true, 0f, true, true);
-            Box("MowerBody", mower.transform, Vector3.zero, new Vector3(2.4f, 1f, 3.2f), PlaceholderAssets.Material("MowerBody", ArtPalette.CandyMint, 0.5f));
-            Box("MowerSkirt", mower.transform, new Vector3(0f, -0.4f, 0f), new Vector3(2.6f, 0.2f, 3.4f), _palette.Hazard);
-            PlaceholderShapes.Primitive(PrimitiveType.Sphere, "MowerLight", mower.transform, new Vector3(0f, 0.65f, 0.6f), Vector3.one * 0.35f,
-                PlaceholderAssets.Emissive("WarningLight", ArtPalette.Warning, 2.5f), false);
-
-            // RC car: zig-zags between the zones and back. Swats the balloon, knocks players.
-            MovingObstacle car = Mover("RcCar", new Vector3(-30f, 0.4f, 8f));
-            car.ConfigurePath(new[]
-            {
-                new Vector3(-30f, 0.4f, 8f), new Vector3(30f, 0.4f, 12f), new Vector3(-14f, 0.4f, 16f), new Vector3(-12f, 0.4f, 52f),
-                new Vector3(30f, 0.4f, 56f),
-            }, 6f, false, 0f, true, false);
-            Box("CarBody", car.transform, Vector3.zero, new Vector3(1.4f, 0.5f, 2.2f), PlaceholderAssets.Material("CarBody", ArtPalette.CandyPink, 0.6f));
-            Box("CarCabin", car.transform, new Vector3(0f, 0.4f, -0.2f), new Vector3(1.1f, 0.4f, 1f), PlaceholderAssets.Material("Window", ArtPalette.Window, 0.8f), false);
-            foreach (Vector2 wheel in new[] { new Vector2(-0.75f, 0.7f), new Vector2(0.75f, 0.7f), new Vector2(-0.75f, -0.7f), new Vector2(0.75f, -0.7f) })
-            {
-                PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "Wheel", car.transform, new Vector3(wheel.x, -0.15f, wheel.y), new Vector3(0.5f, 0.12f, 0.5f), _palette.Charcoal, false)
-                    .transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            }
-
-            // Toy train: an engine and two wagons circling the tree.
-            Vector3[] loop = Circle(TreeCenter + Vector3.up * 0.55f, 11f, 28);
-            Color[] wagonColours = { ArtPalette.Hazard, ArtPalette.CandyBlue, ArtPalette.Accent };
-            for (int i = 0; i < 3; i++)
-            {
-                MovingObstacle wagon = Mover(i == 0 ? "TrainEngine" : "TrainWagon", loop[0]);
-                wagon.ConfigurePath(loop, 3f, true, -i * 0.95f, true, false);
-                Box("WagonBody", wagon.transform, Vector3.zero, new Vector3(1.3f, 0.9f, 2.4f),
-                    PlaceholderAssets.Material($"Wagon_{ColorUtility.ToHtmlStringRGB(wagonColours[i])}", wagonColours[i], 0.5f));
-                if (i == 0)
-                {
-                    PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "Chimney", wagon.transform, new Vector3(0f, 0.75f, 0.6f), new Vector3(0.4f, 0.3f, 0.4f), _palette.Charcoal, false);
-                }
-            }
-
-            // Paper plane gliding a loop over the yard: swats the balloon off course.
-            MovingObstacle plane = Mover("PaperPlane", new Vector3(-30f, 6f, 4f));
-            plane.ConfigurePath(new[]
-            {
-                new Vector3(-30f, 6f, 4f), new Vector3(28f, 7f, 14f), new Vector3(22f, 6.5f, 80f), new Vector3(-26f, 7.5f, 62f),
-            }, 5f, true, 0f, false, false, new Vector3(0f, 0f, 12f));
-            Material paper = PlaceholderAssets.Material("Paper", ArtPalette.Picket, 0.1f);
-            Box("WingLeft", plane.transform, new Vector3(-0.5f, 0f, 0f), new Vector3(1.2f, 0.05f, 2.2f), paper).transform.localRotation = Quaternion.Euler(0f, 0f, 12f);
-            Box("WingRight", plane.transform, new Vector3(0.5f, 0f, 0f), new Vector3(1.2f, 0.05f, 2.2f), paper).transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
-
-            // Bowling ball rolling up and down a lane from the porch steps to the start stage.
-            // (x = 13 runs between the train track and the pool rim.)
-            MovingObstacle ball = Mover("BowlingBall", new Vector3(13f, 0.9f, 84f));
-            ball.ConfigurePath(new[] { new Vector3(13f, 0.9f, 84f), new Vector3(13f, 0.9f, 6f) }, 5f, false, 0f, true, false);
-            PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Ball", ball.transform, Vector3.zero, Vector3.one * 1.8f,
-                PlaceholderAssets.Material("BowlingBall", ArtPalette.CandyPurple, 0.85f), true);
-            Box("BowlingLane", new Vector3(13f, 0.01f, 45f), new Vector3(2.4f, 0.02f, 80f), PlaceholderAssets.Material("Lane", ArtPalette.Timber, 0.6f), false);
-        }
 
         // ------------------------------------------------------------------ hoops, spawns, items
 
-        // Hoop sizing, measured from the player and the balloon (see the numbers below) rather than eyeballed.
-        // Player (gorilla locomotion): the body collider rests on the floor 0.4 m under the eyes, so eyes sit ~0.65 m up
-        // (in VR too: you are gorilla-sized). Arms reach ~0.6 m above the eyes: standing reach ~1.25 m. A jump rises
-        // v^2 / 2g: a casual 3 m/s push +0.46 m (reach ~1.7 m), a strong 4.5 m/s push +1.03 m (reach ~2.3 m).
-        // Balloon (gravity 1 m/s^2, drag 1.2/s, slap = hand speed x 0.9 + 0.6): a medium slap (3 m/s hand) rises ~1.6 m,
-        // a full one ~3.5 m. A hoop counts while the balloon (r 0.25) overlaps its trigger, i.e. inside the ring.
+        // Hoop sizing, measured from the player and the balloon rather than eyeballed.
+        // Player (gorilla locomotion): eyes ~0.65 m above what you stand on; arms reach ~0.6 m above the eyes: standing reach
+        // ~1.25 m; a strong jump adds ~1 m. Balloon: a slap launches it at the hand's speed (players measured 4.5-7.8 m/s), it
+        // floats down at ~0.35 m/s. A hoop counts while the balloon (r 0.25) overlaps its trigger, i.e. inside the ring.
         private const float HoopRingRadius = 1f;            // 2 m across: ~2.5x a player, 4 balloons wide
         private const float HoopTriggerRadius = HoopRingRadius - 0.25f;
-        private const float HoopAboveFloor = 2.4f;          // ring bottom 1.4 m: just above standing reach; centre within a good jump,
-                                                            // and a medium slap from shoulder height carries the balloon through
-        private const float HoopAbovePerch = 1.9f;          // on a high perch you can't jump safely: ring bottom ~0.9 m, a tap away
+        private const float PinataAlong = 0.6f;             // how far along the last gap the finish pinata swings
+
+        /// <summary>
+        /// The six hoops in trail order, each at its station (hoop 1 is the warm-up on open lawn after the start). Heights:
+        /// 2.4 (lawn), 2.4 (1 m in front of the laundry line), 4.0 (over the pool, 2.4 above the diving board), 3.1 (2.75 above the merry-go-round),
+        /// 3.25 (ring bottom 0.1 above the grill flames), 6.15 (1.9 above the low tree branch). Any order still counts.
+        /// </summary>
+        public static readonly Vector3[] TrailHoops =
+        {
+            new Vector3(0f, 2.4f, 3f),
+            WashingLineCenter + new Vector3(0f, 2.4f, -8f),   // 1 m in front of the line: the sheets swing into its path
+            PoolCenter + new Vector3(-5f, DiveBoardTop + 2.4f, 0f),
+            PlaygroundCenter + new Vector3(4f, MerryTop + 2.75f, -2f),
+            BbqCenter + new Vector3(0f, FlamesTop + 0.1f + HoopRingRadius, -6f),
+            TreeCenter + new Vector3(2.8f, BranchLowTop + 1.9f, 0f),
+        };
+
+        /// <summary>
+        /// Checkpoint k (k = 1..6, reached by clearing hoop k) stands on open lawn at the start of the approach to the next
+        /// hoop (or the finish), on that station's working side, so nobody respawns in the pool or on the grill.
+        /// </summary>
+        public static readonly Vector3[] TrailCheckpoints =
+        {
+            WashingLineCenter + new Vector3(1f, 0f, -13f),   // toward the laundry hoop, from the south
+            WashingLineCenter + new Vector3(3f, 0f, -3f),    // toward the diving board, from the west
+            PlaygroundCenter + new Vector3(6f, 0f, -9f),     // toward the merry-go-round and trampoline
+            BbqCenter + new Vector3(6f, 0f, -10f),           // toward the grill, from the south-east (the fan's wind blows across it)
+            TreeCenter + new Vector3(6f, 0f, -6f),           // toward the mushroom pad and the low branch
+            TreeCenter + new Vector3(-2f, 0f, 4f),           // toward the finish
+        };
+
+        /// <summary>Centre of the finish pad's top, at the end of the trail.</summary>
+        public static readonly Vector3 TrailFinish = new Vector3(-8f, 0.4f, 68f);
+
+        private static readonly Vector3 TrailStart = new Vector3(0f, 0f, -6.2f);
 
         private static void BuildHoops()
         {
-            // Six hoops, any order. Each has a checkpoint beside it where the balloon returns after a pop.
-            const float diveBoardTop = 1.625f;  // BuildPool: board centre 1.5 m, 0.25 m thick; its tip is 6 m west of the pool centre
-            const float merryTop = 0.35f;       // BuildPlayground: disc centre 0.25 m, 0.2 m thick
-            const float flamesTop = 2.15f;      // BuildBbq: flame trigger centre 1.9 m, 0.5 m tall
-            const float branchLowTop = 4.25f;   // BuildTree: BranchLow centre 4 m, 0.5 m thick, spans x 0.85..4.35 from the trunk
-            const float fenceTop = 7f;          // BuildFence: picket height
-            (Vector3 hoop, Vector3 checkpoint, float yaw)[] hoops =
+            for (int i = 0; i < TrailHoops.Length; i++)
             {
-                // Over the pool, 1 m past the diving board's tip: slap it through from the board (or after a spring bounce).
-                (PoolCenter + new Vector3(-5f, diveBoardTop + HoopAboveFloor, 0f), PoolCenter + new Vector3(-13f, 0f, -6f), 60f),
-                // Through the laundry: the sheets hang from 2.3 m, so they brush the top of the ring and swat the balloon.
-                (WashingLineCenter + new Vector3(0f, HoopAboveFloor, -7f), WashingLineCenter + new Vector3(8f, 0f, -12f), -20f),
-                // In the tree, above the low branch: the mushroom pad at the trunk bounces you up onto it (playtest: the
-                // old spot above the top branch, 11.35 m up, was too high to work the balloon up to).
-                (TreeCenter + new Vector3(2.8f, branchLowTop + HoopAbovePerch, 0f), TreeCenter + new Vector3(0f, 0f, -14f), 0f),
-                // Above the merry-go-round: ride it and slap the balloon up through as you spin past.
-                (PlaygroundCenter + new Vector3(4f, merryTop + HoopAboveFloor, -2f), PlaygroundCenter + new Vector3(6f, 0f, -12f), 0f),
-                // Over the grill: the ring's bottom clears the flames by 0.1 m, so a low balloon still gets burnt.
-                (BbqCenter + new Vector3(0f, flamesTop + 0.1f + HoopRingRadius, -6f), BbqCenter + new Vector3(-8f, 0f, -14f), 0f),
-                // On top of the west fence (pickets at x = -HalfWidth, 0.4 m thick): the ring hangs just inside it, so a player
-                // clinging to the picket tops slaps the balloon up and slightly inward through it.
-                (new Vector3(-HalfWidth + 0.2f + HoopRingRadius + 0.3f, fenceTop + HoopAbovePerch - 0.5f, 94f), new Vector3(-36f, 0f, 86f), -45f),
-            };
+                Vector3 previous = i == 0 ? TrailStart : TrailHoops[i - 1];
+                Vector3 next = i + 1 < TrailHoops.Length ? TrailHoops[i + 1] : TrailFinish;
+                Hoop(i, TrailHoops[i], YawToward(previous, next));
 
-            for (int i = 0; i < hoops.Length; i++)
-            {
-                Hoop(i, hoops[i].hoop);
-                SpawnPoint(i + 1, hoops[i].checkpoint, hoops[i].yaw, new Vector3(0f, 2.4f, 1.8f));
+                Vector3 checkpoint = TrailCheckpoints[i];
+                // The balloon waits 1 m ahead of the checkpoint, above head height, facing the next target.
+                SpawnPoint(i + 1, checkpoint, YawToward(checkpoint, next), new Vector3(0f, 1.4f, 1.0f));
             }
+
+            BuildFinishPad(TrailFinish);
+            FinishPinata(TrailHoops[TrailHoops.Length - 1], TrailFinish);
         }
 
-        private static void Hoop(int index, Vector3 center)
+        /// <summary>Ground point a fraction of the way along a gap, with the gap's direction and its right-hand side.</summary>
+        private static Vector3 GapPoint(Vector3 from, Vector3 to, float t, out Vector3 along, out Vector3 across, out Quaternion facing)
+        {
+            along = Flat(to - from).normalized;
+            across = Vector3.Cross(Vector3.up, along);
+            facing = Quaternion.LookRotation(along, Vector3.up);
+            return Flat(Vector3.Lerp(from, to, t));
+        }
+
+        /// <summary>A pinata swinging side to side across the way onto the finish pad: time the last slap.</summary>
+        private static void FinishPinata(Vector3 from, Vector3 to)
+        {
+            Vector3 c = GapPoint(from, to, PinataAlong, out _, out Vector3 across, out Quaternion facing);
+            const float beam = 5.8f;
+            // Posts 3.2 m out: the pinata (0.55 m half-size on a 3.4 m rope, 45 degree swing) reaches 2.95 m, clear of them.
+            foreach (float side in new[] { -3.2f, 3.2f })
+            {
+                Box("PinataPost", c + across * side + new Vector3(0f, beam / 2f, 0f), new Vector3(0.25f, beam, 0.25f), _palette.Wood);
+            }
+
+            Box("PinataBeam", c + new Vector3(0f, beam, 0f), new Vector3(6.7f, 0.25f, 0.25f), _palette.Wood).transform.rotation = facing;
+            MovingObstacle pinata = Mover("FinishPinata", c + new Vector3(0f, beam - 0.1f, 0f));
+            pinata.transform.rotation = facing;
+            pinata.ConfigureSwing(Vector3.forward, 45f, 3.2f); // about the path: it sweeps across it
+            Box("PinataRope", pinata.transform, new Vector3(0f, -1.5f, 0f), new Vector3(0.05f, 3f, 0.05f), _palette.Wood, false);
+            Box("FinishPinataBody", pinata.transform, new Vector3(0f, -3.4f, 0f), Vector3.one * 1.1f, PlaceholderAssets.Material("Pinata", ArtPalette.CandyPink));
+        }
+
+        private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
+
+        private static float YawToward(Vector3 from, Vector3 to)
+        {
+            Vector3 d = Flat(to - from);
+            return Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+        }
+
+        /// <summary>A low deck at the end of the trail: land the balloon on it once every hoop is cleared.</summary>
+        private static void BuildFinishPad(Vector3 top)
+        {
+            Box("FinishPad", top + new Vector3(0f, -0.2f, 0f), new Vector3(8f, 0.4f, 6f), _palette.Deck);
+            Box("FinishMat", top + new Vector3(0f, 0.02f, 0f), new Vector3(7f, 0.04f, 5f), _palette.Checker, false);
+            GameObject beacon = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "FinishBeacon", _course, top + new Vector3(0f, 0.38f, 0f), new Vector3(1.4f, 0.35f, 1.4f),
+                PlaceholderAssets.Emissive("FinishBeacon", ArtPalette.Hazard, 1.3f), false);
+            // Locked (red beacon) until every hoop is cleared.
+            GameObject finish = PlaceholderShapes.TriggerBox("FinishLine", _course, top + new Vector3(0f, 1.6f, 0f), new Vector3(7f, 3f, 5f));
+            finish.AddComponent<FinishLine>().Configure(beacon.GetComponent<Renderer>());
+            PlaceholderShapes.Text("FinishSign", _course, top + new Vector3(0f, 4.2f, 3.2f), 0.08f, "FINISH", ArtPalette.Accent);
+        }
+
+        private static void Hoop(int index, Vector3 center, float yaw)
         {
             var root = new GameObject($"Hoop{index + 1}");
             root.transform.SetParent(_course, false);
-            root.transform.position = center;
+            root.transform.SetPositionAndRotation(center, Quaternion.Euler(0f, yaw, 0f));
             var trigger = root.AddComponent<SphereCollider>();
             trigger.isTrigger = true;
             trigger.radius = HoopTriggerRadius;
@@ -676,32 +655,30 @@ namespace GameJam.Editor
             }
 
             PlaceholderShapes.Text($"Hoop{index + 1}Label", root.transform, new Vector3(0f, HoopRingRadius + 0.5f, 0f), 0.04f, $"HOOP {index + 1}", ArtPalette.Accent);
-            root.AddComponent<HoopCheckpoint>().Configure(index, renderers.ToArray(), spinner);
+            var chimeHost = new GameObject("ClearChime");
+            chimeHost.transform.SetParent(_course, false); // not under the hoop, which hides its children when cleared
+            chimeHost.transform.position = center;
+            AudioSource chime = PlaceholderPrefabBuilder.Sound(chimeHost, GeneratedAudio.HoopChime("Hoop_Chime"), false, 40f, 1f);
+            root.AddComponent<HoopCheckpoint>().Configure(index, renderers.ToArray(), spinner, chime, PlaceholderAssets.Material("Confetti", Color.white, 0.3f));
         }
 
         private static void BuildItemStashes()
         {
-            // Start pile: one of everything. Zone stashes: a couple of items within reach everywhere (GDD: Items).
+            // Start pile: one of everything. Then two items beside every checkpoint: a hoop helper (bubble wand = updraft
+            // for the high hoops: pool and tree; leaf blower = gust toward the nearest hoop for the rest) and one other.
             for (int i = 0; i < 10; i++)
             {
                 ItemSpawn(i, new Vector3(-5f, 0.9f, -9.6f + i * 0.9f));
             }
 
-            (int item, Vector3 position)[] stashes =
+            int[] helpers = { 9, 8, 9, 9, 8, 9 };
+            for (int k = 0; k < TrailCheckpoints.Length; k++)
             {
-                (1, PoolCenter + new Vector3(-12f, 0.6f, 4f)), (2, PoolCenter + new Vector3(-12f, 0.6f, 6f)),
-                (0, WashingLineCenter + new Vector3(6f, 0.6f, 10f)), (3, WashingLineCenter + new Vector3(8f, 0.6f, 10f)),
-                (4, PlaygroundCenter + new Vector3(8f, 0.6f, -10f)), (5, PlaygroundCenter + new Vector3(10f, 0.6f, -10f)),
-                (6, BbqCenter + new Vector3(-2f, PicnicTableTop + 0.5f, 5f)), (7, BbqCenter + new Vector3(2f, PicnicTableTop + 0.5f, 5f)),
-                (1, TreeCenter + new Vector3(5f, 0.6f, -6f)), (3, TreeCenter + new Vector3(-5f, 0.6f, -6f)),
-                // Hoop helpers: bubble wands (updraft) under the high hoops, leaf blowers (gust to the nearest hoop) by the rest.
-                (8, TreeCenter + new Vector3(4.5f, 0.6f, -4.5f)), (8, new Vector3(-42f, 0.6f, 88f)), (8, PoolCenter + new Vector3(-13f, 0.6f, -2f)),
-                (9, BbqCenter + new Vector3(7f, 0.6f, -9f)), (9, WashingLineCenter + new Vector3(4f, 0.6f, -11f)), (9, PlaygroundCenter + new Vector3(9f, 0.6f, -6f)),
-            };
-
-            foreach ((int item, Vector3 position) in stashes)
-            {
-                ItemSpawn(item, position);
+                Vector3 cp = TrailCheckpoints[k];
+                Vector3 next = k + 1 < TrailHoops.Length ? TrailHoops[k + 1] : TrailFinish;
+                Vector3 across = Vector3.Cross(Vector3.up, Flat(next - cp).normalized);
+                ItemSpawn(helpers[k], cp + across * 1.8f + Vector3.up * 0.6f);
+                ItemSpawn(k % 8, cp - across * 1.8f + Vector3.up * 0.6f);
             }
         }
 

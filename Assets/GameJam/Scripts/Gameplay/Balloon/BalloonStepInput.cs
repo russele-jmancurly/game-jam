@@ -17,5 +17,8 @@ namespace GameJam.Gameplay
         public bool CanLeak;
 
         public float DeltaTime;
+
+        /// <summary>Seconds since start, for the air flutter (any steadily increasing clock).</summary>
+        public float Time;
     }
 }

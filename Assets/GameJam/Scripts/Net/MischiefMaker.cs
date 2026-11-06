@@ -16,6 +16,9 @@ namespace GameJam.Net
     public sealed class MischiefMaker : NetworkBehaviour, IKnockbackSource
     {
         private const float TargetReachedDistance = 1.2f;
+        private const float StallSeconds = 4f;       // no progress for this long = stuck against an avoid circle
+        private const float StallProgress = 0.5f;   // metres closer that count as progress
+        private const float PathMargin = 0.3f;      // extra clearance a wander path keeps from set pieces
         private const float FollowThroughSeconds = 0.45f;
 
         [SerializeField] private CharacterRoster _roster;
@@ -37,6 +40,9 @@ namespace GameJam.Net
         // Authority-side simulation.
         private Vector3 _wanderTarget;
         private float _speed;
+        private float _progressDeadline = -1f;
+        private float _progressMark;
+        private RoamerMood _progressMood;
 
         // Local presentation.
         private Vector3 _lastPosition;
@@ -47,9 +53,19 @@ namespace GameJam.Net
         private int _shownCharacter = -1;
         private RoamerMood _animatedMood = RoamerMood.Wander;
 
-        public static MischiefMaker Instance { get; private set; }
+        /// <summary>Every giant in the yard (one per roster character: Jman and Squoof).</summary>
+        public static readonly System.Collections.Generic.List<MischiefMaker> Active = new System.Collections.Generic.List<MischiefMaker>();
+
+        /// <summary>The first giant (kept for tools and tests that only need one).</summary>
+        public static MischiefMaker Instance => Active.Count > 0 ? Active[0] : null;
+
+        /// <summary>How many characters the roster has (the bootstrap spawns one giant for each).</summary>
+        public int CharacterCount => _roster != null ? _roster.Count : 0;
 
         [Networked] public int CharacterIndex { get; private set; }
+
+        /// <summary>Fixed character for this giant, as roster index + 1 (0 = pick one at random every run).</summary>
+        [Networked] private int AssignedCharacter { get; set; }
 
         [Networked] public RoamerMood Mood { get; private set; }
 
@@ -85,13 +101,20 @@ namespace GameJam.Net
         /// <summary>Picks a new random character (called at every run start).</summary>
         public void Reroll() => RpcReroll();
 
+        /// <summary>Spawn-time wiring (call from Runner.Spawn's onBeforeSpawned): this giant is always that character.</summary>
+        public void AssignCharacter(int rosterIndex) => AssignedCharacter = rosterIndex + 1;
+
         public override void Spawned()
         {
-            Instance = this;
+            if (!Active.Contains(this))
+            {
+                Active.Add(this);
+            }
+
             _lastPosition = transform.position;
             if (HasStateAuthority)
             {
-                CharacterIndex = RandomCharacter();
+                CharacterIndex = AssignedCharacter > 0 ? AssignedCharacter - 1 : RandomCharacter();
                 StartWandering();
             }
 
@@ -100,10 +123,7 @@ namespace GameJam.Net
 
         public override void Despawned(NetworkRunner runner, bool hasState)
         {
-            if (Instance == this)
-            {
-                Instance = null;
-            }
+            Active.Remove(this);
         }
 
         public override void FixedUpdateNetwork()
@@ -129,6 +149,10 @@ namespace GameJam.Net
                     {
                         Mood = RoamerMood.Idle; // stop and look around for a moment
                         StateTimer = TickTimer.CreateFromSeconds(Runner, Random.Range(_roster.RoamerIdleSeconds.x, _roster.RoamerIdleSeconds.y));
+                    }
+                    else if (IsStalled(_wanderTarget))
+                    {
+                        PickWanderTarget(); // boxed in by set pieces: head somewhere else instead of walking on the spot
                     }
 
                     break;
@@ -159,6 +183,13 @@ namespace GameJam.Net
                         Mood = RoamerMood.WindUp;
                         StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerWindUpSeconds);
                     }
+                    else if (IsStalled(balloon.transform.position))
+                    {
+                        // Can't get to it from here: give up for a while (Cooldown ignores the balloon) and wander off.
+                        Mood = RoamerMood.Cooldown;
+                        StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerBonkCooldown);
+                        PickWanderTarget();
+                    }
 
                     break;
 
@@ -188,7 +219,7 @@ namespace GameJam.Net
 
                 case RoamerMood.Cooldown:
                     WalkToward(_wanderTarget, _roster.RoamerWalkSpeed, dt, true);
-                    if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance)
+                    if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance || IsStalled(_wanderTarget))
                     {
                         PickWanderTarget();
                     }
@@ -392,6 +423,12 @@ namespace GameJam.Net
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         private void RpcReroll()
         {
+            if (AssignedCharacter > 0)
+            {
+                StartWandering(); // a fixed character keeps its face; just set off again
+                return;
+            }
+
             int previous = CharacterIndex;
             int next = RandomCharacter();
             if (_roster != null && _roster.Count > 1 && next == previous)
@@ -541,6 +578,31 @@ namespace GameJam.Net
             transform.rotation = Quaternion.RotateTowards(transform.rotation, target, _roster.RoamerTurnSpeed * dt);
         }
 
+        /// <summary>
+        /// True when the giant hasn't got StallProgress closer to its target for StallSeconds while trying to walk there:
+        /// it is pressed against an avoid circle (set pieces can box a target in). Restarts when the mood changes.
+        /// </summary>
+        private bool IsStalled(Vector3 target)
+        {
+            float distance = HorizontalDistance(transform.position, target);
+            float now = Time.time;
+            if (_progressDeadline < 0f || Mood != _progressMood || distance < _progressMark - StallProgress)
+            {
+                _progressMood = Mood;
+                _progressMark = distance;
+                _progressDeadline = now + StallSeconds;
+                return false;
+            }
+
+            if (now < _progressDeadline)
+            {
+                return false;
+            }
+
+            _progressDeadline = -1f;
+            return true;
+        }
+
         private void StartWandering()
         {
             Mood = RoamerMood.Wander;
@@ -549,19 +611,70 @@ namespace GameJam.Net
 
         private void PickWanderTarget()
         {
+            _progressDeadline = -1f;
             if (_wanderPoints == null || _wanderPoints.Length == 0)
             {
                 _wanderTarget = transform.position;
                 return;
             }
 
-            Vector3 candidate = _wanderPoints[Random.Range(0, _wanderPoints.Length)];
-            for (int attempt = 0; attempt < 3 && _wanderPoints.Length > 1 && HorizontalDistance(candidate, transform.position) < 3f; attempt++)
+            // Only spots it can walk to in a straight line: set pieces chain into walls (pool, diving board, clothesline),
+            // and a spot behind one made it walk into the corner and stall. Far spots are reached in hops around them.
+            Vector3 here = transform.position;
+            int reachable = 0;
+            foreach (Vector3 point in _wanderPoints)
             {
-                candidate = _wanderPoints[Random.Range(0, _wanderPoints.Length)];
+                if (HorizontalDistance(point, here) > 3f && HasClearPath(here, point))
+                {
+                    reachable++;
+                }
             }
 
-            _wanderTarget = candidate;
+            if (reachable == 0)
+            {
+                _wanderTarget = _wanderPoints[Random.Range(0, _wanderPoints.Length)];
+                return;
+            }
+
+            int pick = Random.Range(0, reachable);
+            foreach (Vector3 point in _wanderPoints)
+            {
+                if (HorizontalDistance(point, here) > 3f && HasClearPath(here, point) && pick-- == 0)
+                {
+                    _wanderTarget = point;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// True when the straight walk from one spot to another stays outside every avoid circle (padded by the giant's
+        /// body and PathMargin). A circle it is already pressed against doesn't count if the walk leads away from it.
+        /// </summary>
+        private bool HasClearPath(Vector3 from, Vector3 to)
+        {
+            float body = 0.6f * _roster.RoamerScale * 0.5f;
+            var a = new Vector2(from.x, from.z);
+            var ab = new Vector2(to.x, to.z) - a;
+            float lengthSquared = Mathf.Max(ab.sqrMagnitude, 0.0001f);
+            foreach (Vector3 circle in _avoidCircles)
+            {
+                var c = new Vector2(circle.x, circle.y);
+                float limit = circle.z + body;
+                bool startsAgainstIt = (a - c).magnitude < limit + PathMargin;
+                if (startsAgainstIt && Vector2.Dot(ab, a - c) >= 0f)
+                {
+                    continue; // already touching it and heading away
+                }
+
+                float t = Mathf.Clamp01(Vector2.Dot(c - a, ab) / lengthSquared);
+                if ((a + ab * t - c).magnitude < limit + (startsAgainstIt ? 0f : PathMargin))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private void ApplyCharacter()

@@ -78,6 +78,21 @@ namespace GameJam.Editor
             return material;
         }
 
+        /// <summary>URP Unlit, opaque (a mirror surface: its texture is set at runtime).</summary>
+        public static Material Unlit(string name, Color color)
+        {
+            if (MaterialCache.TryGetValue(name, out Material cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Material material = LoadOrCreate(name, "Universal Render Pipeline/Unlit");
+            material.color = color;
+            EditorUtility.SetDirty(material);
+            MaterialCache[name] = material;
+            return material;
+        }
+
         /// <summary>URP Unlit, alpha-blended (decal-style blob shadow). Tinted per renderer with a property block.</summary>
         public static Material TransparentUnlit(string name, Texture2D texture)
         {

@@ -26,7 +26,20 @@ namespace GameJam.Core
         [Tooltip("Only hoops within this distance of the balloon are aimed at.")]
         [Min(0f)] public float HoopAssistRange = 9f;
 
-        [Header("Effect where it lands (bubble wand, leaf blower)")]
+        [Header("Held in the hand")]
+        [Tooltip("Where the item sits relative to the controller grip (x right, y up, z out of the fist), metres.")]
+        public Vector3 HoldOffset = new Vector3(0f, 0f, 0.08f);
+        [Tooltip("Item rotation relative to the controller grip, degrees: its business end points where your fist points.")]
+        public Vector3 HoldEuler;
+
+        [Header("Effect while the trigger is held (bubble wand, leaf blower)")]
+        [Tooltip("Where the effect comes out, in the item's own space (the blower's nozzle, the wand's ring).")]
+        public Vector3 EffectEmitter;
+        [Tooltip("Seconds before the effect can be used again after it stops.")]
+        [Min(0f)] public float EffectCooldown = 1f;
+        [Tooltip("Items with an effect are single use: once it has run, the item vanishes and comes back to its spot " +
+                 "after this many seconds.")]
+        [Min(0f)] public float UsedUpRespawnSeconds = 30f;
         public ItemEffect Effect = ItemEffect.None;
         [Min(0f)] public float EffectSeconds = 6f;
         [Tooltip("Wind acceleration on the balloon inside the zone, m/s² (balloon gravity is 1).")]

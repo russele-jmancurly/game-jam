@@ -26,12 +26,23 @@ namespace GameJam.Net
         [SerializeField] private Renderer _visual;
         [SerializeField] private TextMesh _rallyText;
         [SerializeField] private Material _effectMaterial;
+        [Tooltip("Plays the hit sound at the balloon (3D).")]
+        [SerializeField] private AudioSource _hitAudio;
+        [Tooltip("Slap sounds; one is picked at random per hit.")]
+        [SerializeField] private AudioClip[] _hitClips = System.Array.Empty<AudioClip>();
+        [Tooltip("Played where the balloon pops.")]
+        [SerializeField] private AudioClip _popClip;
 
         private Rigidbody _body;
         private NetworkTransform _networkTransform;
         private BalloonPhysics _physics;
         private Vector3 _baseVisualScale;
         private MaterialPropertyBlock _colorBlock;
+        private Transform _string;
+        private Vector3 _stringRest;
+        private float _lastHitTime = -10f;
+        private float _lastHitStrength;
+        private Vector3 _lastHitDirection = Vector3.up;
 
         public static NetworkBalloon Instance { get; private set; }
 
@@ -49,6 +60,14 @@ namespace GameJam.Net
 
         [Networked] private TickTimer HitGrace { get; set; }
 
+        /// <summary>
+        /// Waiting at its spawn point (after spawning, a reset or a pop): it hovers there with a gentle bob instead of
+        /// dropping, until the first hit sends it off.
+        /// </summary>
+        [Networked] public NetworkBool IsStationed { get; private set; }
+
+        [Networked] private Vector3 StationPoint { get; set; }
+
         /// <summary>The balloon's current velocity (synced by the NetworkTransform's physics state).</summary>
         public Vector3 Velocity => _body != null ? _body.linearVelocity : Vector3.zero;
 
@@ -65,8 +84,13 @@ namespace GameJam.Net
 
         private bool IsReady => Object != null && Object.IsValid;
 
-        public void Configure(BalloonConfig config, SlapConfig slapConfig, Renderer visual, TextMesh rallyText, Material effectMaterial)
+        public void ConfigurePopSound(AudioClip popClip) => _popClip = popClip;
+
+        public void Configure(BalloonConfig config, SlapConfig slapConfig, Renderer visual, TextMesh rallyText, Material effectMaterial,
+            AudioSource hitAudio, AudioClip[] hitClips)
         {
+            _hitAudio = hitAudio;
+            _hitClips = hitClips;
             _config = config;
             _slapConfig = slapConfig;
             _visual = visual;
@@ -83,10 +107,25 @@ namespace GameJam.Net
                 return false;
             }
 
-            RequestHit(Runner.LocalPlayer, slap.HandVelocity * _slapConfig.BalloonVelocityScale);
-            feedback = new HapticPulse(Mathf.Clamp01(0.3f + speed * 0.1f), 0.08f);
+            float strength = SlapStrength(speed);
+            LastSlapHandSpeed = speed;
+            RequestHit(Runner.LocalPlayer, SlapVelocity(slap.HandVelocity * _slapConfig.BalloonVelocityScale, strength));
+            feedback = new HapticPulse(Mathf.Lerp(0.45f, 1f, strength), Mathf.Lerp(0.05f, 0.12f, strength)); // a hard slap kicks
             return true;
         }
+
+        /// <summary>Hand speed of the last slap this client landed on the balloon (m/s), for tuning.</summary>
+        public float LastSlapHandSpeed { get; private set; }
+
+        private float SlapStrength(float handSpeed) =>
+            Mathf.InverseLerp(_slapConfig.MinBalloonSlapSpeed, _config.SlapFullStrengthHandSpeed, handSpeed);
+
+        /// <summary>
+        /// The balloon flies the way the hand moved, as hard as it moved. Gentle taps get a little extra lift so
+        /// keepy-uppy touches pop it up; hard slaps get almost none, so they go where they're aimed.
+        /// </summary>
+        private Vector3 SlapVelocity(Vector3 hand, float strength) =>
+            hand + Vector3.up * Mathf.Lerp(_config.SlapTapLift, _config.SlapHardLift, strength);
 
         /// <summary>A player's hit (slap, thrown or swung item). PlayerRef.None counts as nobody's hit.</summary>
         public void RequestHit(PlayerRef hitter, Vector3 velocity)
@@ -119,11 +158,22 @@ namespace GameJam.Net
                 _baseVisualScale = _visual.transform.localScale;
             }
 
+            _string = transform.Find("String");
+            if (_string != null)
+            {
+                _stringRest = _string.localPosition;
+            }
+
             // Fusion 2.1 send priority: on this client, receive the balloon's state every send tick (it is the object
             // everyone is looking at). Shared Mode only accepts the local player here.
             if (Runner.GameMode == GameMode.Shared)
             {
                 Object.SetPriority(Runner.LocalPlayer, SendEveryTick);
+            }
+
+            if (HasStateAuthority)
+            {
+                Station(transform.position);
             }
         }
 
@@ -154,6 +204,12 @@ namespace GameJam.Net
                 return;
             }
 
+            if (IsStationed)
+            {
+                Hover();
+                return;
+            }
+
             var input = new BalloonStepInput
             {
                 Position = _body.position,
@@ -162,6 +218,7 @@ namespace GameJam.Net
                 AreSpikesArmed = HitGrace.ExpiredOrNotRunning(Runner),
                 CanLeak = LeakCooldown.ExpiredOrNotRunning(Runner),
                 DeltaTime = Time.fixedDeltaTime,
+                Time = Time.time,
             };
 
             BalloonStepResult result = _physics.Step(input);
@@ -193,11 +250,28 @@ namespace GameJam.Net
         {
             if (_visual != null)
             {
-                _colorBlock.SetColor(BaseColorId, LastHitter.ToPaletteColor());
+                // A white flash on contact, fading in a few frames.
+                float since = Time.time - _lastHitTime;
+                float flash = Mathf.Exp(-since * 22f) * _lastHitStrength;
+                _colorBlock.SetColor(BaseColorId, Color.Lerp(LastHitter.ToPaletteColor(), Color.white, flash * 0.8f));
                 _visual.SetPropertyBlock(_colorBlock);
 
+                // Idle breathing wobble, plus a squash along the hit direction that springs back and jiggles (latex).
                 float wobble = 1f + Mathf.Sin(Time.time * WobbleSpeed) * WobbleAmount;
-                _visual.transform.localScale = _baseVisualScale * (_config.ScaleFor(Condition) * wobble);
+                float jiggle = _config.HitSquash * _lastHitStrength * Mathf.Exp(-since * 7f) * Mathf.Cos(since * 28f);
+                var squash = new Vector3(1f + jiggle * 0.6f, 1f - jiggle, 1f + jiggle * 0.6f);
+                _visual.transform.rotation = Quaternion.FromToRotation(Vector3.up, _lastHitDirection); // squash axis = hit
+                _visual.transform.localScale = Vector3.Scale(_baseVisualScale, squash) * (_config.ScaleFor(Condition) * wobble);
+            }
+
+            if (_string != null)
+            {
+                // The string trails behind the motion and hangs down when still.
+                Vector3 trail = Vector3.down - Velocity * 0.35f;
+                Quaternion tilt = Quaternion.FromToRotation(Vector3.down, trail.normalized);
+                Quaternion local = Quaternion.Inverse(transform.rotation) * tilt;
+                _string.localPosition = local * _stringRest;
+                _string.localRotation = local;
             }
 
             if (_rallyText != null)
@@ -242,9 +316,26 @@ namespace GameJam.Net
             }
 
             Vector3 capped = Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed);
+            IsStationed = false;
             _body.isKinematic = false;
             _body.linearVelocity = Vector3.ClampMagnitude(capped + Vector3.up * _config.UpwardAssist, _config.MaxHitSpeed);
             HitGrace = TickTimer.CreateFromSeconds(Runner, _config.HitGraceSeconds);
+            RpcHitEffects(_body.linearVelocity.normalized, Mathf.Clamp01(capped.magnitude / _config.MaxHitSpeed));
+        }
+
+        /// <summary>Everyone hears the hit (louder and higher for a harder hit) and sees the balloon jiggle.</summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All, TickAligned = false)]
+        private void RpcHitEffects(Vector3 direction, float strength)
+        {
+            _lastHitTime = Time.time;
+            _lastHitDirection = direction.sqrMagnitude > 0.001f ? direction : Vector3.up;
+            _lastHitStrength = Mathf.Lerp(0.35f, 1f, strength);
+            if (_hitAudio != null && _hitClips != null && _hitClips.Length > 0)
+            {
+                AudioClip clip = _hitClips[Random.Range(0, _hitClips.Length)];
+                _hitAudio.pitch = Mathf.Lerp(0.96f, 1.08f, strength) * Random.Range(0.97f, 1.03f);
+                _hitAudio.PlayOneShot(clip, Mathf.Lerp(0.5f, 1f, strength));
+            }
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -270,6 +361,10 @@ namespace GameJam.Net
         private void RpcPlayPopEffects(Vector3 position, Color color)
         {
             PopBurstEffect.Play(position, color, _effectMaterial);
+            if (_popClip != null)
+            {
+                AudioSource.PlayClipAtPoint(_popClip, position, 1f);
+            }
 
             // Pop blast: knocks over anyone standing right next to it.
             LocalRig rig = LocalRig.Instance;
@@ -338,8 +433,22 @@ namespace GameJam.Net
         /// Moves the balloon without interpolating across the map: NetworkTransform.Teleport networks a teleport event
         /// and adjusts the Rigidbody when Forecast Physics is on.
         /// </summary>
+        /// <summary>Holds the balloon at a spot (spring toward it, with a gentle bob) until the next hit.</summary>
+        private void Station(Vector3 position)
+        {
+            StationPoint = position;
+            IsStationed = true;
+        }
+
+        private void Hover()
+        {
+            Vector3 target = StationPoint + Vector3.up * (Mathf.Sin(Time.time * _config.StationBobSpeed) * _config.StationBobHeight);
+            _body.linearVelocity = (target - _body.position) * _config.StationSpring;
+        }
+
         private void TeleportTo(Vector3 position)
         {
+            Station(position); // every reset and pop puts it back on station
             if (!_body.isKinematic) // frozen between runs: Unity warns when a kinematic body's velocity is set
             {
                 _body.linearVelocity = Vector3.zero;

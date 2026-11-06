@@ -77,6 +77,10 @@ namespace GameJam.Net
                 Local = this;
                 GameServices.LocalKnockback = this;
                 SetVisible(false); // you never see your own body; ShowOwnArms brings back just the arms
+                if (_bodyRig != null)
+                {
+                    _bodyRig.IsLocalPlayer = true; // the stage mirror shows it
+                }
             }
         }
 
@@ -151,6 +155,17 @@ namespace GameJam.Net
         [Rpc(RpcSources.All, RpcTargets.All, TickAligned = false)]
         private void RpcKnockback(Vector3 direction, float force, float seconds)
         {
+            if (seconds <= 0f)
+            {
+                // A shove from another player (simple mode): the hit player slides a little; no ragdoll for anyone.
+                if (HasStateAuthority && LocalRig.Instance != null)
+                {
+                    LocalRig.Instance.Push(direction, force);
+                }
+
+                return;
+            }
+
             if (HasStateAuthority)
             {
                 if (LocalRig.Instance != null)

@@ -189,7 +189,23 @@ namespace GameJam.Editor
             PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "String", root.transform, new Vector3(0f, -0.45f, 0f), new Vector3(0.01f, 0.2f, 0.01f), PlaceholderAssets.Material("String", Color.white), false);
             TextMesh rallyText = PlaceholderShapes.Text("RallyText", root.transform, new Vector3(0f, 0.5f, 0f), 0.04f, string.Empty, Color.white);
 
-            balloon.Configure(configs.Balloon, configs.Slap, visual.GetComponent<Renderer>(), rallyText, rubber);
+            var hitAudio = root.AddComponent<AudioSource>();
+            hitAudio.playOnAwake = false;
+            AudioClip[] slaps =
+            {
+                GeneratedAudio.BalloonSlap("Balloon_Slap_1", 0),
+                GeneratedAudio.BalloonSlap("Balloon_Slap_2", 1),
+                GeneratedAudio.BalloonSlap("Balloon_Slap_3", 2),
+            };
+            hitAudio.clip = slaps[0];
+            hitAudio.spatialBlend = 1f;
+            hitAudio.rolloffMode = AudioRolloffMode.Linear;
+            hitAudio.minDistance = 1.5f;
+            hitAudio.maxDistance = 30f;
+            hitAudio.dopplerLevel = 0f;
+
+            balloon.Configure(configs.Balloon, configs.Slap, visual.GetComponent<Renderer>(), rallyText, rubber, hitAudio, slaps);
+            balloon.ConfigurePopSound(GeneratedAudio.BalloonPop("Balloon_Pop"));
             AddGroundShadow(root);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             PlaceholderShapes.SetLayerRecursively(root, GameLayers.Balloon);
@@ -219,7 +235,10 @@ namespace GameJam.Editor
         {
             var root = new GameObject("GameState");
             var networkObject = root.AddComponent<NetworkObject>();
-            root.AddComponent<GameState>().Configure(configs.Run);
+            var gameState = root.AddComponent<GameState>();
+            gameState.Configure(configs.Run);
+            AudioSource winAudio = Sound(root, GeneratedAudio.WinFanfare("Win_Fanfare"), false, 0f, 0.8f); // 2D: everyone hears it
+            gameState.ConfigureSounds(winAudio);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             return PlaceholderAssets.SavePrefab(root, "GameState");
         }
@@ -258,6 +277,7 @@ namespace GameJam.Editor
                 body.mass = definition.Mass;
                 body.interpolation = RigidbodyInterpolation.Interpolate; // required by Forecast Physics
                 body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                PlaceholderShapes.SetLayerRecursively(item, GameLayers.Item); // before the effect zone, which has its own layer
                 var networkItem = item.AddComponent<NetworkItem>();
                 networkItem.Configure(definition, configs.Knockback);
                 if (definition.Effect != ItemEffect.None)
@@ -295,6 +315,33 @@ namespace GameJam.Editor
             return root;
         }
 
+        /// <summary>
+        /// How each item sits in the hand, measured from Art/Props/Items (built in Unity axes, origin at the bounds centre).
+        /// The controller grip's +Z points out of the fist: business ends go there. Round items sit in front of the palm.
+        /// </summary>
+        private static void ApplyHoldPose(ItemDefinition definition, string name)
+        {
+            (Vector3 offset, Vector3 euler, Vector3 emitter) = name switch
+            {
+                // Top handle in the fist (model 0, 0.12, -0.15), nozzle (tube end z 0.30) pointing forward.
+                "LeafBlower" => (new Vector3(0f, -0.12f, 0.15f), Vector3.zero, new Vector3(0f, -0.064f, 0.32f)),
+                // Stick along +Y turned to point out of the fist; the ring (y 0.161) leads.
+                "BubbleWand" => (new Vector3(0f, 0f, 0.08f), new Vector3(90f, 0f, 0f), new Vector3(0f, 0.161f, 0f)),
+                // Handle (z +0.164) turned into the fist, pan out in front.
+                "FryingPan" => (new Vector3(0f, 0f, 0.16f), new Vector3(0f, 180f, 0f), Vector3.zero),
+                // Tip (+Y) pointing out of the fist, ready to throw.
+                "Darts" => (new Vector3(0f, 0f, 0.05f), new Vector3(90f, 0f, 0f), Vector3.zero),
+                "RubberDuck" => (new Vector3(0f, 0f, 0.1f), Vector3.zero, Vector3.zero),
+                "BeachBall" => (new Vector3(0f, 0f, 0.22f), Vector3.zero, Vector3.zero),
+                "Watermelon" => (new Vector3(0f, 0f, 0.2f), Vector3.zero, Vector3.zero),
+                "Pillow" => (new Vector3(0f, 0f, 0.16f), Vector3.zero, Vector3.zero),
+                _ => (new Vector3(0f, 0f, 0.12f), Vector3.zero, Vector3.zero),
+            };
+            definition.HoldOffset = offset;
+            definition.HoldEuler = euler;
+            definition.EffectEmitter = emitter;
+        }
+
         private static ItemDefinition LoadOrCreateDefinition(in ItemSpec spec)
         {
             string path = $"{PlaceholderAssets.ItemConfigFolder}/Item_{spec.Name}.asset";
@@ -309,8 +356,11 @@ namespace GameJam.Editor
                 AssetDatabase.CreateAsset(definition, path);
             }
 
+            // Hold pose and effect emitter: fitted to the model, so always rewritten (not tuning).
+            ApplyHoldPose(definition, spec.Name);
+
             // Seed the hoop-helping fields added later without overwriting tuning already done on the asset.
-            bool changed = false;
+            bool changed = true;
             if (definition.HoopAssist <= 0f && spec.HoopAssist > 0f)
             {
                 definition.HoopAssist = spec.HoopAssist;
@@ -391,16 +441,17 @@ namespace GameJam.Editor
             main.maxParticles = 160;
             main.startLifetime = 2.5f;
             main.startSpeed = 2.5f;
-            main.startSize = isBubbles ? new ParticleSystem.MinMaxCurve(0.12f, 0.32f) : new ParticleSystem.MinMaxCurve(0.06f, 0.16f);
-            Color a = isBubbles ? Color.white : ArtPalette.LawnDark;
-            Color b = isBubbles ? ArtPalette.CandyPink : ArtPalette.Climbable;
-            a.a = isBubbles ? 0.55f : 0.9f;
+            // Bubbles: soft pink-white blobs. Gust: big pale air streaks (small orange specks were hard to see).
+            main.startSize = isBubbles ? new ParticleSystem.MinMaxCurve(0.12f, 0.32f) : new ParticleSystem.MinMaxCurve(0.18f, 0.34f);
+            Color a = isBubbles ? Color.white : Color.white;
+            Color b = isBubbles ? ArtPalette.CandyPink : ArtPalette.Window;
+            a.a = isBubbles ? 0.55f : 0.75f;
             b.a = a.a;
             main.startColor = new ParticleSystem.MinMaxGradient(a, b);
             main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
 
             ParticleSystem.EmissionModule emission = particles.emission;
-            emission.rateOverTime = isBubbles ? 28f : 40f;
+            emission.rateOverTime = isBubbles ? 28f : 70f;
 
             ParticleSystem.ShapeModule shape = particles.shape;
             shape.shapeType = ParticleSystemShapeType.Box; // emits along the zone forward axis
@@ -426,13 +477,187 @@ namespace GameJam.Editor
             particleRenderer.receiveShadows = false;
 
             var effectZone = zone.AddComponent<ItemEffectZone>();
-            effectZone.Configure(trigger, wind, particles);
+            if (!isBubbles)
+            {
+                // Same reach as before (~6 m), but as real-looking wind: long thin wisps and a few tumbling leaves.
+                main.startSpeed = 4f;
+                main.startLifetime = 1.6f;
+                StyleAsWind(particles, 22f, 1.2f);
+            }
+
+            AudioClip loop = isBubbles ? GeneratedAudio.BubbleLoop("Item_BubbleLoop") : GeneratedAudio.WindLoop("Wind_Loop");
+            effectZone.Configure(trigger, wind, particles, Sound(zone, loop, true, 18f, isBubbles ? 0.7f : 0.6f));
             PlaceholderShapes.SetLayerRecursively(zone, GameLayers.IgnoreRaycast);
             return effectZone;
         }
 
+        /// <summary>
+        /// An always-on stream of pale air streaks for set-piece wind (a box fan): emitted from the back face of a wind zone
+        /// (local -Z) and flowing along its +Z for its whole length, so players can see where the wind blows.
+        /// </summary>
+        public static ParticleSystem AirStream(Transform windZone, Vector3 zoneSize, float speed)
+        {
+            // A sibling, not a child: trigger boxes are scaled to their size, which would scale the emitter's offset too.
+            var emitter = new GameObject("AirStream");
+            emitter.transform.SetParent(windZone.parent, false);
+            emitter.transform.SetPositionAndRotation(windZone.position + windZone.rotation * new Vector3(0f, 0f, -zoneSize.z * 0.5f), windZone.rotation);
+            var particles = emitter.AddComponent<ParticleSystem>();
+            particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            ParticleSystem.MainModule main = particles.main;
+            main.loop = true;
+            main.playOnAwake = true;
+            main.prewarm = true; // already flowing when the scene starts
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 220;
+            main.startSpeed = speed;
+            main.startLifetime = zoneSize.z / speed;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.18f, 0.34f);
+            Color a = Color.white;
+            Color b = ArtPalette.Window;
+            a.a = 0.7f;
+            b.a = 0.7f;
+            main.startColor = new ParticleSystem.MinMaxGradient(a, b);
+
+            ParticleSystem.EmissionModule emission = particles.emission;
+            emission.rateOverTime = 55f;
+
+            ParticleSystem.ShapeModule shape = particles.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(zoneSize.x * 0.85f, zoneSize.y * 0.85f, 0.1f);
+
+            ParticleSystem.NoiseModule noise = particles.noise;
+            noise.enabled = true;
+            noise.strength = 0.4f;
+            noise.frequency = 0.6f;
+
+            ParticleSystem.ColorOverLifetimeModule fade = particles.colorOverLifetime;
+            fade.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.1f), new GradientAlphaKey(1f, 0.8f), new GradientAlphaKey(0f, 1f) });
+            fade.color = gradient;
+
+            var particleRenderer = emitter.GetComponent<ParticleSystemRenderer>();
+            particleRenderer.sharedMaterial = EffectParticleMaterial();
+            particleRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+            particleRenderer.lengthScale = 3f;
+            particleRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            particleRenderer.receiveShadows = false;
+            StyleAsWind(particles, 18f, zoneSize.x * 0.85f);
+            particles.Play();
+            Sound(emitter, GeneratedAudio.WindLoop("Wind_Loop"), true, 16f, 0.5f, playOnAwake: true);
+            return particles;
+        }
+
+        /// <summary>
+        /// Turns an emitter flowing along its +Z into wind that reads like the real thing: invisible heads trailing long,
+        /// thin, tapered wisps that wave on a scrolling noise field (gusty curls rather than straight lines), plus a child
+        /// emitter of a few leaves tumbling through the stream. Keeps the emitter's speed, lifetime and shape.
+        /// </summary>
+        private static void StyleAsWind(ParticleSystem particles, float wispsPerSecond, float width)
+        {
+            ParticleSystem.MainModule main = particles.main;
+            main.startSize = 0.02f;
+            main.startColor = new Color(1f, 1f, 1f, 0f); // only the trails show
+            main.startRotation = 0f;
+
+            ParticleSystem.EmissionModule emission = particles.emission;
+            emission.rateOverTime = wispsPerSecond;
+
+            ParticleSystem.NoiseModule noise = particles.noise;
+            noise.enabled = true;
+            noise.strength = new ParticleSystem.MinMaxCurve(0.5f, 0.9f);
+            noise.frequency = 0.35f;
+            noise.scrollSpeed = 0.6f; // the field drifts, so wisps curl differently over time
+            noise.damping = true;
+            noise.octaveCount = 2;
+            noise.quality = ParticleSystemNoiseQuality.Medium;
+
+            ParticleSystem.TrailModule trails = particles.trails;
+            trails.enabled = true;
+            trails.mode = ParticleSystemTrailMode.PerParticle;
+            trails.ratio = 1f;
+            trails.lifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.4f); // fraction of the particle's life: 1-3 m wisps
+            trails.minVertexDistance = 0.15f;
+            trails.dieWithParticles = true;
+            trails.sizeAffectsWidth = false;
+            trails.inheritParticleColor = false;
+            trails.textureMode = ParticleSystemTrailTextureMode.Stretch;
+            trails.widthOverTrail = new ParticleSystem.MinMaxCurve(0.07f, new AnimationCurve(
+                new Keyframe(0f, 0f), new Keyframe(0.3f, 1f), new Keyframe(0.7f, 0.8f), new Keyframe(1f, 0f)));
+            var wisp = new Gradient();
+            wisp.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(ArtPalette.Window, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.55f, 0.35f), new GradientAlphaKey(0.35f, 0.75f), new GradientAlphaKey(0f, 1f) });
+            trails.colorOverTrail = wisp;
+            var life = new Gradient();
+            life.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.15f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+            trails.colorOverLifetime = life;
+
+            var particleRenderer = particles.GetComponent<ParticleSystemRenderer>();
+            particleRenderer.renderMode = ParticleSystemRenderMode.Billboard;
+            particleRenderer.trailMaterial = EffectParticleMaterial();
+
+            // A few leaves caught in the stream.
+            var leavesObject = new GameObject("WindLeaves");
+            leavesObject.transform.SetParent(particles.transform, false);
+            var leaves = leavesObject.AddComponent<ParticleSystem>();
+            leaves.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule leafMain = leaves.main;
+            leafMain.loop = true;
+            leafMain.playOnAwake = main.playOnAwake;
+            leafMain.prewarm = main.prewarm;
+            leafMain.simulationSpace = ParticleSystemSimulationSpace.World;
+            leafMain.maxParticles = 30;
+            leafMain.startSpeed = main.startSpeed.constant * 0.85f;
+            leafMain.startLifetime = main.startLifetime.constant;
+            leafMain.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.15f);
+            leafMain.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+            leafMain.startColor = new ParticleSystem.MinMaxGradient(ArtPalette.LawnDark, Color.Lerp(ArtPalette.LawnDark, ArtPalette.Accent, 0.5f));
+            ParticleSystem.EmissionModule leafEmission = leaves.emission;
+            leafEmission.rateOverTime = 3f;
+            ParticleSystem.ShapeModule leafShape = leaves.shape;
+            leafShape.shapeType = ParticleSystemShapeType.Box;
+            leafShape.scale = new Vector3(width, width * 0.6f, 0.1f);
+            ParticleSystem.RotationOverLifetimeModule spin = leaves.rotationOverLifetime;
+            spin.enabled = true;
+            spin.z = new ParticleSystem.MinMaxCurve(-6f, 6f);
+            ParticleSystem.NoiseModule leafNoise = leaves.noise;
+            leafNoise.enabled = true;
+            leafNoise.strength = 1f;
+            leafNoise.frequency = 0.5f;
+            ParticleSystem.ColorOverLifetimeModule leafFade = leaves.colorOverLifetime;
+            leafFade.enabled = true;
+            leafFade.color = life;
+            var leafRenderer = leavesObject.GetComponent<ParticleSystemRenderer>();
+            leafRenderer.sharedMaterial = EffectParticleMaterial();
+            leafRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            leafRenderer.receiveShadows = false;
+        }
+
+        /// <summary>
+        /// An AudioSource for a generated sound: 3D with linear rolloff out to <paramref name="maxDistance"/>, or 2D when it
+        /// is 0. Never plays on awake unless it loops (a looping one is started by its owner, or plays at once if
+        /// <paramref name="loop"/> is set and the owner never stops it).
+        /// </summary>
+        public static AudioSource Sound(GameObject host, AudioClip clip, bool loop, float maxDistance, float volume, bool playOnAwake = false)
+        {
+            var source = host.AddComponent<AudioSource>();
+            source.clip = clip;
+            source.loop = loop;
+            source.playOnAwake = playOnAwake;
+            source.volume = volume;
+            source.dopplerLevel = 0f;
+            source.spatialBlend = maxDistance > 0f ? 1f : 0f;
+            source.rolloffMode = AudioRolloffMode.Linear;
+            source.minDistance = Mathf.Min(2f, maxDistance);
+            source.maxDistance = Mathf.Max(maxDistance, 1f);
+            return source;
+        }
+
         /// <summary>Soft round transparent particle (URP Particles/Unlit with a generated radial blob).</summary>
-        private static Material EffectParticleMaterial()
+        public static Material EffectParticleMaterial()
         {
             string path = $"{PlaceholderAssets.MaterialFolder}/EffectParticle.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);

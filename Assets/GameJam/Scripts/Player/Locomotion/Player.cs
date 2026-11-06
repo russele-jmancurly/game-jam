@@ -819,6 +819,50 @@ namespace GorillaLocomotion
             return 1f - Mathf.Clamp01(material.staticFriction / 2f);
         }
 
+        /// <summary>
+        /// Project change: moves the player with a ride (a spinning platform) by a world offset, planted hand points and
+        /// the head history included, so planted hands don't drag the body back and the move isn't counted as a throw.
+        /// </summary>
+        public void Carry(Vector3 delta)
+        {
+            transform.position += delta;
+            playerRigidBody.position += delta;
+            lastLeftHandPosition += delta;
+            lastRightHandPosition += delta;
+            lastHeadPosition += delta;
+            lastOpenHeadPosition += delta;
+            lastPosition += delta;
+        }
+
+        /// <summary>
+        /// Project change: turns the whole player about a vertical axis through a world point (riding a spinning platform),
+        /// exactly, so a rider neither drifts outward nor slides against the ride's handles. View, planted hands and recent
+        /// hand speeds turn with it. Unlike Turn it doesn't flag a turn, so jumping off the ride still works.
+        /// </summary>
+        public void Ride(Vector3 pivot, float degrees)
+        {
+            // Rotate the whole rig (rigidbody, colliders, tracking space) as one rigid piece about the ride's axis. Turning
+            // only the tracking space every frame moved the colliders inside the rigidbody, and the player fell through.
+            // The rigidbody pose is the source of truth (copying the interpolated transform into it threw away part of every
+            // frame's motion, so a jump off the ride barely moved).
+            Quaternion spin = Quaternion.AngleAxis(degrees, Vector3.up);
+            playerRigidBody.position = pivot + spin * (playerRigidBody.position - pivot);
+            playerRigidBody.rotation = spin * playerRigidBody.rotation;
+            transform.RotateAround(pivot, Vector3.up, degrees);
+
+            lastLeftHandPosition = pivot + spin * (lastLeftHandPosition - pivot);
+            lastRightHandPosition = pivot + spin * (lastRightHandPosition - pivot);
+            lastHeadPosition = pivot + spin * (lastHeadPosition - pivot);
+            lastOpenHeadPosition = pivot + spin * (lastOpenHeadPosition - pivot);
+            lastPosition = pivot + spin * (lastPosition - pivot);
+            denormalizedVelocityAverage = Vector3.zero;
+            for (int i = 0; i < velocityHistory.Length; i++)
+            {
+                velocityHistory[i] = spin * velocityHistory[i];
+                denormalizedVelocityAverage += velocityHistory[i];
+            }
+        }
+
         public void Turn(float degrees)
         {
             Vector3 pivot = headFollower.transform.position;

@@ -1,6 +1,7 @@
 using Fusion;
 using GameJam.Core;
 using GameJam.Gameplay;
+using GameJam.Player;
 using UnityEngine;
 
 namespace GameJam.Net
@@ -15,7 +16,7 @@ namespace GameJam.Net
         private const float PendingThrowTimeout = 1f;
         private const float FriendHitCooldown = 0.5f;
         private const float RandomSpin = 5f;
-        private const float HoldDistance = 0.08f;
+        private const float GustAimCone = 25f;     // a hoop within this many degrees of where the blower points gets the gust
         private const float GustOvershoot = 1.5f; // a leaf-blower gust reaches this far past the hoop it aims at
 
         [SerializeField] private ItemDefinition _definition;
@@ -38,8 +39,9 @@ namespace GameJam.Net
         private Vector3 _pendingThrowVelocity;
         private float _pendingThrowExpiry;
         private float _nextHitTime;
-        private bool _isEffectArmed;
-        private float _effectArmTime;
+        private bool _isUsing;
+        private float _nextUseTime;
+        private bool _shownSpent;
 
         [Networked] public PlayerRef Holder { get; private set; }
 
@@ -48,11 +50,19 @@ namespace GameJam.Net
         /// <summary>Running while this item's landing effect (updraft, gust) blows; everyone shows the same zone.</summary>
         [Networked] private TickTimer EffectTimer { get; set; }
 
+        /// <summary>Used up (single-use effect items): hidden at its spot until RespawnTimer runs out.</summary>
+        [Networked] public NetworkBool IsSpent { get; private set; }
+
+        [Networked] private TickTimer RespawnTimer { get; set; }
+
         [Networked] private Vector3 EffectOrigin { get; set; }
 
         [Networked] private Quaternion EffectFlow { get; set; }
 
         [Networked] private float EffectLength { get; set; }
+
+        /// <summary>The leaf blower's gust found a hoop in its aim cone: home the balloon onto it.</summary>
+        [Networked] private NetworkBool EffectHomes { get; set; }
 
         public ItemDefinition Definition => _definition;
 
@@ -72,6 +82,11 @@ namespace GameJam.Net
 
         public void Grab(Transform hand, IHandVelocity handVelocity)
         {
+            if (Object != null && Object.IsValid && IsSpent)
+            {
+                return; // used up and hidden: nothing to grab until it respawns
+            }
+
             _hand = hand;
             _handVelocity = handVelocity;
             _hasPendingThrow = false;
@@ -87,8 +102,39 @@ namespace GameJam.Net
             }
         }
 
+        /// <summary>
+        /// A trigger press starts the effect (bubble updraft from the wand's ring, a gust from the blower's nozzle where you
+        /// aim); it runs its full EffectSeconds while you hold the item, following your aim, then the item is used up.
+        /// Letting go of the trigger doesn't end it (a press that flickered used to end it at once and the item vanished).
+        /// </summary>
+        public void Use(bool isPressed)
+        {
+            if (_definition.Effect == ItemEffect.None || _hand == null || Object == null || !Object.IsValid || !HasStateAuthority || IsSpent)
+            {
+                return;
+            }
+
+            if (isPressed && !_isUsing && Time.time >= _nextUseTime)
+            {
+                _isUsing = true;
+                EffectTimer = TickTimer.CreateFromSeconds(Runner, _definition.EffectSeconds);
+                AimEffect();
+                if (GameState.Instance != null)
+                {
+                    GameState.Instance.Announce(_definition.Effect == ItemEffect.Updraft ? "Bubbles! Ride them up!" : "The leaf blower's on, follow the wind!");
+                }
+            }
+
+        }
+
         public void Release(Vector3 throwVelocity)
         {
+            if (_isUsing && HasStateAuthority)
+            {
+                StopEffect(); // its one use is over: it vanishes instead of being thrown
+                return;
+            }
+
             _hand = null;
             _handVelocity = null;
             SetLayer(_defaultLayer);
@@ -114,6 +160,7 @@ namespace GameJam.Net
             _homePosition = transform.position;
             _homeRotation = transform.rotation;
             _defaultLayer = gameObject.layer;
+            IgnoreLocalRig();
             if (_effectZone != null)
             {
                 _effectZone.transform.SetParent(null, true); // the zone stays where the item landed, not on the item
@@ -126,6 +173,24 @@ namespace GameJam.Net
             if (_hand != null && HasStateAuthority)
             {
                 Holder = Runner.LocalPlayer;
+            }
+
+            if (_isUsing && HasStateAuthority)
+            {
+                if (EffectTimer.Expired(Runner) || _hand == null)
+                {
+                    StopEffect();
+                }
+                else
+                {
+                    AimEffect(); // the effect follows the item while the trigger is held
+                }
+            }
+
+            // Used up: comes back at its spot once the respawn timer runs out.
+            if (HasStateAuthority && IsSpent && RespawnTimer.ExpiredOrNotRunning(Runner))
+            {
+                IsSpent = false;
             }
 
             if (_hasPendingThrow)
@@ -144,6 +209,7 @@ namespace GameJam.Net
             // Someone else grabbed it out of our hand.
             if (_hand != null && !HasStateAuthority && Holder != PlayerRef.None && Holder != Runner.LocalPlayer)
             {
+                _isUsing = false; // the new holder owns the effect now; a stale flag would spend the item later
                 _hand = null;
                 _handVelocity = null;
                 SetLayer(_defaultLayer);
@@ -198,20 +264,22 @@ namespace GameJam.Net
         {
             if (_hand != null)
             {
-                transform.SetPositionAndRotation(_hand.position + _hand.forward * HoldDistance, _hand.rotation);
+                // Each item's hold pose puts its business end where the fist points (nozzle, wand ring, pan, dart tip).
+                transform.SetPositionAndRotation(_hand.TransformPoint(_definition.HoldOffset), _hand.rotation * Quaternion.Euler(_definition.HoldEuler));
             }
         }
 
         private void OnTriggerEnter(Collider other) => HandleContact(other);
 
-        private void OnCollisionEnter(Collision collision)
-        {
-            TriggerEffect();
-            HandleContact(collision.collider);
-        }
+        private void OnCollisionEnter(Collision collision) => HandleContact(collision.collider);
 
         public override void Render()
         {
+            if (IsSpent != _shownSpent)
+            {
+                ShowSpent(IsSpent);
+            }
+
             if (_effectZone == null)
             {
                 return;
@@ -220,7 +288,7 @@ namespace GameJam.Net
             bool isOn = EffectTimer.IsRunning && !EffectTimer.Expired(Runner);
             Vector3? target = null;
             float lift = 0f;
-            if (_definition.Effect == ItemEffect.HoopGust && EffectLength > GustOvershoot)
+            if (_definition.Effect == ItemEffect.HoopGust && EffectHomes && EffectLength > GustOvershoot)
             {
                 // The gust was aimed at a hoop GustOvershoot short of its far end: home the balloon onto the ring and hold it
                 // up against its own gravity (a flat wind alone carried it under the hoop in testing).
@@ -246,42 +314,96 @@ namespace GameJam.Net
             _body.isKinematic = false;
             _body.linearVelocity = velocity;
             _body.angularVelocity = Random.insideUnitSphere * RandomSpin;
-            _isEffectArmed = _definition.Effect != ItemEffect.None;
-            _effectArmTime = Time.time;
         }
 
         /// <summary>
-        /// First impact after a throw sets off the item's effect where it is: a bubble updraft straight up, or a gust that
-        /// blows from here toward the nearest hoop not yet cleared (straight up when none is in range).
+        /// Points the running effect from the item: bubbles rise straight up from the wand's ring; the blower's gust goes
+        /// where its nozzle points, or homes onto a hoop not yet cleared that lies within GustAimCone of the aim.
         /// </summary>
-        private void TriggerEffect()
+        private void AimEffect()
         {
-            // Skip the first instant: a fresh throw can brush the thrower's own body.
-            if (!_isEffectArmed || Time.time < _effectArmTime + 0.15f || Object == null || !Object.IsValid || !HasStateAuthority)
-            {
-                return;
-            }
-
-            _isEffectArmed = false;
-            Vector3 origin = transform.position + Vector3.up * 0.1f;
-            Quaternion flow = Quaternion.LookRotation(Vector3.up, Vector3.forward);
+            Vector3 origin = transform.TransformPoint(_definition.EffectEmitter);
+            Quaternion flow = Quaternion.LookRotation(Vector3.up, transform.forward);
             float length = _definition.EffectLength;
-            HoopCheckpoint hoop = _definition.Effect == ItemEffect.HoopGust ? HoopCheckpoint.NearestOpen(origin, _definition.EffectLength * 2f) : null;
-            if (hoop != null)
+            bool homes = false;
+            if (_definition.Effect == ItemEffect.HoopGust)
             {
-                Vector3 toHoop = hoop.transform.position - origin;
-                flow = Quaternion.LookRotation(toHoop.normalized, Vector3.up);
-                length = toHoop.magnitude + GustOvershoot; // blows just past the ring
+                Vector3 aim = transform.forward;
+                flow = Quaternion.LookRotation(aim, Vector3.up);
+                HoopCheckpoint hoop = HoopCheckpoint.NearestOpen(origin, _definition.EffectLength * 2f);
+                if (hoop != null)
+                {
+                    Vector3 toHoop = hoop.transform.position - origin;
+                    if (Vector3.Angle(aim, toHoop) < GustAimCone)
+                    {
+                        flow = Quaternion.LookRotation(toHoop.normalized, Vector3.up);
+                        length = toHoop.magnitude + GustOvershoot; // blows just past the ring
+                        homes = true;
+                    }
+                }
             }
 
             EffectOrigin = origin;
             EffectFlow = flow;
             EffectLength = length;
-            EffectTimer = TickTimer.CreateFromSeconds(Runner, _definition.EffectSeconds);
+            EffectHomes = homes; // aimed away from every hoop: a plain gust along the aim
+        }
+
+        private void StopEffect()
+        {
+            _isUsing = false;
+            EffectTimer = TickTimer.None;
+            _nextUseTime = Time.time + _definition.EffectCooldown;
+            Spend();
+        }
+
+        /// <summary>
+        /// Single use: the effect has run, so the item leaves the hand, vanishes and waits at its spot until it respawns.
+        /// </summary>
+        private void Spend()
+        {
+            IsSpent = true;
+            RespawnTimer = TickTimer.CreateFromSeconds(Runner, _definition.UsedUpRespawnSeconds);
+            _hand = null;
+            _handVelocity = null;
+            _hasPendingThrow = false;
+            SetLayer(_defaultLayer);
+            Holder = PlayerRef.None;
+            Thrower = PlayerRef.None;
+            _body.linearVelocity = Vector3.zero;
+            _body.angularVelocity = Vector3.zero;
+            if (_networkTransform != null)
+            {
+                _networkTransform.Teleport(_homePosition, _homeRotation);
+            }
+            else
+            {
+                transform.SetPositionAndRotation(_homePosition, _homeRotation);
+            }
 
             if (GameState.Instance != null)
             {
-                GameState.Instance.Announce(_definition.Effect == ItemEffect.Updraft ? "Bubbles! Ride them up!" : "The leaf blower's on, follow the wind!");
+                GameState.Instance.Announce($"The {_definition.DisplayName.ToLowerInvariant()} is used up!");
+            }
+        }
+
+        /// <summary>Hides a used-up item (and turns its colliders off, so nobody can grab or bump it) on every client.</summary>
+        private void ShowSpent(bool isSpent)
+        {
+            _shownSpent = isSpent;
+            foreach (Renderer itemRenderer in GetComponentsInChildren<Renderer>(true))
+            {
+                itemRenderer.enabled = !isSpent;
+            }
+
+            foreach (Collider itemCollider in GetComponentsInChildren<Collider>(true))
+            {
+                itemCollider.enabled = !isSpent;
+            }
+
+            if (!isSpent)
+            {
+                IgnoreLocalRig(); // disabling a collider drops its IgnoreCollision pairs: items would push the player again
             }
         }
 
@@ -296,10 +418,10 @@ namespace GameJam.Net
                 return;
             }
 
-            bool isHeld = _hand != null;
-            if (_body.isKinematic != isHeld)
+            bool isFrozen = _hand != null || IsSpent; // held, or used up and waiting at its spot
+            if (_body.isKinematic != isFrozen)
             {
-                _body.isKinematic = isHeld;
+                _body.isKinematic = isFrozen;
             }
         }
 
@@ -344,16 +466,50 @@ namespace GameJam.Net
                 return;
             }
 
-            if (hitbox.Avatar.Object.StateAuthority == hitter)
+            if (hitter == PlayerRef.None || hitbox.Avatar.Object.StateAuthority == hitter)
             {
-                return; // your own item never knocks you over
+                return; // only an item another player threw or swung pushes you: never a loose one, never your own
             }
 
             _nextHitTime = Time.time + FriendHitCooldown;
+            if (!_knockbackConfig.PlayerHitsKnockDown)
+            {
+                hitbox.Avatar.SendKnockback(velocity.normalized, _knockbackConfig.PlayerPushForce, 0f); // a shove, not a knockdown
+                return;
+            }
+
             bool isHeavy = _definition.Kind == ItemKind.Heavy;
             float force = isHeavy ? _definition.FriendForce : _knockbackConfig.SoftItemForce;
             float seconds = isHeavy ? _knockbackConfig.HeavyItemKnockdownSeconds : _knockbackConfig.SoftItemStunSeconds;
             hitbox.Avatar.SendKnockback(velocity.normalized, force, seconds);
+        }
+
+        /// <summary>
+        /// Items never physically push your own body or head (a ball rolling into you, a held pan against your chest).
+        /// Only the local rig's solid colliders are ignored: other players' hitboxes are triggers, so throwing an item at a
+        /// friend still registers.
+        /// </summary>
+        private void IgnoreLocalRig()
+        {
+            LocalRig rig = LocalRig.Instance;
+            if (rig == null)
+            {
+                return;
+            }
+
+            Collider[] mine = GetComponentsInChildren<Collider>(true);
+            foreach (Collider part in rig.transform.root.GetComponentsInChildren<Collider>(true))
+            {
+                if (part.isTrigger)
+                {
+                    continue;
+                }
+
+                foreach (Collider own in mine)
+                {
+                    Physics.IgnoreCollision(own, part);
+                }
+            }
         }
 
         private void SetLayer(int layer)

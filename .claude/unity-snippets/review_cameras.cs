@@ -20,11 +20,12 @@ void Place(string name, UnityEngine.Vector3 position, UnityEngine.Vector3 lookAt
     camera.farClipPlane = 400f;
 }
 
-// Open backyard layout (BackyardCourseBuilder): start stage south, pool east, washing line west, tree centre,
-// playground north-west, BBQ north-east, porch finish north.
-Place("ReviewCam_Start", new UnityEngine.Vector3(1.5f, 2.2f, -10f), new UnityEngine.Vector3(0f, 2.5f, 20f), 70f);
-Place("ReviewCam_Overview", new UnityEngine.Vector3(0f, 42f, -38f), new UnityEngine.Vector3(0f, 0f, 46f), 60f);
-Place("ReviewCam_Roof", new UnityEngine.Vector3(2f, 9f, 50f), new UnityEngine.Vector3(0f, 3f, 90f), 70f);
-Place("ReviewCam_West", new UnityEngine.Vector3(-4f, 6f, 46f), new UnityEngine.Vector3(-26f, 2f, 52f), 75f);
-Place("ReviewCam_East", new UnityEngine.Vector3(6f, 6f, 46f), new UnityEngine.Vector3(26f, 2f, 52f), 75f);
+// Trail-shaped backyard (BackyardCourseBuilder): start stage south, hoop trail north to the finish pad (-6, 38), pool and
+// playground west, washing line, tree and BBQ east, headline board and house behind the finish.
+Place("ReviewCam_Start", new UnityEngine.Vector3(1.5f, 2.2f, -10f), new UnityEngine.Vector3(-2f, 2.5f, 20f), 70f);
+Place("ReviewCam_Eye", new UnityEngine.Vector3(0f, 1.05f, -8f), new UnityEngine.Vector3(0f, 1.6f, 20f), 80f);   // a player's eyes on the stage
+Place("ReviewCam_Overview", new UnityEngine.Vector3(0f, 36f, -32f), new UnityEngine.Vector3(-2f, 0f, 22f), 60f);
+Place("ReviewCam_Roof", new UnityEngine.Vector3(-4f, 13f, 52f), new UnityEngine.Vector3(-2f, 2f, 15f), 70f); // Squoof's view down the trail
+Place("ReviewCam_West", new UnityEngine.Vector3(6f, 6f, 20f), new UnityEngine.Vector3(-22f, 2f, 22f), 75f);
+Place("ReviewCam_East", new UnityEngine.Vector3(-8f, 6f, 20f), new UnityEngine.Vector3(18f, 2f, 22f), 75f);
 return "review cameras placed";

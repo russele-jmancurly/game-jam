@@ -51,6 +51,7 @@ namespace GameJam.Player
             UpdateMovement(keyboard);
 
             _rig.SetGrip(true, keyboard.gKey.isPressed);
+            _rig.SetUse(true, keyboard.fKey.isPressed);
 
             if (keyboard.kKey.wasPressedThisFrame)
             {
@@ -71,6 +72,7 @@ namespace GameJam.Player
             "Hold right mouse  look\n" +
             "Left click  slap (right glove)\n" +
             "Hold G  grab, release  throw\n" +
+            "Hold F  use the held item (its trigger)\n" +
             "K  knock yourself over\n" +
             "Enter  start the run (or slap the red button)";
 

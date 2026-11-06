@@ -22,6 +22,11 @@ MonoBehaviour:
   HitCooldown: 0.3
   HoopAssist: 0.5
   HoopAssistRange: 9
+  HoldOffset: {x: 0, y: 0, z: 0.1}
+  HoldEuler: {x: 0, y: 0, z: 0}
+  EffectEmitter: {x: 0, y: 0, z: 0}
+  EffectCooldown: 1
+  UsedUpRespawnSeconds: 30
   Effect: 0
   EffectSeconds: 6
   EffectStrength: 3

@@ -31,10 +31,23 @@ namespace GameJam.Gameplay
             float dt = input.DeltaTime;
             Vector3 velocity = input.Velocity;
 
-            // Floaty fall; leaking balloons are heavier. Drag uses the same formula every frame rate.
+            // Floaty fall; leaking balloons are heavier.
             float gravity = _config.Gravity * (1f + _config.GravityPerLeakStep * (int)input.Condition);
             velocity += Vector3.down * (gravity * dt);
-            velocity *= 1f / (1f + _config.Drag * dt);
+
+            // Flutter: a slowly wandering sideways push (two noise channels), so it never falls dead straight.
+            if (_config.FlutterStrength > 0f)
+            {
+                float t = input.Time * _config.FlutterSpeed;
+                float x = Mathf.PerlinNoise(t, 0.37f) * 2f - 1f;
+                float z = Mathf.PerlinNoise(0.71f, t) * 2f - 1f;
+                velocity += new Vector3(x, 0f, z) * (_config.FlutterStrength * dt);
+            }
+
+            // Air drag: a constant part plus a part that grows with speed, so hard hits bleed speed quickly and slow
+            // drifting lingers. Implicit form, stable at any frame rate.
+            float drag = _config.Drag + _config.QuadraticDrag * velocity.magnitude;
+            velocity *= 1f / (1f + drag * dt);
 
             if (!ApplyContacts(input, ref velocity, ref result))
             {
@@ -80,7 +93,7 @@ namespace GameJam.Gameplay
                 }
 
                 var pad = other.GetComponentInParent<BouncePad>();
-                if (pad != null && velocity.y < pad.BalloonLaunchSpeed)
+                if (pad != null && pad.LaunchesBalloon && velocity.y < pad.BalloonLaunchSpeed)
                 {
                     velocity.y = pad.BalloonLaunchSpeed;
                 }

@@ -14,5 +14,8 @@ namespace GameJam.Core
         void Grab(Transform hand, IHandVelocity handVelocity);
 
         void Release(Vector3 throwVelocity);
+
+        /// <summary>The holder's trigger, every frame while held: an item with an effect runs it while pressed.</summary>
+        void Use(bool isPressed);
     }
 }

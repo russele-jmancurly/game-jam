@@ -51,6 +51,9 @@ namespace GameJam.Gameplay
 
         public Renderer BodyRenderer => _bodyRenderer;
 
+        /// <summary>This is the local player's own body (hidden from their eyes; the stage mirror still shows it).</summary>
+        public bool IsLocalPlayer { get; set; }
+
         public Renderer ArmsRenderer => _armsRenderer;
 
         public void Configure(Transform head, Arm left, Arm right, Renderer bodyRenderer, Renderer armsRenderer)
@@ -82,6 +85,13 @@ namespace GameJam.Gameplay
                 _armsRenderer.enabled = arms;
             }
         }
+
+        /// <summary>Every body in the scene (the mirror shows the local player's hidden torso through this).</summary>
+        public static readonly System.Collections.Generic.List<GorillaBodyRig> All = new System.Collections.Generic.List<GorillaBodyRig>();
+
+        private void OnEnable() => All.Add(this);
+
+        private void OnDisable() => All.Remove(this);
 
         private void Awake() => CacheRestPose();
 

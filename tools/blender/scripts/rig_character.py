@@ -323,6 +323,22 @@ if cloth_trees:
     body_bm.free()
     main.data.update()
 
+# One UV channel for every part before joining. Parts name their UV map differently (Jman's eyes "DiffuseUV", hair
+# "UVSet0", Squoof's polo "outfit_top"...); joined, those became extra channels the game never reads, so the eyes lost
+# their irises (white eyes) and the hair its clips. Keep each part's render UV map, under one shared name.
+UV_NAME = "UVMap"
+for o in meshes:
+    layers = o.data.uv_layers
+    if len(layers) == 0:
+        continue
+    keep = next((layer for layer in layers if layer.active_render), layers[0])
+    for layer in [layer for layer in layers if layer != keep]:
+        layers.remove(layer)
+    keep = layers[0]
+    keep.name = UV_NAME
+    keep.active = True
+    keep.active_render = True
+
 # One skinned mesh: the body keeps its name, the other parts merge into it.
 for o in scene.objects:
     o.select_set(o.type == "MESH")

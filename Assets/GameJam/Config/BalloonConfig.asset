@@ -13,11 +13,21 @@ MonoBehaviour:
   m_Name: BalloonConfig
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.BalloonConfig
   Radius: 0.25
-  Gravity: 1
-  Drag: 1.2
-  MaxHitSpeed: 6
+  Gravity: 0.7
+  Drag: 1.1
+  QuadraticDrag: 0
+  FlutterStrength: 0.12
+  FlutterSpeed: 0.6
+  HitSquash: 0.3
+  MaxHitSpeed: 9
   FreeFlightSpeedMultiplier: 1.5
   UpwardAssist: 0.6
+  SlapTapLift: 1
+  SlapHardLift: 0.1
+  SlapFullStrengthHandSpeed: 7
+  StationBobHeight: 0.06
+  StationBobSpeed: 1.6
+  StationSpring: 5
   Bounciness: 0.6
   BodyPopSpeed: 2.2
   LeakCooldown: 1

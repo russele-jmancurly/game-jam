@@ -1,6 +1,8 @@
 // MPPM recovery, run INSIDE a virtual player: apply the main Editor's current Fusion custom-dependency hashes
 // (read from its Temp/FusionMppm/Dependency_Fusion.*.json, never hardcoded), then refresh the AssetDatabase.
-var folder = "D:/Unity/game-jam/Temp/FusionMppm";
+// A clone lives in <main>/Library/VP/<id>; its Assets folder is <clone>/Assets, so the main project is three levels up.
+var cloneRoot = System.IO.Directory.GetParent(UnityEngine.Application.dataPath).FullName;
+var folder = System.IO.Path.GetFullPath(System.IO.Path.Combine(cloneRoot, "..", "..", "..", "Temp", "FusionMppm"));
 var sb = new System.Text.StringBuilder("status=" + Fusion.FusionMppm.Status + " ");
 foreach (var file in System.IO.Directory.GetFiles(folder, "Dependency_Fusion.*.json"))
 {

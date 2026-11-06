@@ -24,6 +24,7 @@ the project blocks them in `.claude/settings.json`.
 | Game-ready character (drop parts, bake rig pose, upright, triangle budget) | `tools/blender/blender.sh tools/blender/scripts/prepare_character.py <in.blend\|.fbx> Assets/GameJam/Characters/<Name>/<Name>_Game.fbx [--max-tris 6000] [--exclude GloveL,GloveR] [--rest-pose]` |
 | Rig + animate a prepared show character in place (humanoid skeleton, auto weights, Idle/Walk/WindUp/Slap/Wave) | `tools/blender/blender.sh tools/blender/scripts/rig_character.py Assets/GameJam/Characters/<Name>/<Name>_Game.fbx Assets/GameJam/Characters/<Name>/<Name>_Game.fbx` (input must be unrigged) |
 | See a rig's clips (frames as PNGs) | `tools/blender/blender.sh tools/blender/scripts/render_pose.py <file.fbx> Screenshots/<name> Walk:8 Slap:7 [--angle 90] [--size 400]` |
+| Close-up of a character's face (eyes, glasses, hair) | `tools/blender/blender.sh tools/blender/scripts/render_face.py <file.fbx> Screenshots/<name> [--pose Clip:frame]` |
 | Unity-ready FBX | `tools/blender/blender.sh tools/blender/scripts/export_unity_fbx.py <in.blend> Assets/GameJam/Art/<...>.fbx [--objects A,B] [--no-anim]` |
 | Anything else | Write a script in `tools/blender/scripts/` (or the scratchpad for one-offs) that imports `blender_common` (`load`, `script_args`, `emit`, `fail`, `world_bounds`, `set_engine`) and run it with the wrapper |
 

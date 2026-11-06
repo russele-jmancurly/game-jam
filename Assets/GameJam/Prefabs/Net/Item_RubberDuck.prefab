@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 5775626607771097526}
   - component: {fileID: 4448671005402150686}
   - component: {fileID: 9147771152867323684}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Item_RubberDuck
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -162,6 +162,8 @@ MonoBehaviour:
   _definition: {fileID: 11400000, guid: d03c2612a9b66f44e8aff01a3e126d7d, type: 2}
   _knockbackConfig: {fileID: 11400000, guid: 9e347150f0176ba4a9ce5f2a7564e560, type: 2}
   _effectZone: {fileID: 0}
+  _IsSpent:
+    RawValue: 0
 --- !u!1001 &5314026607595682064
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -213,6 +215,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 0367c6ae2375ccb4986c07fff8f11daf, type: 3}
       propertyPath: m_Name
       value: Visual
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 0367c6ae2375ccb4986c07fff8f11daf, type: 3}
+      propertyPath: m_Layer
+      value: 9
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

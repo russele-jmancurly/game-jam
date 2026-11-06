@@ -22,6 +22,10 @@ namespace GameJam.Net
         [Tooltip("Everyone using the same session name ends up together. Change it to keep playtests apart.")]
         [SerializeField] private string _sessionName = "BalloonDrop-Dev";
         [SerializeField, Range(1, 4)] private int _maxPlayers = 4;
+        [Tooltip("Photon region every player connects to (e.g. asia, jp, us, eu). A room only exists in one region: with " +
+                 "best-region picking, two players near the border of two regions (or two Editors on one PC) can each pick " +
+                 "a different one and never meet. Empty = best region by ping.")]
+        [SerializeField] private string _fixedRegion = "asia";
         [Tooltip("With no Fusion App ID set, run offline in Fusion's Single mode so the loop can still be tested solo.")]
         [SerializeField] private bool _playOfflineWithoutAppId = true;
 
@@ -30,15 +34,16 @@ namespace GameJam.Net
         [SerializeField] private NetworkObject _balloonPrefab;
         [SerializeField] private NetworkObject _gameStatePrefab;
         [SerializeField] private NetworkObject[] _itemPrefabs = Array.Empty<NetworkObject>();
-        [Tooltip("The giant roaming mischief maker (optional).")]
+        [Tooltip("The giant roaming mischief maker (optional). One is spawned per roster character.")]
         [SerializeField] private NetworkObject _roamerPrefab;
-        [SerializeField] private Vector3 _roamerSpawn = new Vector3(0f, 0f, 60f);
+        [Tooltip("Where the giants start, one per character (cycled if there are fewer spawns than characters).")]
+        [SerializeField] private Vector3[] _roamerSpawns = { new Vector3(0f, 0f, 60f) };
 
         public void Configure(NetworkObject avatarPrefab, NetworkObject balloonPrefab, NetworkObject gameStatePrefab, NetworkObject[] itemPrefabs,
-            NetworkObject roamerPrefab = null, Vector3? roamerSpawn = null)
+            NetworkObject roamerPrefab = null, Vector3[] roamerSpawns = null)
         {
             _roamerPrefab = roamerPrefab;
-            _roamerSpawn = roamerSpawn ?? _roamerSpawn;
+            _roamerSpawns = roamerSpawns ?? _roamerSpawns;
             _avatarPrefab = avatarPrefab;
             _balloonPrefab = balloonPrefab;
             _gameStatePrefab = gameStatePrefab;
@@ -131,6 +136,7 @@ namespace GameJam.Net
                     PlayerCount = _maxPlayers,
                     SceneManager = sceneManager,
                     ObjectProvider = objectProvider,
+                    CustomPhotonAppSettings = AppSettingsForRegion(),
                 });
 
                 if (result.Ok)
@@ -160,6 +166,19 @@ namespace GameJam.Net
         /// </summary>
         private bool OwnsSharedObjects() => Runner.GameMode == GameMode.Single || Runner.IsSharedModeMasterClient;
 
+        /// <summary>The project's Photon settings with the fixed region applied, or null to use them as they are.</summary>
+        private Fusion.Photon.Realtime.FusionAppSettings AppSettingsForRegion()
+        {
+            if (string.IsNullOrWhiteSpace(_fixedRegion) || !Fusion.Photon.Realtime.PhotonAppSettings.TryGetGlobal(out var global))
+            {
+                return null;
+            }
+
+            Fusion.Photon.Realtime.FusionAppSettings settings = global.AppSettings.GetCopy();
+            settings.FixedRegion = _fixedRegion.Trim();
+            return settings;
+        }
+
         private static bool HasFusionAppId()
         {
             return Fusion.Photon.Realtime.PhotonAppSettings.TryGetGlobal(out var settings)
@@ -176,9 +195,16 @@ namespace GameJam.Net
         {
             Runner.Spawn(_gameStatePrefab, Vector3.zero, Quaternion.identity);
             Runner.Spawn(_balloonPrefab, CourseLayout.BalloonSpawn(0), Quaternion.identity);
-            if (_roamerPrefab != null)
+            if (_roamerPrefab != null && _roamerSpawns.Length > 0)
             {
-                Runner.Spawn(_roamerPrefab, _roamerSpawn, Quaternion.identity);
+                // Every show character walks the yard as a giant (Jman and Squoof), each always the same one.
+                int giants = Mathf.Max(1, _roamerPrefab.GetComponent<MischiefMaker>().CharacterCount);
+                for (int i = 0; i < giants; i++)
+                {
+                    int character = i;
+                    Runner.Spawn(_roamerPrefab, _roamerSpawns[i % _roamerSpawns.Length], Quaternion.identity,
+                        onBeforeSpawned: (runner, spawned) => spawned.GetComponent<MischiefMaker>().AssignCharacter(character));
+                }
             }
 
             if (_itemPrefabs == null || _itemPrefabs.Length == 0)

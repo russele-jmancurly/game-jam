@@ -16,6 +16,12 @@ namespace GameJam.Core
         /// </summary>
         public const int Balloon = 8;
 
+        /// <summary>
+        /// Loose and thrown items (named "Item" by the scene builder). Not Default, so gorilla hands never grip an item as if
+        /// it were ground; items still collide with the world, the balloon and each other.
+        /// </summary>
+        public const int Item = 9;
+
         public const int DefaultMask = 1 << Default;
     }
 }

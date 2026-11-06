@@ -16,6 +16,14 @@ namespace GameJam.Player
     {
         private const float SnapResetThreshold = 0.3f;
         private const float SnapTriggerThreshold = 0.75f;
+        private const string PickUpControllersText = "Pick up your controllers";
+        private const float TriggerDownPressure = 0.6f;
+        private const float TriggerUpPressure = 0.3f;
+        private const float RideStandHeight = 1f;          // eyes within this of a ride's surface = standing on it
+        private const float RideLetGoVerticalSpeed = 1f;   // faster than this up or down = hopping, the ride lets go
+
+        // Where an untracked controller's hand waits, relative to the head (x is mirrored for the left hand).
+        private static readonly Vector3 ParkedHandOffset = new Vector3(0.15f, -0.3f, 0.25f);
 
         [Header("Config")]
         [SerializeField] private PlayerRigConfig _config;
@@ -38,6 +46,9 @@ namespace GameJam.Player
         private HandGrip _rightGrip;
         private float _knockedDownUntil = -1f;
         private bool _isSnapReady = true;
+        private bool _controllersTracked;
+        private bool _leftTriggerDown;
+        private bool _rightTriggerDown;
 
         public static LocalRig Instance { get; private set; }
 
@@ -66,6 +77,12 @@ namespace GameJam.Player
 
         public bool IsKnockedDown => Time.time < _knockedDownUntil;
 
+        /// <summary>
+        /// Both Touch controllers are tracked. False while they sleep, are set down or the Quest is in hand-tracking mode:
+        /// the hands then wait by the head and can't touch anything, so nothing gets planted on the floor.
+        /// </summary>
+        public bool AreControllersTracked => !UsesHeadset || _controllersTracked;
+
         /// <summary>True when the headset drives the rig; false in PC test mode (keyboard and mouse).</summary>
         public bool UsesHeadset => XRSettings.isDeviceActive && !_config.ForceDesktopMode;
 
@@ -91,6 +108,13 @@ namespace GameJam.Player
         }
 
         /// <summary>Feeds a grip button state for one hand (XR controllers or the desktop test mode).</summary>
+        /// <summary>Trigger on a hand: uses the item that hand holds (PC test mode: hold F).</summary>
+        public void SetUse(bool isRightHand, bool isPressed)
+        {
+            HandGrip grip = isRightHand ? _rightGrip : _leftGrip;
+            grip.SetUse(isPressed && !IsKnockedDown);
+        }
+
         public void SetGrip(bool isRightHand, bool isDown)
         {
             HandGrip grip = isRightHand ? _rightGrip : _leftGrip;
@@ -149,6 +173,22 @@ namespace GameJam.Player
             _rightGrip.Drop();
 
             var pulse = new HapticPulse(_knockbackConfig.HapticAmplitude, _knockbackConfig.HapticSeconds);
+            XRHaptics.Send(XRNode.LeftHand, pulse);
+            XRHaptics.Send(XRNode.RightHand, pulse);
+        }
+
+        /// <summary>
+        /// A light shove (another player's slap or item in simple mode): you keep your hands, items and control; the hands
+        /// only let go of the ground for a moment so the push can move you.
+        /// </summary>
+        public void Push(Vector3 direction, float force)
+        {
+            Vector3 shove = direction;
+            shove.y = Mathf.Max(shove.y, _knockbackConfig.MinUpward);
+            _body.linearVelocity = shove.normalized * force;
+            _knockedDownUntil = Mathf.Max(_knockedDownUntil, Time.time + _knockbackConfig.PlayerPushReleaseSeconds);
+
+            var pulse = new HapticPulse(_knockbackConfig.HapticAmplitude * 0.5f, 0.08f);
             XRHaptics.Send(XRNode.LeftHand, pulse);
             XRHaptics.Send(XRNode.RightHand, pulse);
         }
@@ -236,18 +276,28 @@ namespace GameJam.Player
             if (UsesHeadset)
             {
                 UpdateTracking();
+                UpdateControllerPresence();
                 UpdateSnapTurn();
-                SetGrip(false, ReadGrip(XRNode.LeftHand));
-                SetGrip(true, ReadGrip(XRNode.RightHand));
+                SetGrip(false, _controllersTracked && ReadGrip(XRNode.LeftHand));
+                SetGrip(true, _controllersTracked && ReadGrip(XRNode.RightHand));
+                SetUse(false, _controllersTracked && ReadTrigger(XRNode.LeftHand));
+                SetUse(true, _controllersTracked && ReadTrigger(XRNode.RightHand));
             }
 
             if (_knockedDownUntil > 0f && Time.time >= _knockedDownUntil)
             {
                 _knockedDownUntil = -1f;
-                _locomotion.locomotionEnabledLayers = _climbableLayers;
                 ResetHands();
             }
 
+            // Hands only touch the world when they're real (tracked) and not ragdolled.
+            int touchable = IsKnockedDown || !AreControllersTracked ? 0 : _climbableLayers.value;
+            if (_locomotion.locomotionEnabledLayers.value != touchable)
+            {
+                _locomotion.locomotionEnabledLayers = touchable;
+            }
+
+            CarryOnRide();
             ApplyLocomotionTuning();
             UpdateWrist();
         }
@@ -274,6 +324,43 @@ namespace GameJam.Player
             }
         }
 
+        /// <summary>
+        /// Standing on a ride (the merry-go-round): turn and move with it, as if you were on it. Gorilla locomotion alone
+        /// leaves you in place while the disc spins under you. (Moving in straight steps along the surface drifted riders
+        /// outward into the handle bars, where they got pinned.)
+        /// </summary>
+        private void CarryOnRide()
+        {
+            // Only while standing on it: the moment you hop (moving up or down, or more than a metre up) the ride lets go,
+            // so jumping off is a normal jump.
+            Transform head = _locomotion.headCollider.transform;
+            if (Mathf.Abs(_body.linearVelocity.y) > RideLetGoVerticalSpeed
+                || !Physics.Raycast(head.position, Vector3.down, out RaycastHit floor, RideStandHeight, _climbableLayers, QueryTriggerInteraction.Ignore))
+            {
+                return;
+            }
+
+            var ride = floor.collider.GetComponentInParent<GameJam.Gameplay.MovingObstacle>();
+            if (ride == null || !ride.CarriesPlayers)
+            {
+                return;
+            }
+
+            // Turn with it exactly about its centre (no outward drift into the handles), then follow any travel it has.
+            float degrees = ride.AngularVelocity.y * Mathf.Rad2Deg * Time.deltaTime;
+            if (Mathf.Abs(degrees) > 0.0001f)
+            {
+                _locomotion.Ride(ride.Pivot, degrees);
+            }
+
+            Vector3 travel = ride.Velocity;
+            travel.y = 0f;
+            if (travel.sqrMagnitude > 0.0001f)
+            {
+                _locomotion.Carry(travel * Time.deltaTime);
+            }
+        }
+
         private void UpdateTracking()
         {
             InputDevice hmd = InputDevices.GetDeviceAtXRNode(XRNode.Head);
@@ -292,27 +379,90 @@ namespace GameJam.Player
                 }
             }
 
-            TrackController(_leftController, XRNode.LeftHand);
-            TrackController(_rightController, XRNode.RightHand);
+            TrackController(_leftController, XRNode.LeftHand, -1f);
+            TrackController(_rightController, XRNode.RightHand, 1f);
         }
 
-        private static void TrackController(Transform target, XRNode node)
+        /// <summary>
+        /// Follows a controller, or parks its hand by the head while it isn't tracked. Left alone, an untracked hand
+        /// stays where it was (on the floor at start), gets planted there, and when tracking returns the locomotion
+        /// drags the body down to keep it planted: the player ends up buried in the ground and stuck.
+        /// </summary>
+        private void TrackController(Transform target, XRNode node, float side)
         {
             InputDevice device = InputDevices.GetDeviceAtXRNode(node);
-            if (!device.isValid)
+            if (IsTracked(device)
+                && device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 position))
+            {
+                target.localPosition = position;
+                if (device.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rotation))
+                {
+                    target.localRotation = rotation;
+                }
+
+                return;
+            }
+
+            var offset = new Vector3(ParkedHandOffset.x * side, ParkedHandOffset.y, ParkedHandOffset.z);
+            target.SetPositionAndRotation(_head.position + _head.rotation * offset, _head.rotation);
+        }
+
+        private static bool IsTracked(InputDevice device) =>
+            device.isValid && (!device.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) || tracked);
+
+        /// <summary>When both controllers come back, re-seat the hands on them and dig the player out if they sank.</summary>
+        private void UpdateControllerPresence()
+        {
+            bool tracked = IsTracked(InputDevices.GetDeviceAtXRNode(XRNode.LeftHand))
+                           && IsTracked(InputDevices.GetDeviceAtXRNode(XRNode.RightHand));
+            if (tracked == _controllersTracked)
             {
                 return;
             }
 
-            if (device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 position))
+            _controllersTracked = tracked;
+            if (!tracked)
             {
-                target.localPosition = position;
+                _leftGrip.Drop();
+                _rightGrip.Drop();
+                return;
             }
 
-            if (device.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rotation))
+            ResetHands();
+            // Buried = the floor under the head is above the bottom of the head collider (which normally rests ~0.5 m
+            // above it). Not the rig root: that is the tracking origin, ~1 m under the floor even when standing normally.
+            // The ray starts just above the eyes, so a branch or table top overhead isn't mistaken for the floor.
+            Vector3 above = _head.position + Vector3.up * 0.4f;
+            Collider headCollider = _locomotion.headCollider;
+            if (headCollider != null
+                && Physics.Raycast(above, Vector3.down, out RaycastHit ground, 3f, _climbableLayers, QueryTriggerInteraction.Ignore)
+                && ground.point.y > headCollider.bounds.min.y)
             {
-                target.localRotation = rotation;
+                RespawnAt(ground.point); // sunk into the ground: lift them out
             }
+        }
+
+        /// <summary>
+        /// Trigger as a pressure with hysteresis (down above 60 %, up below 30 %): the on/off trigger button can flicker
+        /// while held.
+        /// </summary>
+        private bool ReadTrigger(XRNode node)
+        {
+            bool isRight = node == XRNode.RightHand;
+            bool wasDown = isRight ? _rightTriggerDown : _leftTriggerDown;
+            InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+            float pressure = device.isValid && device.TryGetFeatureValue(CommonUsages.trigger, out float value) ? value : 0f;
+            bool isDown = wasDown ? pressure > TriggerUpPressure : pressure > TriggerDownPressure;
+            if (isRight)
+            {
+                _rightTriggerDown = isDown;
+            }
+            else
+            {
+                _leftTriggerDown = isDown;
+            }
+
+            return isDown;
         }
 
         private static bool ReadGrip(XRNode node)
@@ -356,7 +506,7 @@ namespace GameJam.Player
             }
 
             IRunStatus run = GameServices.Run;
-            string text = run != null ? run.WristText : "Connecting...";
+            string text = !AreControllersTracked ? PickUpControllersText : run != null ? run.WristText : "Connecting...";
             if (_wristText.text != text)
             {
                 _wristText.text = text;

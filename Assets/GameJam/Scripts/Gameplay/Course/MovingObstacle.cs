@@ -36,6 +36,8 @@ namespace GameJam.Gameplay
         [SerializeField] private Vector3 _pathRotationOffset;
 
         [SerializeField] private bool _knocksPlayers = true;
+        [Tooltip("A ride (the merry-go-round): players standing on it move with its surface instead of being knocked off.")]
+        [SerializeField] private bool _carriesPlayers;
         [SerializeField] private bool _popsBalloon;
 
         [Tooltip("Flashes before a PingPong move, so players can read it.")]
@@ -53,12 +55,26 @@ namespace GameJam.Gameplay
 
         public bool KnocksPlayers => _knocksPlayers;
 
+        /// <summary>Players standing on it are carried along with its surface (see LocalRig).</summary>
+        public bool CarriesPlayers => _carriesPlayers;
+
+        /// <summary>Where it is now (the centre it spins about).</summary>
+        public Vector3 Pivot => _body != null ? _body.position : transform.position;
+
+        /// <summary>Its current linear velocity, m/s.</summary>
+        public Vector3 Velocity => _velocity;
+
+        /// <summary>Its current angular velocity, rad/s (world axis x speed).</summary>
+        public Vector3 AngularVelocity => _angularVelocity;
+
         public bool PopsBalloon => _popsBalloon;
 
-        public void ConfigureSpin(float degreesPerSecond)
+        public void ConfigureSpin(float degreesPerSecond, bool knocksPlayers = true, bool carriesPlayers = false)
         {
             _mode = MoveMode.Spin;
             _spinSpeed = degreesPerSecond;
+            _knocksPlayers = knocksPlayers;
+            _carriesPlayers = carriesPlayers;
         }
 
         public void ConfigureSwing(Vector3 axis, float angle, float period, bool knocksPlayers = true)

@@ -159,7 +159,7 @@ namespace GameJam.Editor
             network.AddComponent<NetworkSceneManagerDefault>();
             network.AddComponent<NetworkObjectProviderDefault>();
             network.AddComponent<Photon.Voice.Fusion.FusionVoiceClient>(); // follows the Fusion session; offline in Single mode
-            network.AddComponent<NetworkBootstrap>().Configure(avatar, balloon, gameState, items, roamer, BackyardCourseBuilder.RoamerSpawn);
+            network.AddComponent<NetworkBootstrap>().Configure(avatar, balloon, gameState, items, roamer, BackyardCourseBuilder.RoamerSpawns);
         }
 
         private static Transform Child(string name, Transform parent, Vector3 localPosition)

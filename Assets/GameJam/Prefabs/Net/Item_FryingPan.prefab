@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 8381599232085160051}
   - component: {fileID: 3408406253377509325}
   - component: {fileID: 3569053915019129099}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Item_FryingPan
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -162,6 +162,8 @@ MonoBehaviour:
   _definition: {fileID: 11400000, guid: 78190146a8b28264e921cc91c3e2c711, type: 2}
   _knockbackConfig: {fileID: 11400000, guid: 9e347150f0176ba4a9ce5f2a7564e560, type: 2}
   _effectZone: {fileID: 0}
+  _IsSpent:
+    RawValue: 0
 --- !u!1001 &3864300889672948029
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -213,6 +215,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 9d61a131d3bd2f848a60b50f34afddf5, type: 3}
       propertyPath: m_Name
       value: Visual
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 9d61a131d3bd2f848a60b50f34afddf5, type: 3}
+      propertyPath: m_Layer
+      value: 9
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

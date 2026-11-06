@@ -42,10 +42,7 @@ namespace GameJam.Editor
                 new Piece("Tree", BackyardCourseBuilder.TreeCenter, 9f, "TreeTrunk", "BranchLow", "BranchMid", "BranchHigh", "Canopy"),
                 new Piece("PaddlingPool", BackyardCourseBuilder.PoolCenter, 12f, "PoolRim"),
                 new Piece("Grill", bbq + new Vector3(0f, 0f, -6f), 3f, "Grill", "GrillLeg"),
-                new Piece("PicnicTable", bbq + new Vector3(0f, 0f, 5f), 7f, "PicnicTop", "PicnicBench", "PicnicLeg", "PicnicCloth"),
-                new Piece("Slide", playground + new Vector3(10f, 0f, 8f), 7f, "SlideTower", "SlideLeg", "SlideLadder", "SlideChute"),
-                new Piece("SwingSet", playground + new Vector3(-9f, 0f, -4f), 5f, "SwingFrame", "SwingBar"),
-                new Piece("Trampoline", playground + new Vector3(12f, 0f, -6f), 2.5f, "Trampoline"),
+                new Piece("Trampoline", playground + new Vector3(0f, 0f, -6f), 2.5f, "Trampoline"),
                 new Piece("RotaryPole", BackyardCourseBuilder.WashingLineCenter, 1f, "ClotheslinePole"),
             };
 

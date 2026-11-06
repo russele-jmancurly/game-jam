@@ -16,7 +16,7 @@ MonoBehaviour:
   VelocitySmoothing: 0.6
   Cooldown: 0.2
   MinBalloonSlapSpeed: 0.6
-  BalloonVelocityScale: 0.9
+  BalloonVelocityScale: 1
   FriendSlapSpeed: 2.5
   FriendForceScale: 1.2
   FriendMaxForce: 7

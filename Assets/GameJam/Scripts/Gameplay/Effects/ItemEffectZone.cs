@@ -13,11 +13,14 @@ namespace GameJam.Gameplay
         [SerializeField] private BoxCollider _trigger;
         [SerializeField] private WindVolume _wind;
         [SerializeField] private ParticleSystem _particles;
+        [Tooltip("Loops while the effect is on (bubbles, wind).")]
+        [SerializeField] private AudioSource _loopAudio;
 
         private bool _isOn;
 
-        public void Configure(BoxCollider trigger, WindVolume wind, ParticleSystem particles)
+        public void Configure(BoxCollider trigger, WindVolume wind, ParticleSystem particles, AudioSource loopAudio = null)
         {
+            _loopAudio = loopAudio;
             _trigger = trigger;
             _wind = wind;
             _particles = particles;
@@ -74,6 +77,18 @@ namespace GameJam.Gameplay
             else
             {
                 _particles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            }
+
+            if (_loopAudio != null)
+            {
+                if (isOn)
+                {
+                    _loopAudio.Play();
+                }
+                else
+                {
+                    _loopAudio.Stop();
+                }
             }
         }
     }
