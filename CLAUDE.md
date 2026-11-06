@@ -204,6 +204,10 @@ Assets/GameJam/
   for errors. Capture screenshots only when the visual result is the question, with `--save_path`.
 - Parse `--format json`; branch on the exit code and `errors[0].code`. Never merge stderr into stdout.
 - If the Editor is in Safe Mode (compile errors), `unity status` lists the errors: fix the code first.
+- Quest APK (Editor open, target already Android): `unity command build run ... -- --target Android --output-path
+  Builds/Quest/BalloonDrop.apk --scenes '["Assets/GameJam/Scenes/Prototype.unity"]' --confirm`, then poll `build status`
+  (~8 min, IL2CPP). `Builds/` and `*.apk` are gitignored. Builds rewrite the URP config prefilters and the preloaded
+  assets; commit those. The URP global settings must stay at `m_AssetVersion` 9 (URP 17.3), or the build refuses to start.
 - If a command times out or the Editor drops, stop and tell the user; don't loop or fall back to YAML edits.
 
 ## 5. Jam scope
