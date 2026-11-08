@@ -55,6 +55,16 @@ namespace GameJam.Net
 
         [Networked] private TickTimer RespawnTimer { get; set; }
 
+        /// <summary>
+        /// The item's spot, set once by whoever spawned it, so every client (late joiners included) sends it to the same
+        /// place when it falls off the map, is used up, or the run returns to the lobby.
+        /// </summary>
+        [Networked] private Vector3 HomePosition { get; set; }
+
+        [Networked] private Quaternion HomeRotation { get; set; }
+
+        [Networked] private NetworkBool HasHome { get; set; }
+
         [Networked] private Vector3 EffectOrigin { get; set; }
 
         [Networked] private Quaternion EffectFlow { get; set; }
@@ -159,6 +169,13 @@ namespace GameJam.Net
             _body.mass = _definition.Mass;
             _homePosition = transform.position;
             _homeRotation = transform.rotation;
+            if (HasStateAuthority && !HasHome)
+            {
+                HomePosition = transform.position;
+                HomeRotation = transform.rotation;
+                HasHome = true;
+            }
+
             _defaultLayer = gameObject.layer;
             IgnoreLocalRig();
             if (_effectZone != null)
@@ -219,17 +236,7 @@ namespace GameJam.Net
             // across the map.
             if (HasStateAuthority && _hand == null && transform.position.y < _definition.KillHeight)
             {
-                _body.linearVelocity = Vector3.zero;
-                _body.angularVelocity = Vector3.zero;
-                if (_networkTransform != null)
-                {
-                    _networkTransform.Teleport(_homePosition, _homeRotation);
-                }
-                else
-                {
-                    transform.SetPositionAndRotation(_homePosition, _homeRotation);
-                }
-
+                TeleportHome();
                 Holder = PlayerRef.None;
                 Thrower = PlayerRef.None;
             }
@@ -370,21 +377,58 @@ namespace GameJam.Net
             SetLayer(_defaultLayer);
             Holder = PlayerRef.None;
             Thrower = PlayerRef.None;
-            _body.linearVelocity = Vector3.zero;
-            _body.angularVelocity = Vector3.zero;
-            if (_networkTransform != null)
-            {
-                _networkTransform.Teleport(_homePosition, _homeRotation);
-            }
-            else
-            {
-                transform.SetPositionAndRotation(_homePosition, _homeRotation);
-            }
+            TeleportHome();
 
             if (GameState.Instance != null)
             {
                 GameState.Instance.Announce($"The {_definition.DisplayName.ToLowerInvariant()} is used up!");
             }
+        }
+
+        /// <summary>Back to its spot without a lerp across the map (NetworkTransform.Teleport), at rest.</summary>
+        private void TeleportHome()
+        {
+            Vector3 position = HasHome ? HomePosition : _homePosition;
+            Quaternion rotation = HasHome ? HomeRotation : _homeRotation;
+            _body.linearVelocity = Vector3.zero;
+            _body.angularVelocity = Vector3.zero;
+            if (_networkTransform != null)
+            {
+                _networkTransform.Teleport(position, rotation);
+            }
+            else
+            {
+                transform.SetPositionAndRotation(position, rotation);
+            }
+        }
+
+        /// <summary>
+        /// The run went back to the lobby: wherever this item is (held, thrown, used up), it goes back on its spot, ready.
+        /// Called by the game state (master client); the item's owner carries it out.
+        /// </summary>
+        public void ReturnHome()
+        {
+            if (Object != null && Object.IsValid)
+            {
+                RpcReturnHome();
+            }
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RpcReturnHome()
+        {
+            _isUsing = false;
+            EffectTimer = TickTimer.None;
+            IsSpent = false;
+            RespawnTimer = TickTimer.None;
+            _hand = null; // the holder's HandGrip lets go when it sees the item is no longer in its hand
+            _handVelocity = null;
+            _hasPendingThrow = false;
+            SetLayer(_defaultLayer);
+            Holder = PlayerRef.None;
+            Thrower = PlayerRef.None;
+            TeleportHome();
+            ApplyPhysicsMode();
         }
 
         /// <summary>Hides a used-up item (and turns its colliders off, so nobody can grab or bump it) on every client.</summary>

@@ -47,6 +47,7 @@ namespace GameJam.Editor
             public Material Deck;
             public Material Wood;
             public Material Picket;
+            public Material PicketCap;
             public Material Climb;
             public Material Hazard;
             public Material Cactus;
@@ -143,23 +144,30 @@ namespace GameJam.Editor
         private static Palette CreatePalette()
         {
             Color poolWater = Color.Lerp(ArtPalette.Pool, ArtPalette.PoolDeep, 0.4f);
-            Texture2D lawn = GeneratedTextures.Noise("T_Lawn", ArtPalette.Lawn, ArtPalette.LawnDark, 3f);
-            Texture2D deck = GeneratedTextures.Stripes("T_TimberDeck", ArtPalette.Timber, Color.Lerp(ArtPalette.Timber, ArtPalette.TimberDark, 0.25f), 3);
+            // Mown stripes, 4 m wide, running down the yard (one texture = two stripes, tiled 8 m): the classic backyard
+            // look, and the stripes give the lawn scale and depth at every distance for free.
+            Texture2D lawn = GeneratedTextures.LawnStripes("T_LawnStripes", ArtPalette.Lawn, Color.Lerp(ArtPalette.Lawn, ArtPalette.LawnDark, 0.65f));
+            // Deck boards ~30 cm wide (8 per 2.4 m tile) with dark seams: the stage, the first thing players see, reads as wood.
+            Texture2D deck = GeneratedTextures.Planks("T_DeckPlanks", ArtPalette.Timber, Color.Lerp(ArtPalette.TimberDark, ArtPalette.Shadow, 0.25f));
+            // Pickets darken toward the grass: baked ambient occlusion where the fence meets the lawn.
+            Texture2D picket = GeneratedTextures.VerticalShade("T_PicketShade", ArtPalette.Picket, Color.Lerp(ArtPalette.Picket, ArtPalette.Shadow, 0.38f));
             Texture2D water = GeneratedTextures.Noise("T_PoolWater", poolWater, Color.Lerp(poolWater, ArtPalette.PoolTile, 0.25f), 4f);
             Texture2D checker = GeneratedTextures.Checker("T_FinishChecker", ArtPalette.Picket, ArtPalette.Charcoal, 8);
             Texture2D sand = GeneratedTextures.Noise("T_Sand", ArtPalette.HouseWall, Color.Lerp(ArtPalette.HouseWall, ArtPalette.Timber, 0.35f), 5f);
 
             return new Palette
             {
-                Lawn = PlaceholderAssets.Material("Lawn", Color.white, 0.1f, lawn, new Vector2(13f, 25f)),
-                Deck = PlaceholderAssets.Material("Platform", Color.white, PlaceholderAssets.MatteSmoothness, deck, new Vector2(2f, 2f)),
+                Lawn = PlaceholderAssets.Material("Lawn", Color.white, 0.1f, lawn, new Vector2(HalfWidth * 2f / 8f, (NorthEdge - SouthEdge) / 8f)),
+                Deck = PlaceholderAssets.Material("Platform", Color.white, 0.3f, deck, new Vector2(5f, 3.75f)),
                 Wood = PlaceholderAssets.Material("Wood", ArtPalette.TimberDark),
-                Picket = PlaceholderAssets.Material("Picket", ArtPalette.Picket),
-                Climb = PlaceholderAssets.Material("Climbable", ArtPalette.Climbable, 0.3f),
-                Hazard = PlaceholderAssets.Material("Hazard", ArtPalette.Hazard, 0.35f),
+                Picket = PlaceholderAssets.Material("Picket", Color.white, 0.22f, picket, Vector2.one),
+                PicketCap = PlaceholderAssets.Material("PicketCap", ArtPalette.Picket, 0.22f),
+                // Toys are glossy plastic (a highlight from the sky reads as "toy"); smoothness costs nothing extra.
+                Climb = PlaceholderAssets.Material("Climbable", ArtPalette.Climbable, 0.5f),
+                Hazard = PlaceholderAssets.Material("Hazard", ArtPalette.Hazard, 0.55f),
                 Cactus = PlaceholderAssets.Material("Cactus", ArtPalette.LawnDark),
                 Water = PlaceholderAssets.Material("Water", Color.white, 0.55f, water, new Vector2(3f, 3f)),
-                Gold = PlaceholderAssets.Material("Gate", ArtPalette.Accent, 0.4f),
+                Gold = PlaceholderAssets.Material("Gate", ArtPalette.Accent, 0.6f),
                 Charcoal = PlaceholderAssets.Material("Charcoal", ArtPalette.Charcoal, 0.45f),
                 Inflatable = PlaceholderAssets.Material("PoolInflatable", ArtPalette.CandyBlue, 0.6f),
                 Sand = PlaceholderAssets.Material("Sand", Color.white, 0.05f, sand, new Vector2(2f, 2f)),
@@ -209,7 +217,7 @@ namespace GameJam.Editor
         {
             GameObject board = Box("Picket", basePosition + Vector3.up * (height / 2f), new Vector3(width, height, 0.4f), _palette.Picket);
             board.transform.rotation = rotation;
-            GameObject cap = Box("PicketCap", basePosition + Vector3.up * height, new Vector3(width * 0.71f, width * 0.71f, 0.4f), _palette.Picket, false);
+            GameObject cap = Box("PicketCap", basePosition + Vector3.up * height, new Vector3(width * 0.71f, width * 0.71f, 0.4f), _palette.PicketCap, false);
             cap.transform.rotation = rotation * Quaternion.Euler(0f, 0f, 45f);
         }
 
@@ -467,8 +475,8 @@ namespace GameJam.Editor
             Box("ClotheslinePole", c + new Vector3(0f, 1.3f, 0f), new Vector3(0.25f, 2.6f, 0.25f), _palette.Steel);
             MovingObstacle rotary = Mover("SpinningClothesline", c + new Vector3(0f, 2.4f, 0f));
             rotary.ConfigureSpin(40f);
-            Box("LineA", rotary.transform, Vector3.zero, new Vector3(7f, 0.1f, 0.1f), _palette.Picket);
-            Box("LineB", rotary.transform, Vector3.zero, new Vector3(0.1f, 0.1f, 7f), _palette.Picket);
+            Box("LineA", rotary.transform, Vector3.zero, new Vector3(7f, 0.1f, 0.1f), _palette.PicketCap);
+            Box("LineB", rotary.transform, Vector3.zero, new Vector3(0.1f, 0.1f, 7f), _palette.PicketCap);
 
             // The washing line the hoop hangs on: its flapping sheets swing across the ring and swat the balloon.
             foreach (float z in new[] { -7f })
@@ -478,7 +486,7 @@ namespace GameJam.Editor
                     Box("LinePost", c + new Vector3(x, 2.2f, z), new Vector3(0.25f, 4.4f, 0.25f), _palette.Wood);
                 }
 
-                Box("WashingLine", c + new Vector3(0f, 4.3f, z), new Vector3(16f, 0.05f, 0.05f), _palette.Picket, false);
+                Box("WashingLine", c + new Vector3(0f, 4.3f, z), new Vector3(16f, 0.05f, 0.05f), _palette.PicketCap, false);
                 for (int i = 0; i < 3; i++)
                 {
                     MovingObstacle sheet = Mover("FlappingSheet", c + new Vector3(-5f + i * 5f, 4.3f, z));
@@ -779,6 +787,36 @@ namespace GameJam.Editor
             point.transform.SetParent(_course, false);
             point.transform.position = position;
             point.AddComponent<ItemSpawnPoint>().Configure(itemIndex);
+            ItemSpotRing(position);
+        }
+
+        /// <summary>
+        /// A slowly turning golden dashed ring on the ground under an item's spot, so pickups read at a glance and players
+        /// know where a used-up item comes back. Visual only: no collider, no shadow, Ignore Raycast.
+        /// </summary>
+        private static void ItemSpotRing(Vector3 spot)
+        {
+            Physics.SyncTransforms();
+            float groundY = Physics.Raycast(spot + Vector3.up * 0.2f, Vector3.down, out RaycastHit hit, 4f, GameLayers.DefaultMask, QueryTriggerInteraction.Ignore)
+                ? hit.point.y
+                : 0f;
+
+            Material ring = PlaceholderAssets.TransparentUnlit("ItemSpotRing", GeneratedTextures.DashedRing("T_ItemSpotRing"));
+            Color gold = ArtPalette.Accent;
+            gold.a = 0.9f;
+            ring.color = gold;
+            EditorUtility.SetDirty(ring);
+
+            var pivot = new GameObject("ItemSpotRing").transform;
+            pivot.SetParent(_course, false);
+            pivot.position = new Vector3(spot.x, groundY + 0.02f, spot.z);
+            GameObject quad = PlaceholderShapes.Primitive(PrimitiveType.Quad, "Ring", pivot, Vector3.zero, Vector3.one * 0.85f, ring, false);
+            quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var quadRenderer = quad.GetComponent<Renderer>();
+            quadRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            quadRenderer.receiveShadows = false;
+            PlaceholderShapes.SetLayerRecursively(pivot.gameObject, GameLayers.IgnoreRaycast);
+            pivot.gameObject.AddComponent<IdleMotion>().Configure(0f, 0.5f, 0f, 35f, 0f);
         }
 
         private static MovingObstacle Mover(string name, Vector3 position)

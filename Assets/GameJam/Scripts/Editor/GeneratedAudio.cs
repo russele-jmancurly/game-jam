@@ -118,6 +118,40 @@ namespace GameJam.Editor
                 return s;
             });
 
+        /// <summary>
+        /// Time up: a referee's pea whistle, tweet, tweet, tweeeet. A shrill ~2.9 kHz tone frequency-modulated by the
+        /// rattling pea (~34 Hz, written in closed form so the pitch never drifts), a little amplitude flutter, a touch of
+        /// breath noise, soft edges on every blast.
+        /// </summary>
+        public static AudioClip RefereeWhistle(string name) =>
+            Create(name, 1.7f, false, 27, PeakEffect, (t, soft, deep) =>
+            {
+                float envelope = WhistleBlast(t, 0f, 0.16f) + WhistleBlast(t, 0.26f, 0.16f) + WhistleBlast(t, 0.52f, 1f);
+                if (envelope <= 0f)
+                {
+                    return 0f;
+                }
+
+                float pea = 2f * Mathf.PI * 34f * t;
+                float phase = 2f * Mathf.PI * 2900f * t + 3.5f * Mathf.Sin(pea);
+                float tone = Mathf.Sin(phase) + 0.25f * Mathf.Sin(2f * phase);
+                float flutter = 0.78f + 0.22f * Mathf.Sin(pea);
+                return (tone * flutter + soft * 0.08f) * envelope;
+            });
+
+        private static float WhistleBlast(float t, float start, float length)
+        {
+            float local = t - start;
+            if (local < 0f || local > length + 0.05f)
+            {
+                return 0f;
+            }
+
+            float attack = Mathf.Clamp01(local / 0.012f);
+            float release = local > length ? 1f - (local - length) / 0.05f : 1f;
+            return attack * release;
+        }
+
         /// <summary>Trampoline: a springy boing (a pitch that drops and wobbles).</summary>
         public static AudioClip TrampolineBoing(string name) =>
             Create(name, 0.6f, false, 23, PeakEffect * 0.85f, (t, soft, deep) =>

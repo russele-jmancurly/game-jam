@@ -66,6 +66,79 @@ namespace GameJam.Editor
                 return result;
             });
 
+        /// <summary>
+        /// Deck boards: <paramref name="boards"/> planks across the texture, thin dark seams between them, board ends staggered
+        /// per row, and a slight tint per board so the floor reads as wood, not a flat colour.
+        /// </summary>
+        public static Texture2D Planks(string name, Color wood, Color seam, int boards = 8, int size = 256) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Repeat, (x, y) =>
+            {
+                float v = (float)y / size * boards;
+                int row = Mathf.FloorToInt(v);
+                float across = v - row;
+                float u = (float)x / size + Mathf.Repeat(row * 0.37f, 1f); // stagger the board ends per row
+                float along = Mathf.Repeat(u * 2f, 1f);                     // two boards end to end per texture
+                bool isSeam = across < 0.06f || along < 0.012f;
+                float tint = Mathf.Repeat(Mathf.Sin(row * 12.9898f + Mathf.Floor(u * 2f) * 78.233f) * 43758.55f, 1f);
+                Color board = Color.Lerp(wood, Color.Lerp(wood, seam, 0.35f), tint * 0.45f);
+                float grain = TileableNoise((float)x / size, (float)y / size, 9f) * 0.12f;
+                return isSeam ? seam : Color.Lerp(board, seam, grain);
+            });
+
+        /// <summary>White rounded rectangle with soft edges (alpha), tinted by the material: HUD panels.</summary>
+        public static Texture2D RoundedPanel(string name, int size = 128) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                // Rounded box SDF in a 1:1 texture stretched over a wide quad; a radius of a quarter keeps the corners round.
+                float px = 2f / size;
+                var p = new Vector2(Mathf.Abs((x + 0.5f) / size * 2f - 1f), Mathf.Abs((y + 0.5f) / size * 2f - 1f));
+                const float radius = 0.45f;
+                var q = new Vector2(p.x - (1f - radius - 0.04f), p.y - (1f - radius - 0.04f));
+                float distance = new Vector2(Mathf.Max(q.x, 0f), Mathf.Max(q.y, 0f)).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - radius;
+                return new Color(1f, 1f, 1f, Mathf.Clamp01(0.5f - distance / (px * 1.5f)));
+            });
+
+        /// <summary>
+        /// A mown lawn: two soft stripes across the texture (light and dark, the mower's passes) with low-octave noise
+        /// over both, so the yard reads as grass at every distance. Tile it so one texture spans two stripes.
+        /// </summary>
+        public static Texture2D LawnStripes(string name, Color light, Color dark, int size = 256) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Repeat, (x, y) =>
+            {
+                float u = (float)x / size;
+                float v = (float)y / size;
+                // 1 in the first half, 0 in the second, with soft 6% edges that wrap seamlessly.
+                float band = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((0.25f - Mathf.Abs(Mathf.Repeat(u + 0.25f, 1f) - 0.5f) + 0.03f) / 0.06f));
+                Color stripe = Color.Lerp(dark, light, band);
+                float n = TileableNoise(u, v, 3f) * 0.65f + TileableNoise(u, v, 7f) * 0.35f;
+                return Color.Lerp(stripe, Color.Lerp(stripe, dark, 0.5f), n * 0.35f);
+            });
+
+        /// <summary>
+        /// A vertical shade, lighter at the top and darker at the bottom (eased): fake ambient occlusion where tall props
+        /// meet the grass, baked in, so it costs nothing on Quest.
+        /// </summary>
+        public static Texture2D VerticalShade(string name, Color top, Color bottom, int size = 64) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float t = (float)y / (size - 1);
+                return Color.Lerp(bottom, top, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t * 1.6f)));
+            });
+
+        /// <summary>A dashed glowing ring (white, alpha), tinted by its material: marks the spot where an item lives.</summary>
+        public static Texture2D DashedRing(string name, int size = 128) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float px = 2f / size;
+                var p = new Vector2((x + 0.5f) / size * 2f - 1f, (y + 0.5f) / size * 2f - 1f);
+                float r = p.magnitude;
+                float ring = Mathf.Clamp01(0.5f - (Mathf.Abs(r - 0.82f) - 0.07f) / (px * 1.5f));
+                float angle = Mathf.Atan2(p.y, p.x) / (2f * Mathf.PI) + 0.5f;
+                float dash = Mathf.Clamp01((0.18f - Mathf.Abs(Mathf.Repeat(angle * 10f, 1f) - 0.5f) + 0.02f) / 0.04f);
+                float glow = Mathf.Clamp01(1f - r) * 0.22f; // soft fill toward the centre
+                return new Color(1f, 1f, 1f, Mathf.Max(ring * dash, glow));
+            });
+
         private static Color Over(Color below, Color colour, float coverage)
         {
             Color c = Color.Lerp(below, colour, coverage);

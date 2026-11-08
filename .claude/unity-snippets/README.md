@@ -20,3 +20,5 @@ Locomotion regression tests (Play mode, PC mode, no headset; each logs PASS/FAIL
 - `predicted_hit_check.cs` (`[PredictTest]`): fakes network latency offline (env `PREDICT_LATENCY`) and checks the
   slapper's predicted hit: visuals move on the first frame, no jump at the hand-over, end on the real balloon.
   Note: `LOCOTEST_ONLY=slap` in the gorilla suite always fails (PC input stays off without the WASD scenario).
+- `time_up_check.cs` (`[TimeUpTest]`): shortens the run to 5 s (restored), checks the whistle and TIME'S UP banner, then that
+  everyone is back in the lobby with the items on their spots; places `BannerCam` for a screenshot.

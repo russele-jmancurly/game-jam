@@ -243,7 +243,11 @@ namespace GameJam.Editor
             var gameState = root.AddComponent<GameState>();
             gameState.Configure(configs.Run);
             AudioSource winAudio = Sound(root, GeneratedAudio.WinFanfare("Win_Fanfare"), false, 0f, 0.8f); // 2D: everyone hears it
-            gameState.ConfigureSounds(winAudio);
+            // Its own child: each SoundLevel drives the one AudioSource on its GameObject.
+            var whistle = new GameObject("TimeUpWhistle");
+            whistle.transform.SetParent(root.transform, false);
+            AudioSource timeUpAudio = Sound(whistle, GeneratedAudio.RefereeWhistle("Whistle_TimeUp"), false, 0f, 0.85f); // 2D
+            gameState.ConfigureSounds(winAudio, timeUpAudio);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             return PlaceholderAssets.SavePrefab(root, "GameState");
         }
@@ -404,6 +408,7 @@ namespace GameJam.Editor
             foreach (Renderer renderer in renderers)
             {
                 bounds.Encapsulate(renderer.bounds);
+                GlossyToy(renderer, spec.Name, spec.Name == "Pillow" ? 0.22f : 0.58f); // fabric stays soft
             }
 
             visual.transform.localPosition = -bounds.center; // centre the model on the item pivot
@@ -417,6 +422,28 @@ namespace GameJam.Editor
             }
 
             return root;
+        }
+
+        /// <summary>
+        /// Items are toys: each of the model's materials becomes a project material of the same colour (and texture) with a
+        /// glossy plastic finish, so a sky highlight runs over them. Costs nothing extra to render.
+        /// </summary>
+        private static void GlossyToy(Renderer renderer, string itemName, float smoothness)
+        {
+            Material[] slots = renderer.sharedMaterials;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                Material source = slots[i];
+                if (source == null)
+                {
+                    continue;
+                }
+
+                slots[i] = PlaceholderAssets.Material($"Item_{itemName}_{source.name}", source.color, smoothness, source.mainTexture as Texture2D,
+                    source.mainTextureScale);
+            }
+
+            renderer.sharedMaterials = slots;
         }
 
         /// <summary>

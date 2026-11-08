@@ -35,7 +35,9 @@ namespace GameJam.Net
 
         /// <summary>Bit i set = hoop i cleared this run.</summary>
         [SerializeField] private AudioSource _winAudio;
+        [SerializeField] private AudioSource _timeUpAudio;
         private bool _playedWin;
+        private bool _playedTimeUp;
 
         [Networked] public int HoopMask { get; private set; }
 
@@ -84,8 +86,17 @@ namespace GameJam.Net
             _ => "Slap the red\nbutton to start",
         };
 
-        /// <summary>Everyone hears the fanfare once when a run ends with a medal; it re-arms for the next run.</summary>
-        private void PlayWinOnce()
+        /// <summary>The run ended because the clock ran out (no medal): the referee whistle and the "time's up" banner.</summary>
+        public bool IsTimeUp => State == RunState.Finished && LastScore == 0;
+
+        /// <summary>Seconds until everyone goes back to the lobby after a run ends (0 outside the result).</summary>
+        public float SecondsToLobby => State == RunState.Finished ? Timer.RemainingTime(Runner) ?? 0f : 0f;
+
+        /// <summary>
+        /// Everyone hears the fanfare once when a run ends with a medal, or the referee whistle once when time runs out;
+        /// both re-arm for the next run.
+        /// </summary>
+        private void PlayResultOnce()
         {
             bool won = State == RunState.Finished && LastScore > 0;
             if (won && !_playedWin && _winAudio != null)
@@ -94,12 +105,26 @@ namespace GameJam.Net
             }
 
             _playedWin = won;
+
+            bool timeUp = IsTimeUp;
+            if (timeUp && !_playedTimeUp && _timeUpAudio != null)
+            {
+                _timeUpAudio.Play();
+            }
+
+            _playedTimeUp = timeUp;
         }
 
         public void Configure(RunConfig config) => _config = config;
 
-        /// <summary>Builder wiring: a 2D source that plays the win fanfare for everyone when a run ends with a medal.</summary>
-        public void ConfigureSounds(AudioSource winAudio) => _winAudio = winAudio;
+        /// <summary>
+        /// Builder wiring: 2D sources everyone hears, the win fanfare (a medal finish) and the referee whistle (time up).
+        /// </summary>
+        public void ConfigureSounds(AudioSource winAudio, AudioSource timeUpAudio)
+        {
+            _winAudio = winAudio;
+            _timeUpAudio = timeUpAudio;
+        }
 
         public bool IsHoopCleared(int hoopIndex) => hoopIndex >= 0 && hoopIndex < 32 && (HoopMask & (1 << hoopIndex)) != 0;
 
@@ -199,7 +224,7 @@ namespace GameJam.Net
 
         public override void Render()
         {
-            PlayWinOnce();
+            PlayResultOnce();
             WatchMasterClient();
 
             CommentatorBoard board = CommentatorBoard.Instance;
@@ -300,6 +325,12 @@ namespace GameJam.Net
             foreach (MischiefMaker giant in MischiefMaker.Active)
             {
                 giant.Reroll();
+            }
+
+            // Every item back on its spot, used-up ones too: a fresh yard for the next run.
+            foreach (NetworkItem item in FindObjectsByType<NetworkItem>(FindObjectsSortMode.None))
+            {
+                item.ReturnHome();
             }
 
             RpcRespawnCrewAtStart();

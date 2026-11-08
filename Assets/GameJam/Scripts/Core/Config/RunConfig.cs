@@ -10,7 +10,9 @@ namespace GameJam.Core
     public sealed class RunConfig : ScriptableObject
     {
         [Header("Run")]
-        [Min(10f)] public float RunSeconds = 180f;
+        [Tooltip("Length of a run: 6 minutes. When it runs out the referee whistles, TIME'S UP shows in everyone's view and " +
+                 "the crew goes back to the lobby after ResultSeconds.")]
+        [Min(10f)] public float RunSeconds = 360f;
         [Min(0f)] public float CountdownSeconds = 3f;
         [Tooltip("After a run ends (medal or time up) the result shows this long, then everyone, the balloon and the hoops " +
                  "go back to the start lobby.")]
@@ -25,9 +27,10 @@ namespace GameJam.Core
         public float[] ConditionMultipliers = { 1f, 0.75f, 0.5f };
 
         [Header("Medals")]
-        [Tooltip("A clean run (about 2:15 with six hoops and a 10-pass rally) lands near 2850.")]
-        public int SilverScore = 2100;
-        public int GoldScore = 2700;
+        [Tooltip("A clean run (about 2:15 of the 6 minutes, six hoops, a 10-pass rally) lands near 4650; the thresholds " +
+                 "rose by 1800 when the run went from 3 to 6 minutes (180 more seconds left x 10 points).")]
+        public int SilverScore = 3900;
+        public int GoldScore = 4500;
 
         public float MultiplierFor(BalloonCondition condition)
         {

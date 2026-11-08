@@ -40,13 +40,48 @@ namespace GameJam.Editor
             BuildPoolFloats(movingRoot);
             BuildPicnicFood(staticRoot);
             BuildStartArch(staticRoot);
+            BuildGroundShadows(staticRoot);
 
             MarkStatic(staticRoot.gameObject);
         }
 
+        /// <summary>
+        /// Soft shade under the tall set pieces. The sun's real shadows only reach 14 m around you (a Quest budget), so
+        /// beyond that everything floated on the lawn; these baked-in blobs ground it at any distance for the cost of a few
+        /// transparent quads.
+        /// </summary>
+        private static void BuildGroundShadows(Transform parent)
+        {
+            GroundBlob(parent, BackyardCourseBuilder.TreeCenter, 7f, 7f);
+            GroundBlob(parent, BackyardCourseBuilder.PlaygroundCenter, 6f, 6f);
+            GroundBlob(parent, BackyardCourseBuilder.BbqCenter, 3.5f, 3.5f);
+            GroundBlob(parent, BackyardCourseBuilder.WashingLineCenter, 4f, 4f);
+            GroundBlob(parent, new Vector3(BackyardCourseBuilder.TrailFinish.x, 0f, BackyardCourseBuilder.TrailFinish.z), 5.5f, 4.5f);
+            GroundBlob(parent, new Vector3(0f, 0f, BackyardCourseBuilder.NorthEdge + 10f), 22f, 14f); // the house
+        }
+
+        /// <summary>A soft dark ellipse lying on the lawn (radii in metres), from the palette's shadow colour.</summary>
+        private static void GroundBlob(Transform parent, Vector3 center, float radiusX, float radiusZ, Quaternion? rotation = null)
+        {
+            Material blob = PlaceholderAssets.TransparentUnlit("GroundBlob", GeneratedTextures.RadialBlob("T_ShadowBlob"));
+            Color shade = ArtPalette.Shadow;
+            shade.a = 0.42f;
+            blob.color = shade;
+            EditorUtility.SetDirty(blob);
+
+            Quaternion flat = (rotation ?? Quaternion.identity) * Quaternion.Euler(90f, 0f, 0f);
+            GameObject quad = Decor(PrimitiveType.Quad, "GroundBlob", parent, new Vector3(center.x, 0.012f, center.z), new Vector3(radiusX * 2f, radiusZ * 2f, 1f), blob, flat);
+            var quadRenderer = quad.GetComponent<Renderer>();
+            quadRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            quadRenderer.receiveShadows = false;
+        }
+
         private static void BuildOutsideLawn(Transform parent)
         {
-            Material lawn = PlaceholderAssets.Material("Lawn", ArtPalette.Lawn);
+            // Deeper, slightly hazy green outside the fence (unmown, farther away): the yard reads as its own place.
+            Color farGreen = Color.Lerp(ArtPalette.LawnDark, ArtPalette.Fog, 0.12f);
+            Texture2D farNoise = GeneratedTextures.Noise("T_LawnFar", farGreen, Color.Lerp(farGreen, ArtPalette.LawnDark, 0.6f), 3f);
+            Material lawn = PlaceholderAssets.Material("LawnFar", Color.white, 0.05f, farNoise, new Vector2(26f, 52f));
             const float far = 260f;
             float w = BackyardCourseBuilder.HalfWidth;
             float south = BackyardCourseBuilder.SouthEdge;
@@ -118,7 +153,8 @@ namespace GameJam.Editor
             Decor(PrimitiveType.Sphere, "FlowerLeaf", parent, basePosition + new Vector3(1.4f, height * 0.35f, 0f), new Vector3(3f, 0.4f, 1.4f), stem,
                 Quaternion.Euler(0f, Range(0f, 360f), 20f));
 
-            Material petals = PlaceholderAssets.Material($"Petal_{ColorUtility.ToHtmlStringRGB(petalColor)}", petalColor);
+            Material petals = PlaceholderAssets.Material($"Petal_{ColorUtility.ToHtmlStringRGB(petalColor)}", petalColor, 0.38f);
+            GroundBlob(parent, basePosition, 2.2f, 2.2f); // the stem's shade on the grass
             Material center = PlaceholderAssets.Material("FlowerCenter", ArtPalette.Accent);
             Vector3 head = basePosition + Vector3.up * height;
             Quaternion facing = Quaternion.Euler(-60f, facingInward < 0f ? 90f : -90f, 0f); // face into the yard
@@ -159,6 +195,7 @@ namespace GameJam.Editor
                 {
                     var basePosition = new Vector3(side * (w + 6f), 0f, z);
                     Decor(PrimitiveType.Cube, "TrussTower", staticParent, basePosition + Vector3.up * 11f, new Vector3(0.8f, 22f, 0.8f), truss);
+                    GroundBlob(staticParent, basePosition, 1.8f, 1.8f);
                     Decor(PrimitiveType.Cube, "TrussArm", staticParent, basePosition + new Vector3(-side * 1.5f, 21.5f, 0f), new Vector3(3.5f, 0.5f, 0.5f), truss);
 
                     Quaternion aim = Quaternion.LookRotation(new Vector3(side * 12f, 0f, z + 8f) - (basePosition + Vector3.up * 21f));
@@ -179,13 +216,16 @@ namespace GameJam.Editor
 
         private static void Stand(Transform staticParent, Transform movingParent, Vector3 front, float yaw)
         {
-            // Tall stands so the crowd sees over the 7 m fence.
-            Material seats = PlaceholderAssets.Material("StandSeats", ArtPalette.CandyBlue);
-            Material frame = PlaceholderAssets.Material("StandFrame", ArtPalette.Charcoal);
+            // Tall stands so the crowd sees over the 7 m fence: a game-show striped skirt and candy tiers, not black boxes.
+            Material seats = PlaceholderAssets.Material("StandSeats", ArtPalette.CandyBlue, 0.4f);
+            Material frame = PlaceholderAssets.Material("StandFrame", ArtPalette.Picket, 0.3f);
+            Material skirt = PlaceholderAssets.Material("StandSkirt", Color.white, 0.3f,
+                GeneratedTextures.Stripes("T_StandSkirt", ArtPalette.CandyPink, ArtPalette.Picket, 4), new Vector2(6f, 1.5f));
             Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
             const int tiers = 4;
 
-            Decor(PrimitiveType.Cube, "StandBase", staticParent, front + rotation * new Vector3(0f, 3f, -3.6f), new Vector3(22f, 6f, 9.6f), frame, rotation);
+            Decor(PrimitiveType.Cube, "StandBase", staticParent, front + rotation * new Vector3(0f, 3f, -3.6f), new Vector3(22f, 6f, 9.6f), skirt, rotation);
+            GroundBlob(staticParent, front + rotation * new Vector3(0f, 0f, -3.6f), 15f, 8f, rotation);
             for (int tier = 0; tier < tiers; tier++)
             {
                 Vector3 tierCenter = front + rotation * new Vector3(0f, 7f + tier * 2f, -tier * 2.4f);

@@ -85,7 +85,12 @@ Assets/GameJam/
   without bloom since the Quest URP asset has HDR off; post-processing renders in PC mode only unless
   `PlayerRigConfig.PostProcessingInHeadset`) and `EnvironmentDressingBuilder` (collider-free, static-batched set
   dressing, including the Drive food props in `Art/Props/Food` with `T_ColorAtlas_v1`) run inside the prototype
-  builder. Dressing never gets colliders, so it can't change gameplay.
+  builder. Dressing never gets colliders, so it can't change gameplay. No full-screen post-processing on Quest (an extra
+  full-screen pass per eye, 1.5-3 ms); the look comes from free scene-side work instead: mown lawn stripes (`T_LawnStripes`),
+  a hazier lawn outside the fence, deck planks, pickets shaded darker at the base (baked AO), soft ground-shadow blobs under
+  tall set pieces (`EnvironmentDressingBuilder.BuildGroundShadows`; real shadows only reach 14 m), glossy toy materials
+  (items via `PlaceholderPrefabBuilder.GlossyToy`, the pillow stays matte), striped crowd stands, and a spinning golden
+  ring on every item spot (`BackyardCourseBuilder.ItemSpotRing`).
 - Set-piece models: `Art/Set/*.fbx` (tree, paddling pool, grill, picnic table, playground pieces, rotary clothesline, fence
   picket) from `tools/blender/scripts/build_set_pieces.py` (`--check` verifies walkable tops against the colliders).
   `SetPieceModels.Apply` (end of `BackyardCourseBuilder.Build`) places each at its anchor and hides the primitives it
@@ -207,7 +212,11 @@ Assets/GameJam/
   near and in front of it, shows your own hidden body through `GorillaBodyRig.All`). Check them in Play mode with
   `ambience_check.cs` (sounds per hook, emitters, fan stream; review cams) and `mirror_view.cs` (views the mirror; run it a second
   time to restore the Head as main camera). A finished run (medal or time up) returns to the lobby after
-  `RunConfig.ResultSeconds`: hoops reset, balloon back on station at the start, crew respawned on the stage. Wind (box fan,
+  `RunConfig.ResultSeconds`: hoops reset, balloon back on station at the start, crew respawned on the stage, every item back
+  on its spot (`NetworkItem.ReturnHome`, home spot networked so late joiners agree). A run is 6 minutes (`RunConfig.RunSeconds`
+  360; medals Silver 3900 / Gold 4500, raised by 1800 with the longer clock); when time runs out everyone hears a referee
+  whistle (`Whistle_TimeUp`, 2D on `GameState`) and sees "TIME'S UP!" with a countdown to the lobby (`ResultBanner` on the
+  head camera, drawn on top). `time_up_check.cs` tests the flow. Wind (box fan,
   leaf blower) is drawn by `PlaceholderPrefabBuilder.StyleAsWind`: trail wisps on scrolling noise plus a few leaves.
 - Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
 - Layer 9 is `Item`: loose items are off the Default layer so gorilla hands never grip them, and each item ignores

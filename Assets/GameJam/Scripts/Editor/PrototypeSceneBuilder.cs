@@ -112,6 +112,56 @@ namespace GameJam.Editor
             root.gameObject.AddComponent<TurnIndicator>().Configure(iconRenderer, label);
         }
 
+        /// <summary>
+        /// "TIME'S UP!" with a countdown back to the lobby, centred in the view (ResultBanner shows it). A dark panel and two
+        /// lines of text, all drawn last and on top of everything, so arms and set pieces never cover them.
+        /// </summary>
+        private static void BuildResultBanner(Transform head)
+        {
+            var root = new GameObject("ResultBanner").transform;
+            root.SetParent(head, false);
+            root.localPosition = new Vector3(0f, 0.04f, 0.9f);
+
+            Material panelMaterial = PlaceholderAssets.TransparentUnlit("ResultPanel", GeneratedTextures.RoundedPanel("T_RoundedPanel"));
+            Color panelColor = ArtPalette.TextDark;
+            panelColor.a = 0.82f;
+            panelMaterial.color = panelColor;
+            panelMaterial.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);
+            panelMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay;
+            EditorUtility.SetDirty(panelMaterial);
+            GameObject panel = PlaceholderShapes.Primitive(PrimitiveType.Quad, "Panel", root, Vector3.zero, new Vector3(0.74f, 0.26f, 1f), panelMaterial, false);
+            var panelRenderer = panel.GetComponent<Renderer>();
+            panelRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            panelRenderer.receiveShadows = false;
+
+            Material textMaterial = OnTopTextMaterial();
+            TextMesh title = PlaceholderShapes.Text("Title", root, new Vector3(0f, 0.035f, -0.005f), 0.012f, "TIME'S UP!", ArtPalette.Accent);
+            title.fontStyle = FontStyle.Bold;
+            TextMesh subtitle = PlaceholderShapes.Text("Subtitle", root, new Vector3(0f, -0.065f, -0.005f), 0.0052f, "Back to the start", ArtPalette.Picket);
+            title.GetComponent<MeshRenderer>().sharedMaterial = textMaterial;
+            subtitle.GetComponent<MeshRenderer>().sharedMaterial = textMaterial;
+            root.gameObject.AddComponent<ResultBanner>().Configure(panelRenderer, title, subtitle);
+        }
+
+        /// <summary>The built-in font's text material, drawn after the overlay panel and never hidden by depth.</summary>
+        private static Material OnTopTextMaterial()
+        {
+            const string path = PlaceholderAssets.MaterialFolder + "/OnTopText.mat";
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                material = new Material(font.material);
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            material.mainTexture = font.material.mainTexture;
+            material.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.Always);
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay + 1;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static void BuildRig(PrototypeConfigSet configs)
         {
             var root = new GameObject("GorillaRig");
@@ -133,6 +183,7 @@ namespace GameJam.Editor
             head.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>().renderPostProcessing = true;
             head.AddComponent<AudioListener>();
             BuildTurnIndicator(head.transform);
+            BuildResultBanner(head.transform);
             var headCollider = head.AddComponent<SphereCollider>();
             headCollider.radius = 0.12f;
 
