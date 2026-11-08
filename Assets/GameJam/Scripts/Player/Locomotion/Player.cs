@@ -431,6 +431,7 @@ namespace GorillaLocomotion
                 lastLeftTapPoint = leftFollower.position;
                 lastLeftTapNormal = leftHandSlideNormal;
                 leftTapArmed = false;
+                HandTapped?.Invoke(leftFollower.position - leftHandSlideNormal.normalized * minimumRaycastDistance, leftHandSlideNormal, leftHandTapMaterial);
             }
             else if (IsHandSliding(true))
             {
@@ -447,6 +448,7 @@ namespace GorillaLocomotion
                 lastRightTapPoint = rightFollower.position;
                 lastRightTapNormal = rightHandSlideNormal;
                 rightTapArmed = false;
+                HandTapped?.Invoke(rightFollower.position - rightHandSlideNormal.normalized * minimumRaycastDistance, rightHandSlideNormal, rightHandTapMaterial);
             }
             else if (IsHandSliding(false))
             {
@@ -580,6 +582,12 @@ namespace GorillaLocomotion
                 source.Stop();
             }
         }
+
+        /// <summary>
+        /// Project change: a hand tapped a surface (the same moment the tap sound plays): the contact point, the surface
+        /// normal and the touched material. HandTapEffects uses it for dirt puffs on grass.
+        /// </summary>
+        public event System.Action<Vector3, Vector3, Material> HandTapped;
 
         [Tooltip("Volume of the slide hiss at full slide (LocalRig copies PlayerRigConfig.SlideVolume here).")]
         [Range(0f, 1f)] public float slideVolume = 0.35f;

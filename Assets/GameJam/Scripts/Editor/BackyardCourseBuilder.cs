@@ -132,6 +132,7 @@ namespace GameJam.Editor
             AmbientEffectsBuilder.Pollen(ambience, new Vector3(0f, 3f, middleZ), new Vector3(HalfWidth * 2f, 5f, NorthEdge - SouthEdge));
             Color leafLight = Color.Lerp(ArtPalette.LawnDark, ArtPalette.Accent, 0.35f);
             AmbientEffectsBuilder.FallingLeaves(ambience, TreeCenter + new Vector3(0f, 11f, 0f), 4f, ArtPalette.LawnDark, leafLight);
+            AmbientEffectsBuilder.Bursts(ambience); // pooled confetti (hoops) and pop shreds (balloon)
         }
 
         /// <summary>A trigger that launches players (with a boing).</summary>

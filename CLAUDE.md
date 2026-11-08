@@ -181,7 +181,7 @@ Assets/GameJam/
   until the owner's hit arrives (networked `HitCount`), then blend onto it over 0.3 s; `RpcApplyHit` is not
   tick-aligned. Before this the slapper waited two network trips to see or hear their own hit.
   `predicted_hit_check.cs` fakes the latency offline and checks the hand-over.
-- Turn cue: the balloon always shows the hitter colour; whoever hit it last (pass rule on, during a run) sees a "not
+- Turn cue: the balloon always shows the hitter colour (candy pink before anyone hits it, `PlayerPalette.Neutral`); whoever hit it last (pass rule on, during a run) sees a "not
   your turn" icon (balloon + red no-sign, `T_NotYourTurn`) low in the middle of their view, drawn over the arms
   (`TurnIndicator` on the head camera, `PrototypeSceneBuilder.BuildTurnIndicator`); it fades out when someone else hits
   it (a giant's hit is nobody's and keeps it). `turn_indicator_check.cs` tests it.
@@ -208,7 +208,17 @@ Assets/GameJam/
   Hooks: `HoopCheckpoint` (chime + confetti when a hoop clears), `GameState` (2D fanfare on a medal finish),
   `NetworkBalloon.RpcPlayPopEffects`, `BouncePad.PlayBounce` (from `RigHazardSensor`), `ItemEffectZone` (loop while
   the effect runs) and the fan's `AirStream`. `AmbientEffectsBuilder` adds yard pollen and falling tree leaves (no
-  colliders; hoops have no ambient VFX, by request). The start stage has a `PlanarMirror` (off-axis render-texture camera, only
+  colliders; hoops have no ambient VFX, by request). VFX are pooled particle systems fired with `Emit` (no Instantiate):
+  `BurstEffects` (scene object under Ambience: hoop-clear confetti strips in the candy colours, balloon-pop rubber shreds in
+  the hitter's colour plus an air puff; `PopBurstEffect`/`HoopCheckpoint` fall back to cubes without it). Item effects:
+  bubbles are `T_Bubble` (clear, shimmering rim, highlight; never rotated) that swell, wobble and pop in sparkles (death
+  sub-emitter); the leaf blower adds a `NozzleBlast` of air puffs; wind leaves and falling leaves use `T_Leaf`
+  (`PlaceholderPrefabBuilder.LeafColors`). Particle textures come from `GeneratedTextures` (Bubble, Leaf, Shred,
+  ConfettiStrip, Clod) through `PlaceholderPrefabBuilder.ParticleMaterial`. Hand taps sound by surface: the builder sorts the
+  yard's collider materials by name into grass, wood, metal and plastic (`PrototypeSceneBuilder.SurfaceKinds`, unmatched ones
+  keep the default taps) with three generated variants each; on grass (`SurfaceSound.KicksUpDirt`) `HandTapEffects` on the
+  rig flicks up clods and grass bits with a dust puff (local only). `surface_check.cs` lists the sorting, `fx_check.cs` fires
+  and captures the bursts and dirt. The start stage has a `PlanarMirror` (off-axis render-texture camera, only
   near and in front of it, shows your own hidden body through `GorillaBodyRig.All`). Check them in Play mode with
   `ambience_check.cs` (sounds per hook, emitters, fan stream; review cams) and `mirror_view.cs` (views the mirror; run it a second
   time to restore the Head as main camera). A finished run (medal or time up) returns to the lobby after

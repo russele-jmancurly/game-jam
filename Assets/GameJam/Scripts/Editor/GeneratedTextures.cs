@@ -67,6 +67,82 @@ namespace GameJam.Editor
             });
 
         /// <summary>
+        /// A soap bubble: almost clear inside, a thin rim that shifts through the candy colours around the edge (thin-film
+        /// shimmer), a bright highlight at the top left and a small second one at the bottom right.
+        /// </summary>
+        public static Texture2D Bubble(string name, int size = 128) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float px = 2f / size;
+                var p = new Vector2((x + 0.5f) / size * 2f - 1f, (y + 0.5f) / size * 2f - 1f);
+                float r = p.magnitude;
+                float inside = Mathf.Clamp01(0.5f - (r - 0.94f) / (px * 1.5f));
+                float rim = Mathf.SmoothStep(0.6f, 0.93f, r) * inside;
+                float angle = Mathf.Atan2(p.y, p.x) / (2f * Mathf.PI) + 0.5f;
+                Color film = Color.Lerp(Color.Lerp(ArtPalette.CandyPink, ArtPalette.CandyBlue, Mathf.PingPong(angle * 2f, 1f)),
+                    ArtPalette.CandyMint, Mathf.PingPong(angle * 3f + 0.3f, 1f) * 0.5f);
+                Color color = Color.Lerp(Color.white, film, 0.75f);
+                float alpha = inside * 0.06f + rim * 0.85f;
+                float highlight = Mathf.Clamp01(1f - (p - new Vector2(-0.38f, 0.42f)).magnitude / 0.17f);
+                float glint = Mathf.Clamp01(1f - (p - new Vector2(0.4f, -0.36f)).magnitude / 0.08f) * 0.6f;
+                float shine = Mathf.Max(highlight * highlight * (3f - 2f * highlight), glint);
+                color = Color.Lerp(color, Color.white, shine);
+                return new Color(color.r, color.g, color.b, Mathf.Max(alpha, shine * inside));
+            });
+
+        /// <summary>A leaf (pointed ellipse along the texture's height, a darker midrib), greyscale: tinted per particle.</summary>
+        public static Texture2D Leaf(string name, int size = 64) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float px = 2f / size;
+                float u = (x + 0.5f) / size * 2f - 1f;
+                float v = (y + 0.5f) / size * 2f - 1f;
+                float half = 0.46f * Mathf.Pow(Mathf.Clamp01(1f - v * v), 0.75f); // widest in the middle, pointed ends
+                float coverage = Mathf.Clamp01(0.5f - (Mathf.Abs(u) - half) / (px * 1.5f)) * Mathf.Clamp01((0.96f - Mathf.Abs(v)) / px);
+                float vein = Mathf.Clamp01(1f - Mathf.Abs(u) / 0.05f) * 0.35f;
+                float shade = 0.95f - vein - Mathf.Abs(u) * 0.12f;
+                return new Color(shade, shade, shade, coverage);
+            });
+
+        /// <summary>A torn rubber shred: an irregular, slightly curved sliver (white, tinted by the particle colour).</summary>
+        public static Texture2D Shred(string name, int size = 64) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float px = 2f / size;
+                float u = (x + 0.5f) / size * 2f - 1f;
+                float v = (y + 0.5f) / size * 2f - 1f;
+                float centre = 0.25f * Mathf.Sin(v * 2.2f);                     // curved like peeled latex
+                float half = 0.32f * (1f - Mathf.Abs(v) * 0.75f) + 0.06f * Mathf.Sin(v * 17f); // jagged torn edge
+                float coverage = Mathf.Clamp01(0.5f - (Mathf.Abs(u - centre) - half) / (px * 1.5f)) * Mathf.Clamp01((0.95f - Mathf.Abs(v)) / px);
+                return new Color(1f, 1f, 1f, coverage);
+            });
+
+        /// <summary>A clod of soil: a crisp, lumpy round (white with darker speckles, tinted per particle).</summary>
+        public static Texture2D Clod(string name, int size = 32) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float px = 2f / size;
+                var p = new Vector2((x + 0.5f) / size * 2f - 1f, (y + 0.5f) / size * 2f - 1f);
+                float angle = Mathf.Atan2(p.y, p.x);
+                float edge = 0.78f + 0.1f * Mathf.Sin(angle * 3f + 1f) + 0.06f * Mathf.Sin(angle * 7f);
+                float coverage = Mathf.Clamp01(0.5f - (p.magnitude - edge) / (px * 1.5f));
+                float speck = Mathf.Sin(x * 2.3f) * Mathf.Sin(y * 3.1f) > 0.6f ? 0.75f : 1f;
+                float shade = Mathf.Lerp(1f, 0.8f, Mathf.Clamp01(-p.y)) * speck; // lit from above
+                return new Color(shade, shade, shade, coverage);
+            });
+
+        /// <summary>A confetti strip: a white rounded rectangle twice as tall as wide, tinted per particle.</summary>
+        public static Texture2D ConfettiStrip(string name, int size = 32) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float px = 2f / size;
+                float u = Mathf.Abs((x + 0.5f) / size * 2f - 1f);
+                float v = Mathf.Abs((y + 0.5f) / size * 2f - 1f);
+                float distance = Mathf.Max(u - 0.42f, v - 0.88f);
+                return new Color(1f, 1f, 1f, Mathf.Clamp01(0.5f - distance / (px * 1.5f)));
+            });
+
+        /// <summary>
         /// Deck boards: <paramref name="boards"/> planks across the texture, thin dark seams between them, board ends staggered
         /// per row, and a slight tint per board so the floor reads as wood, not a flat colour.
         /// </summary>

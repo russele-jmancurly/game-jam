@@ -33,6 +33,9 @@ namespace GorillaLocomotion
             return null;
         }
 
+        /// <summary>Project change: the surface a material belongs to (null = none listed), cached like the sounds.</summary>
+        public SurfaceSound SurfaceFor(Material material) => material != null ? Match(material) : null;
+
         private SurfaceSound Match(Material material)
         {
             if (_matches.TryGetValue(material, out SurfaceSound cached))

@@ -509,12 +509,17 @@ namespace GameJam.Editor
             particleRenderer.receiveShadows = false;
 
             var effectZone = zone.AddComponent<ItemEffectZone>();
-            if (!isBubbles)
+            if (isBubbles)
+            {
+                StyleAsBubbles(particles);
+            }
+            else
             {
                 // Same reach as before (~6 m), but as real-looking wind: long thin wisps and a few tumbling leaves.
                 main.startSpeed = 4f;
                 main.startLifetime = 1.6f;
                 StyleAsWind(particles, 22f, 1.2f);
+                NozzleBlast(particles.transform);
             }
 
             AudioClip loop = isBubbles ? GeneratedAudio.BubbleLoop("Item_BubbleLoop") : GeneratedAudio.WindLoop("Wind_Loop");
@@ -583,6 +588,124 @@ namespace GameJam.Editor
         }
 
         /// <summary>
+        /// Soap bubbles: fewer and bigger, each a clear sphere with a shimmering rim and a highlight (T_Bubble, never rotated
+        /// so the highlight stays top left), swelling as it leaves the ring, wobbling as it drifts, then popping in a few
+        /// sparkles (a death sub-emitter) instead of fading out.
+        /// </summary>
+        private static void StyleAsBubbles(ParticleSystem particles)
+        {
+            ParticleSystem.MainModule main = particles.main;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.14f, 0.36f);
+            main.startColor = new ParticleSystem.MinMaxGradient(Color.white, new Color(1f, 0.94f, 1f, 1f));
+            main.startRotation = 0f;
+            main.maxParticles = 80;
+
+            ParticleSystem.EmissionModule emission = particles.emission;
+            emission.rateOverTime = 18f;
+
+            ParticleSystem.NoiseModule noise = particles.noise;
+            noise.strength = 0.45f;
+            noise.frequency = 0.8f;
+            noise.quality = ParticleSystemNoiseQuality.Low;
+
+            ParticleSystem.SizeOverLifetimeModule grow = particles.sizeOverLifetime;
+            grow.enabled = true;
+            grow.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.45f), new Keyframe(0.18f, 1f), new Keyframe(1f, 1.08f)));
+
+            ParticleSystem.ColorOverLifetimeModule fade = particles.colorOverLifetime;
+            var gradient = new Gradient();
+            gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.08f), new GradientAlphaKey(1f, 0.97f), new GradientAlphaKey(0f, 1f) });
+            fade.color = gradient;
+
+            var particleRenderer = particles.GetComponent<ParticleSystemRenderer>();
+            particleRenderer.sharedMaterial = BubbleParticleMaterial();
+            particleRenderer.renderMode = ParticleSystemRenderMode.Billboard;
+            particleRenderer.sortMode = ParticleSystemSortMode.Distance;
+
+            // The pop: a few sparkles flying off where each bubble ends.
+            var popObject = new GameObject("BubblePops");
+            popObject.transform.SetParent(particles.transform, false);
+            var pops = popObject.AddComponent<ParticleSystem>();
+            pops.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule popMain = pops.main;
+            popMain.loop = false;
+            popMain.playOnAwake = false;
+            popMain.simulationSpace = ParticleSystemSimulationSpace.World;
+            popMain.maxParticles = 300;
+            popMain.startLifetime = new ParticleSystem.MinMaxCurve(0.15f, 0.3f);
+            popMain.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.1f);
+            popMain.startSize = new ParticleSystem.MinMaxCurve(0.025f, 0.05f);
+            popMain.startColor = new ParticleSystem.MinMaxGradient(Color.white, Color.Lerp(Color.white, ArtPalette.CandyBlue, 0.4f));
+            ParticleSystem.EmissionModule popEmission = pops.emission;
+            popEmission.rateOverTime = 0f;
+            popEmission.SetBursts(new[] { new ParticleSystem.Burst(0f, 5) });
+            ParticleSystem.ShapeModule popShape = pops.shape;
+            popShape.shapeType = ParticleSystemShapeType.Sphere;
+            popShape.radius = 0.1f;
+            ParticleSystem.SizeOverLifetimeModule popShrink = pops.sizeOverLifetime;
+            popShrink.enabled = true;
+            popShrink.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
+            var popRenderer = popObject.GetComponent<ParticleSystemRenderer>();
+            popRenderer.sharedMaterial = EffectParticleMaterial();
+            popRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            popRenderer.receiveShadows = false;
+
+            ParticleSystem.SubEmittersModule subEmitters = particles.subEmitters;
+            subEmitters.enabled = true;
+            subEmitters.AddSubEmitter(pops, ParticleSystemSubEmitterType.Death, ParticleSystemSubEmitterProperties.InheritNothing);
+        }
+
+        /// <summary>
+        /// The leaf blower's nozzle: soft puffs of air bursting out and spreading right at the tip, so the blast reads from
+        /// the holder's view before the wisps get going. Plays with its parent emitter.
+        /// </summary>
+        private static void NozzleBlast(Transform emitter)
+        {
+            var blastObject = new GameObject("NozzleBlast");
+            blastObject.transform.SetParent(emitter, false);
+            var blast = blastObject.AddComponent<ParticleSystem>();
+            blast.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule main = blast.main;
+            main.loop = true;
+            main.playOnAwake = false;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 40;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.55f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(3f, 4.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.2f);
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+            Color white = Color.white;
+            white.a = 0.4f;
+            Color pale = ArtPalette.Window;
+            pale.a = 0.3f;
+            main.startColor = new ParticleSystem.MinMaxGradient(white, pale);
+            ParticleSystem.EmissionModule emission = blast.emission;
+            emission.rateOverTime = 30f;
+            ParticleSystem.ShapeModule shape = blast.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone; // along the emitter's +Z
+            shape.angle = 14f;
+            shape.radius = 0.05f;
+            ParticleSystem.LimitVelocityOverLifetimeModule slow = blast.limitVelocityOverLifetime;
+            slow.enabled = true;
+            slow.limit = 0.6f;
+            slow.dampen = 0.12f; // the puff spreads and stalls, as air does
+            ParticleSystem.SizeOverLifetimeModule grow = blast.sizeOverLifetime;
+            grow.enabled = true;
+            grow.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 1f, 1f, 4f));
+            ParticleSystem.ColorOverLifetimeModule fade = blast.colorOverLifetime;
+            fade.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.15f), new GradientAlphaKey(0f, 1f) });
+            fade.color = gradient;
+            var blastRenderer = blastObject.GetComponent<ParticleSystemRenderer>();
+            blastRenderer.sharedMaterial = EffectParticleMaterial();
+            blastRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            blastRenderer.receiveShadows = false;
+        }
+
+        /// <summary>
         /// Turns an emitter flowing along its +Z into wind that reads like the real thing: invisible heads trailing long,
         /// thin, tapered wisps that wave on a scrolling noise field (gusty curls rather than straight lines), plus a child
         /// emitter of a few leaves tumbling through the stream. Keeps the emitter's speed, lifetime and shape.
@@ -644,9 +767,9 @@ namespace GameJam.Editor
             leafMain.maxParticles = 30;
             leafMain.startSpeed = main.startSpeed.constant * 0.85f;
             leafMain.startLifetime = main.startLifetime.constant;
-            leafMain.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.15f);
+            leafMain.startSize = new ParticleSystem.MinMaxCurve(0.1f, 0.17f);
             leafMain.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
-            leafMain.startColor = new ParticleSystem.MinMaxGradient(ArtPalette.LawnDark, Color.Lerp(ArtPalette.LawnDark, ArtPalette.Accent, 0.5f));
+            leafMain.startColor = LeafColors();
             ParticleSystem.EmissionModule leafEmission = leaves.emission;
             leafEmission.rateOverTime = 3f;
             ParticleSystem.ShapeModule leafShape = leaves.shape;
@@ -663,7 +786,7 @@ namespace GameJam.Editor
             leafFade.enabled = true;
             leafFade.color = life;
             var leafRenderer = leavesObject.GetComponent<ParticleSystemRenderer>();
-            leafRenderer.sharedMaterial = EffectParticleMaterial();
+            leafRenderer.sharedMaterial = LeafParticleMaterial();
             leafRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             leafRenderer.receiveShadows = false;
         }
@@ -706,9 +829,30 @@ namespace GameJam.Editor
         }
 
         /// <summary>Soft round transparent particle (URP Particles/Unlit with a generated radial blob).</summary>
-        public static Material EffectParticleMaterial()
+        public static Material EffectParticleMaterial() => ParticleMaterial("EffectParticle", GeneratedTextures.RadialBlob("T_ParticleDot"));
+
+        /// <summary>Leaf colours for wind and falling leaves: greens with the odd sun-dried yellow one (random per leaf).</summary>
+        public static ParticleSystem.MinMaxGradient LeafColors()
         {
-            string path = $"{PlaceholderAssets.MaterialFolder}/EffectParticle.mat";
+            var colors = new Gradient();
+            Color light = Color.Lerp(ArtPalette.LawnDark, ArtPalette.Accent, 0.3f);
+            Color dry = Color.Lerp(ArtPalette.Accent, ArtPalette.LawnDark, 0.3f);
+            colors.SetKeys(new[] { new GradientColorKey(ArtPalette.LawnDark, 0.45f), new GradientColorKey(light, 0.85f), new GradientColorKey(dry, 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+            colors.mode = GradientMode.Fixed;
+            return new ParticleSystem.MinMaxGradient(colors) { mode = ParticleSystemGradientMode.RandomColor };
+        }
+
+        /// <summary>Soap bubble particle: clear middle, shimmering rim, highlight.</summary>
+        public static Material BubbleParticleMaterial() => ParticleMaterial("EffectBubble", GeneratedTextures.Bubble("T_Bubble"));
+
+        /// <summary>Leaf-shaped particle, tinted by the particle colour.</summary>
+        public static Material LeafParticleMaterial() => ParticleMaterial("EffectLeaf", GeneratedTextures.Leaf("T_Leaf"));
+
+        /// <summary>A transparent URP Particles/Unlit material at Materials/Placeholder/<paramref name="name"/>.mat.</summary>
+        public static Material ParticleMaterial(string name, Texture2D texture)
+        {
+            string path = $"{PlaceholderAssets.MaterialFolder}/{name}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material == null)
             {
@@ -724,7 +868,7 @@ namespace GameJam.Editor
             material.SetOverrideTag("RenderType", "Transparent");
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            material.SetTexture("_BaseMap", GeneratedTextures.RadialBlob("T_ParticleDot"));
+            material.SetTexture("_BaseMap", texture);
             EditorUtility.SetDirty(material);
             return material;
         }

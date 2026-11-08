@@ -46,3 +46,7 @@ PhysicsMaterial with low friction or some bounciness. The balloon is on its own 
   twice on frames with a physics step (~20 % too far). `LocalRig.StickWalk` (left thumbstick) moves the player through it.
 - The slide hiss fades in and out (`UpdateSlideSound`, volume `slideVolume` from `PlayerRigConfig.SlideVolume`) instead of
   `Play()`/`Stop()`: a sliding hand flickers in and out of contact, and upstream restarted the loop each time (a stutter).
+- `HandTapped(point, normal, material)`: raised with each hand tap (after the sound), so effects can react to the surface;
+  `HandTapEffects` (dirt on grass) listens. `SurfaceSound` has a `Name` and a `KicksUpDirt` flag, and
+  `Sounds.SurfaceFor(material)` returns the matched surface (same cache as the sounds). The builder fills `Surfaces` with
+  grass, wood, metal and plastic taps (`GeneratedAudio.TapGrass/TapWood/TapMetal/TapPlastic`, three variants each).

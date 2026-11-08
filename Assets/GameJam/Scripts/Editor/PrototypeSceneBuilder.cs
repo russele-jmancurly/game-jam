@@ -227,6 +227,11 @@ namespace GameJam.Editor
                 GeneratedAudio.Tap("Tap_Mid", 185f, 2),
                 GeneratedAudio.Tap("Tap_High", 220f, 3),
             };
+            locomotion.sounds.Surfaces = TapSurfaces();
+
+            // Dirt and grass flicked up where a hand taps the lawn (surfaces marked KicksUpDirt).
+            (ParticleSystem clods, ParticleSystem dust) = AmbientEffectsBuilder.HandDirt(root.transform);
+            root.AddComponent<HandTapEffects>().Configure(locomotion, clods, dust);
 
             var rig = root.AddComponent<LocalRig>();
             rig.Configure(configs.PlayerRig, configs.Knockback, locomotion, head.transform, leftController, rightController, leftHand, rightHand, wrist);
@@ -235,6 +240,102 @@ namespace GameJam.Editor
 
             // The whole rig is on Ignore Raycast so your own hands never climb your own body.
             PlaceholderShapes.SetLayerRecursively(root, GameLayers.IgnoreRaycast);
+        }
+
+        /// <summary>Hand-tap surfaces, checked in this order; a material whose name has one of the words belongs to it.</summary>
+        private static readonly (string name, bool kicksUpDirt, string[] keywords)[] SurfaceKinds =
+        {
+            ("Grass", true, new[] { "Lawn", "Grass", "Moss", "Turf" }),
+            ("Wood", false, new[] { "Bark", "Picket", "Platform", "Wood", "HouseWall", "Deck", "Timber", "Plank", "Stand", "Picnic", "Branch", "Stage" }), // not "Table": inflaTABLE
+            ("Metal", false, new[] { "Steel", "Charcoal", "Fan", "Gate", "Metal", "Truss", "Pole", "Grill", "Iron", "Chrome" }),
+            ("Plastic", false, new[] { "Inflatable", "Merry", "Duck", "Climbable", "Pinata", "Laundry", "Glass", "Hazard", "Mushroom", "Trampoline", "Plastic", "Rubber", "Toy" }),
+        };
+
+        /// <summary>
+        /// Sorts every material on the yard's solid colliders into grass, wood, metal and plastic by name, each with three
+        /// generated tap variants (grass also kicks up dirt). Anything unmatched keeps the default taps.
+        /// </summary>
+        private static GorillaLocomotion.SurfaceSound[] TapSurfaces()
+        {
+            var materials = new List<Material>[SurfaceKinds.Length];
+            for (int i = 0; i < materials.Length; i++)
+            {
+                materials[i] = new List<Material>();
+            }
+
+            var unmatched = new SortedSet<string>();
+            var buffer = new List<Material>();
+            foreach (Collider collider in Object.FindObjectsByType<Collider>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (collider.isTrigger)
+                {
+                    continue;
+                }
+
+                Renderer renderer = collider.GetComponent<Renderer>(); // same lookup as Player.ResolveSurfaceMaterial
+                if (renderer == null)
+                {
+                    renderer = collider.GetComponentInParent<Renderer>();
+                }
+
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                renderer.GetSharedMaterials(buffer);
+                foreach (Material material in buffer)
+                {
+                    if (material == null)
+                    {
+                        continue;
+                    }
+
+                    int kind = System.Array.FindIndex(SurfaceKinds, k => System.Array.Exists(k.keywords,
+                        word => material.name.IndexOf(word, System.StringComparison.OrdinalIgnoreCase) >= 0));
+                    if (kind < 0)
+                    {
+                        unmatched.Add(material.name);
+                    }
+                    else if (!materials[kind].Contains(material))
+                    {
+                        materials[kind].Add(material);
+                    }
+                }
+            }
+
+            if (unmatched.Count > 0)
+            {
+                Debug.Log($"Hand taps: default sound for {string.Join(", ", unmatched)}");
+            }
+
+            var surfaces = new GorillaLocomotion.SurfaceSound[SurfaceKinds.Length];
+            for (int i = 0; i < surfaces.Length; i++)
+            {
+                string name = SurfaceKinds[i].name;
+                var sounds = new AudioClip[3];
+                for (int v = 0; v < sounds.Length; v++)
+                {
+                    string clip = $"Tap_{name}_{v + 1}";
+                    sounds[v] = name switch
+                    {
+                        "Grass" => GeneratedAudio.TapGrass(clip, v),
+                        "Wood" => GeneratedAudio.TapWood(clip, v),
+                        "Metal" => GeneratedAudio.TapMetal(clip, v),
+                        _ => GeneratedAudio.TapPlastic(clip, v),
+                    };
+                }
+
+                surfaces[i] = new GorillaLocomotion.SurfaceSound
+                {
+                    Name = name,
+                    KicksUpDirt = SurfaceKinds[i].kicksUpDirt,
+                    Materials = materials[i].ToArray(),
+                    Sounds = sounds,
+                };
+            }
+
+            return surfaces;
         }
 
         private static void BuildNetwork(NetworkObject avatar, NetworkObject balloon, NetworkObject gameState, NetworkObject[] items, NetworkObject roamer)

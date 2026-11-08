@@ -122,9 +122,12 @@ namespace GameJam.Gameplay
                     _clearAudio.Play();
                 }
 
-                // Confetti in the ring's two colours.
-                PopBurstEffect.Play(transform.position, ArtPalette.Accent, _burstMaterial);
-                PopBurstEffect.Play(transform.position, ArtPalette.CandyMint, _burstMaterial);
+                // A confetti burst (pooled); without BurstEffects in the scene, bits in the ring's two colours.
+                if (!BurstEffects.Confetti(transform.position))
+                {
+                    PopBurstEffect.Play(transform.position, ArtPalette.Accent, _burstMaterial);
+                    PopBurstEffect.Play(transform.position, ArtPalette.CandyMint, _burstMaterial);
+                }
             }
 
             _clearedAt = isCleared ? Time.time : -1f;

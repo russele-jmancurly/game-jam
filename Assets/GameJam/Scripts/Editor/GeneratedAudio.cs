@@ -36,6 +36,52 @@ namespace GameJam.Editor
                 return (body * 0.75f + click * 0.35f) * envelope;
             });
 
+        /// <summary>Pitch per tap variant, so three clips of each surface never sound robotic in a row.</summary>
+        private static float VariantPitch(int variant) => variant switch { 0 => 0.92f, 1 => 1f, _ => 1.09f };
+
+        /// <summary>Palm on grass: a soft low thud into the turf and a short dry rustle of blades.</summary>
+        public static AudioClip TapGrass(string name, int variant) =>
+            Create(name, 0.16f, false, 40 + variant, PeakEffect * 0.7f, (t, soft, deep) =>
+            {
+                float p = VariantPitch(variant);
+                float thud = Sine(120f * p * (1f - t * 1.5f), t) * Mathf.Exp(-t * 38f);
+                float rustle = (soft - deep * 0.3f) * Mathf.Exp(-t * 26f) * (0.55f + 0.45f * Mathf.Sin(t * 210f * p));
+                return (thud * 0.7f + rustle * 0.75f) * Mathf.Clamp01(t * 900f);
+            });
+
+        /// <summary>Palm on wood: a hollow knock, two woody body modes dying fast, with a little click on contact.</summary>
+        public static AudioClip TapWood(string name, int variant) =>
+            Create(name, 0.2f, false, 50 + variant, PeakEffect * 0.75f, (t, soft, deep) =>
+            {
+                float p = VariantPitch(variant);
+                float body = Sine(390f * p, t) * Mathf.Exp(-t * 32f) + 0.55f * Sine(1050f * p, t) * Mathf.Exp(-t * 55f);
+                float click = soft * Mathf.Exp(-t * 700f);
+                return (body + click * 0.5f) * Mathf.Clamp01(t * 3000f);
+            });
+
+        /// <summary>Palm on metal: a bright clank, inharmonic partials of a struck plate ringing a little longer.</summary>
+        public static AudioClip TapMetal(string name, int variant) =>
+            Create(name, 0.5f, false, 60 + variant, PeakEffect * 0.6f, (t, soft, deep) =>
+            {
+                float p = VariantPitch(variant);
+                float ring = Sine(620f * p, t) * Mathf.Exp(-t * 9f)
+                             + 0.6f * Sine(1711f * p, t) * Mathf.Exp(-t * 13f)
+                             + 0.4f * Sine(3348f * p, t) * Mathf.Exp(-t * 19f)
+                             + 0.25f * Sine(5537f * p, t) * Mathf.Exp(-t * 27f);
+                float click = soft * Mathf.Exp(-t * 900f);
+                return (ring * 0.6f + click * 0.6f) * Mathf.Clamp01(t * 4000f);
+            });
+
+        /// <summary>Palm on plastic, inflatables and cloth: a rubbery thunk whose pitch drops, muffled, no ring.</summary>
+        public static AudioClip TapPlastic(string name, int variant) =>
+            Create(name, 0.16f, false, 70 + variant, PeakEffect * 0.7f, (t, soft, deep) =>
+            {
+                float p = VariantPitch(variant);
+                float thunk = Sine((210f + 180f * Mathf.Exp(-t * 45f)) * p, t) * Mathf.Exp(-t * 30f);
+                float muffle = deep * Mathf.Exp(-t * 40f);
+                return (thunk + muffle * 0.4f) * Mathf.Clamp01(t * 1500f);
+            });
+
         // A stretched round membrane rings at these inharmonic ratios (Bessel-function modes), which is what makes a
         // balloon (or a drum) sound hollow rather than tonal.
         private static readonly float[] MembraneRatios = { 1f, 1.59f, 2.14f, 2.30f, 2.65f, 2.92f };

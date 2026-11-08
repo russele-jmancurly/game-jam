@@ -12,6 +12,12 @@ namespace GameJam.Gameplay
 
         public static void Play(Vector3 position, Color color, Material material)
         {
+            if (BurstEffects.Pop(position, color))
+            {
+                return; // the scene's pooled shreds and puff
+            }
+
+            // Fallback without BurstEffects in the scene: little rubber cubes.
             var root = new GameObject("PopBurst");
             Object.Destroy(root, Lifetime);
 

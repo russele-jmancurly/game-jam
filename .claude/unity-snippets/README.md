@@ -22,3 +22,8 @@ Locomotion regression tests (Play mode, PC mode, no headset; each logs PASS/FAIL
   Note: `LOCOTEST_ONLY=slap` in the gorilla suite always fails (PC input stays off without the WASD scenario).
 - `time_up_check.cs` (`[TimeUpTest]`): shortens the run to 5 s (restored), checks the whistle and TIME'S UP banner, then that
   everyone is back in the lobby with the items on their spots; places `BannerCam` for a screenshot.
+- `surface_check.cs` (Edit or Play mode): the rig's hand-tap surfaces (grass, wood, metal, plastic), whether each kicks up
+  dirt, its clips and the materials sorted into it (by `PrototypeSceneBuilder.SurfaceKinds` keywords).
+- `fx_check.cs` (Play mode): fires two lawn taps and a wood and a metal tap through `HandTapEffects` (only the lawn ones may
+  add clods), a confetti burst and a balloon pop through `BurstEffects`; slows time to 1 % and pauses the dirt mid-flight
+  for captures from `FxCam_Dirt` / `FxCam_Burst`. Run again with `STEP = "restore"` to set time back.

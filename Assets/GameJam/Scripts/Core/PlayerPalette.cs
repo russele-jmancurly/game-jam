@@ -5,8 +5,11 @@ namespace GameJam.Core
     /// <summary>One colour per player, used for avatars and the balloon's last-hitter glow.</summary>
     public static class PlayerPalette
     {
-        /// <summary>Colour for "nobody" (a fresh balloon, a hazard hit).</summary>
-        public static readonly Color Neutral = new Color(0.95f, 0.95f, 0.95f);
+        /// <summary>
+        /// Colour for "nobody" (a fresh balloon, a hazard hit): party-balloon pink, which no player has. It was an
+        /// off-white that shaded to a dull grey in the yard.
+        /// </summary>
+        public static readonly Color Neutral = ArtPalette.CandyPink;
 
         private static readonly Color[] Colors =
         {
