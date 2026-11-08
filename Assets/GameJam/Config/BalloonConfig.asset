@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: BalloonConfig
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.BalloonConfig
   Radius: 0.25
-  Gravity: 0.7
+  Gravity: 1.2
   Drag: 1.1
   QuadraticDrag: 0
   FlutterStrength: 0.12
@@ -35,8 +35,6 @@ MonoBehaviour:
   HitGraceSeconds: 0.25
   SpikePushSpeed: 1.5
   AllowSoloDoubleHits: 1
-  NotYourTurnColor: {r: 0.55, g: 0.57, b: 0.62, a: 1}
-  NotYourTurnPulse: 1.2
   PopBlastRadius: 1.5
   PopBlastForce: 3
   PopBlastKnockdownSeconds: 0.8
