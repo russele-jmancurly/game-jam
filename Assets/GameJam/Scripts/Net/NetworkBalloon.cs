@@ -120,9 +120,109 @@ namespace GameJam.Net
 
             float strength = SlapStrength(speed);
             LastSlapHandSpeed = speed;
-            RequestHit(Runner.LocalPlayer, SlapVelocity(slap.HandVelocity * _slapConfig.BalloonVelocityScale, strength));
+            Vector3 velocity = SlapVelocity(slap.HandVelocity * _slapConfig.BalloonVelocityScale, strength);
+            if (!HasStateAuthority)
+            {
+                PredictHit(velocity); // before the RPC: see and hear it now, not after the round trip
+            }
+
+            RequestHit(Runner.LocalPlayer, velocity);
             feedback = new HapticPulse(Mathf.Lerp(0.45f, 1f, strength), Mathf.Lerp(0.05f, 0.12f, strength)); // a hard slap kicks
             return true;
+        }
+
+        /// <summary>The hit velocity the owner will give the balloon (capped, plus the upward assist).</summary>
+        private Vector3 ShapeHit(Vector3 velocity)
+        {
+            Vector3 capped = Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed);
+            return Vector3.ClampMagnitude(capped + Vector3.up * _config.UpwardAssist, _config.MaxHitSpeed);
+        }
+
+        // ---- Client-side prediction of your own slap ---------------------------------------------------------------
+        // The balloon belongs to one player (the master client). Anyone else's slap travels hitter -> server -> owner,
+        // and the new motion comes back owner -> server -> hitter: two network trips before the slapper saw or heard
+        // anything. Now the slapper's client plays the hit at once and flies the balloon's visuals (the View child, never
+        // the networked body) along the same trajectory the owner will compute. When the owner's hit shows up here
+        // (HitCount moved past the one we predicted) the visuals blend from the prediction onto the real balloon.
+        private const float PredictionBlendSeconds = 0.3f;
+        private const float PredictionTimeoutSeconds = 0.8f;
+        private const float TeleportDistance = 2.5f;
+
+        private Transform _view;
+        private bool _isPredicting;
+        private Vector3 _predictedPosition;
+        private Vector3 _predictedVelocity;
+        private float _predictedAt = -10f;
+        private int _predictedHitCount;
+        private Vector3 _blendOffset;
+        private float _blendStartTime = -10f;
+        private Vector3 _lastBodyPosition;
+
+        /// <summary>How many hits the owner has applied; the slapper watches it to know when its predicted hit landed.</summary>
+        [Networked] private int HitCount { get; set; }
+
+        /// <summary>True while this client is showing a predicted hit (or blending it out), for tests.</summary>
+        public bool IsShowingPrediction => _isPredicting || Time.time - _blendStartTime < PredictionBlendSeconds;
+
+        private void PredictHit(Vector3 velocity)
+        {
+            // Only hits the owner will accept: a live balloon, and not a double hit (that pops it instead).
+            if (!IsLive || IsNotLocalPlayersTurn || _view == null)
+            {
+                return;
+            }
+
+            Vector3 shaped = ShapeHit(velocity);
+            _predictedPosition = _view.position;
+            _predictedVelocity = shaped;
+            _predictedAt = Time.time;
+            _predictedHitCount = HitCount + 1;
+            _isPredicting = true;
+            PlayHitEffects(shaped.normalized, Mathf.Clamp01(Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed).magnitude / _config.MaxHitSpeed));
+        }
+
+        /// <summary>Moves the visuals: along the prediction, then blending onto the networked balloon. Every frame.</summary>
+        private void UpdatePredictedView()
+        {
+            if (_view == null)
+            {
+                return;
+            }
+
+            Vector3 body = transform.position;
+            bool teleported = (body - _lastBodyPosition).sqrMagnitude > TeleportDistance * TeleportDistance;
+            _lastBodyPosition = body;
+            if (teleported)
+            {
+                // Reset, pop or respawn: drop any prediction rather than sliding the visuals across the map.
+                _isPredicting = false;
+                _blendStartTime = -10f;
+            }
+
+            if (_isPredicting)
+            {
+                // The same free flight the owner simulates (BalloonPhysics: gravity, linear drag), close enough for
+                // the fraction of a second until the real hit arrives.
+                float dt = Time.deltaTime;
+                _predictedVelocity += Vector3.down * (_config.Gravity * dt);
+                _predictedVelocity *= 1f / (1f + _config.Drag * dt);
+                _predictedPosition += _predictedVelocity * dt;
+                if (HitCount >= _predictedHitCount || Time.time - _predictedAt > PredictionTimeoutSeconds)
+                {
+                    _isPredicting = false;
+                    _blendOffset = _predictedPosition - body;
+                    _blendStartTime = Time.time;
+                }
+                else
+                {
+                    _view.position = _predictedPosition;
+                    return;
+                }
+            }
+
+            float t = Mathf.Clamp01((Time.time - _blendStartTime) / PredictionBlendSeconds);
+            float remaining = 1f - t * t * (3f - 2f * t);
+            _view.localPosition = remaining > 0f ? transform.InverseTransformVector(_blendOffset * remaining) : Vector3.zero;
         }
 
         /// <summary>Hand speed of the last slap this client landed on the balloon (m/s), for tuning.</summary>
@@ -169,7 +269,9 @@ namespace GameJam.Net
                 _baseVisualScale = _visual.transform.localScale;
             }
 
-            _string = transform.Find("String");
+            _view = transform.Find("View"); // the visuals live under it, so a predicted hit can move them alone
+            _string = _view != null ? _view.Find("String") : transform.Find("String");
+            _lastBodyPosition = transform.position;
             if (_string != null)
             {
                 _stringRest = _string.localPosition;
@@ -291,6 +393,7 @@ namespace GameJam.Net
         public override void Render()
         {
             ApplyShown();
+            UpdatePredictedView();
             if (_visual != null)
             {
                 // A white flash on contact, fading in a few frames.
@@ -335,7 +438,8 @@ namespace GameJam.Net
             }
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        /// <summary>Not tick-aligned: the owner applies a hit the moment it arrives instead of waiting for its tick.</summary>
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, TickAligned = false)]
         private void RpcApplyHit(PlayerRef hitter, Vector3 velocity)
         {
             if (!IsLive)
@@ -363,14 +467,28 @@ namespace GameJam.Net
             Vector3 capped = Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed);
             IsStationed = false;
             _body.isKinematic = false;
-            _body.linearVelocity = Vector3.ClampMagnitude(capped + Vector3.up * _config.UpwardAssist, _config.MaxHitSpeed);
+            _body.linearVelocity = ShapeHit(velocity);
             HitGrace = TickTimer.CreateFromSeconds(Runner, _config.HitGraceSeconds);
-            RpcHitEffects(_body.linearVelocity.normalized, Mathf.Clamp01(capped.magnitude / _config.MaxHitSpeed));
+            HitCount++;
+            RpcHitEffects(hitter, _body.linearVelocity.normalized, Mathf.Clamp01(capped.magnitude / _config.MaxHitSpeed));
         }
 
-        /// <summary>Everyone hears the hit (louder and higher for a harder hit) and sees the balloon jiggle.</summary>
+        /// <summary>
+        /// Everyone hears the hit (louder and higher for a harder hit) and sees the balloon jiggle. The slapper already
+        /// played it when they predicted the hit, so they skip it here.
+        /// </summary>
         [Rpc(RpcSources.StateAuthority, RpcTargets.All, TickAligned = false)]
-        private void RpcHitEffects(Vector3 direction, float strength)
+        private void RpcHitEffects(PlayerRef hitter, Vector3 direction, float strength)
+        {
+            if (hitter == Runner.LocalPlayer && !HasStateAuthority && Time.time - _predictedAt < 1f)
+            {
+                return;
+            }
+
+            PlayHitEffects(direction, strength);
+        }
+
+        private void PlayHitEffects(Vector3 direction, float strength)
         {
             _lastHitTime = Time.time;
             _lastHitDirection = direction.sqrMagnitude > 0.001f ? direction : Vector3.up;

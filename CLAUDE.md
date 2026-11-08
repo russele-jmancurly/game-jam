@@ -167,10 +167,15 @@ Assets/GameJam/
 - The balloon is stationed (`NetworkBalloon.IsStationed`): after spawning, a reset or a pop it hovers and bobs at its
   `SpawnPoint.BalloonPosition` until the first hit (start: 1.4 m above the stage, hidden until the red button). Feel: a hand slap sends it the way the hand moved, as hard as it
   moved (`SlapConfig.BalloonVelocityScale`, capped by `BalloonConfig.MaxHitSpeed`); gentle taps get extra lift (SlapTapLift),
-  hard slaps almost none (SlapHardLift). Linear Drag + low Gravity make it hang and float down (~0.35 m/s). Keep
+  hard slaps almost none (SlapHardLift). Linear Drag + low Gravity make it hang and float down (Gravity 1.2 / Drag 1.1 = ~1.1 m/s; 0.64 m/s felt too slow in the headset, all hoops still pass `hoop_reach_check.cs`). Keep
   QuadraticDrag at 0: `HoopAim` assumes linear drag. Items and the giant bypass the slap shaping. Hits squash it along the hit direction, flash it white, rumble harder for harder slaps, and play one of three generated
   `Balloon_Slap_*` sounds for everyone. `balloon_smoothness.cs` (per-frame motion), `balloon_slap_flight.cs` (rise/travel of a given slap) and
-  `slap_speed_record.cs` (your real slap speeds in a headset) are the tuning tools.
+  `slap_speed_record.cs` (your real slap speeds in a headset) are the tuning tools. Online, a slap by anyone but the
+  balloon's owner (the master client) is predicted on the slapper's client (`NetworkBalloon.PredictHit`): the sound and
+  squash play at once and the visuals (the prefab's `View` child, never the networked body) fly the same trajectory
+  until the owner's hit arrives (networked `HitCount`), then blend onto it over 0.3 s; `RpcApplyHit` is not
+  tick-aligned. Before this the slapper waited two network trips to see or hear their own hit.
+  `predicted_hit_check.cs` fakes the latency offline and checks the hand-over.
 - Turn cue: the balloon always shows the hitter colour; whoever hit it last (pass rule on, during a run) sees a "not
   your turn" icon (balloon + red no-sign, `T_NotYourTurn`) low in the middle of their view, drawn over the arms
   (`TurnIndicator` on the head camera, `PrototypeSceneBuilder.BuildTurnIndicator`); it fades out when someone else hits

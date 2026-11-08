@@ -185,9 +185,13 @@ namespace GameJam.Editor
 
             Material rubber = PlaceholderAssets.Material("Balloon", Color.white);
             float diameter = configs.Balloon.Radius * 2f;
-            GameObject visual = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Visual", root.transform, Vector3.zero, Vector3.one * diameter, rubber, false);
-            PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "String", root.transform, new Vector3(0f, -0.45f, 0f), new Vector3(0.01f, 0.2f, 0.01f), PlaceholderAssets.Material("String", Color.white), false);
-            TextMesh rallyText = PlaceholderShapes.Text("RallyText", root.transform, new Vector3(0f, 0.5f, 0f), 0.04f, string.Empty, Color.white);
+            // Everything you see sits under "View", so the slapper's client can fly it ahead of the network (a predicted
+            // hit, NetworkBalloon.PredictHit) without touching the networked body or its collider.
+            Transform view = new GameObject("View").transform;
+            view.SetParent(root.transform, false);
+            GameObject visual = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Visual", view, Vector3.zero, Vector3.one * diameter, rubber, false);
+            PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "String", view, new Vector3(0f, -0.45f, 0f), new Vector3(0.01f, 0.2f, 0.01f), PlaceholderAssets.Material("String", Color.white), false);
+            TextMesh rallyText = PlaceholderShapes.Text("RallyText", view, new Vector3(0f, 0.5f, 0f), 0.04f, string.Empty, Color.white);
 
             var hitAudio = root.AddComponent<AudioSource>();
             hitAudio.playOnAwake = false;
