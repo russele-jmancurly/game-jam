@@ -167,6 +167,14 @@ namespace GameJam.Net
         [Rpc(RpcSources.All, RpcTargets.All, TickAligned = false)]
         private void RpcKnockback(Vector3 direction, float force, float seconds)
         {
+            // Knockdowns off (easy mode, KnockbackConfig.KnockdownsEnabled): any knockback is just a shove, no ragdoll.
+            KnockbackConfig knockback = LocalRig.Instance != null ? LocalRig.Instance.KnockbackConfig : null;
+            if (knockback != null && !knockback.KnockdownsEnabled)
+            {
+                seconds = 0f;
+                force = Mathf.Min(force, knockback.PlayerPushForce);
+            }
+
             if (seconds <= 0f)
             {
                 // A shove from another player (simple mode): the hit player slides a little; no ragdoll for anyone.

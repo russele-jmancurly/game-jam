@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1da252234f4c9234c9f4834222c1a987, type: 3}
   m_Name: KnockbackConfig
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.KnockbackConfig
+  KnockdownsEnabled: 0
   PlayerHitsKnockDown: 0
   PlayerPushForce: 2.5
   PlayerPushReleaseSeconds: 0.15

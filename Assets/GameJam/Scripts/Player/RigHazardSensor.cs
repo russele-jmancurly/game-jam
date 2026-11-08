@@ -5,8 +5,8 @@ using UnityEngine;
 namespace GameJam.Player
 {
     /// <summary>
-    /// Checks what the local player's body touches: water and falling off the map respawn you, bounce
-    /// pads launch you, wind pushes you, and moving obstacles and flames knock you over.
+    /// Checks what the local player's body touches: falling off the map respawns you (water doesn't), bounce
+    /// pads launch you, wind pushes you, and moving obstacles and flames knock you (a shove while knockdowns are off).
     /// </summary>
     [RequireComponent(typeof(LocalRig))]
     public sealed class RigHazardSensor : MonoBehaviour

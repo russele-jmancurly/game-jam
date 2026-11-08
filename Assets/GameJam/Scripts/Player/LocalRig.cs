@@ -176,6 +176,13 @@ namespace GameJam.Player
         /// </summary>
         public void Knock(Vector3 direction, float force, float seconds)
         {
+            if (!_knockbackConfig.KnockdownsEnabled)
+            {
+                // Easy mode: no knockdowns, no ragdolls; just a light shove (your body's move syncs as usual).
+                Push(direction, _knockbackConfig.PlayerPushForce);
+                return;
+            }
+
             if (GameServices.LocalKnockback != null)
             {
                 GameServices.LocalKnockback.SendKnockback(direction, force, seconds);
