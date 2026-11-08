@@ -21,6 +21,9 @@ namespace GameJam.Player
 
         public IGrabbable Held { get; private set; }
 
+        /// <summary>The grip button is held on this hand.</summary>
+        public bool IsDown => _wasDown;
+
         public SlapHand SlapHand => _slapHand;
 
         public void Update(bool isDown, bool canGrab, float grabRadius, float throwBoost)

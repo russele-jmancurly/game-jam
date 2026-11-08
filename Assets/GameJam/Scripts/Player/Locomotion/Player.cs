@@ -195,7 +195,7 @@ namespace GorillaLocomotion
             if (MaxSphereSizeForNoOverlap(bodyInitialRadius, (headCollider.transform.position + bodyOffset), out bodyMaxRadius))
             {
                 bodyCollider.radius = bodyMaxRadius;
-                bodyCollider.height = Physics.SphereCast((headCollider.transform.position + bodyOffset), bodyMaxRadius, Vector3.down, out bodyHitInfo, bodyInitialHeight - bodyMaxRadius, locomotionEnabledLayers) ? (bodyHitInfo.distance + bodyMaxRadius) : bodyInitialHeight;
+                bodyCollider.height = Physics.SphereCast((headCollider.transform.position + bodyOffset), bodyMaxRadius, Vector3.down, out bodyHitInfo, bodyInitialHeight - bodyMaxRadius, locomotionEnabledLayers, QueryTriggerInteraction.Ignore) ? (bodyHitInfo.distance + bodyMaxRadius) : bodyInitialHeight;
 
                 if (!bodyCollider.gameObject.activeSelf) bodyCollider.gameObject.SetActive(true);
             }
@@ -234,6 +234,9 @@ namespace GorillaLocomotion
             {
                 calcDeltaTime = 0.05f;
             }
+
+            lastLeftHandPosition = UnembedHand(lastLeftHandPosition);
+            lastRightHandPosition = UnembedHand(lastRightHandPosition);
 
             if (!didAJump && (wasLeftHandTouching || wasRightHandTouching))
             {
@@ -397,13 +400,13 @@ namespace GorillaLocomotion
                 pendingBounceImpactSpeed = 0f;
             }
 
-            if (leftHandColliding && (CurrentLeftHandPosition() - lastLeftHandPosition).magnitude > unStickDistance && !Physics.Raycast(headFollower.transform.position, (CurrentLeftHandPosition() - headFollower.transform.position).normalized, out hitInfo, (CurrentLeftHandPosition() - headFollower.transform.position).magnitude, locomotionEnabledLayers.value))
+            if (leftHandColliding && (CurrentLeftHandPosition() - lastLeftHandPosition).magnitude > unStickDistance && !Physics.Raycast(headFollower.transform.position, (CurrentLeftHandPosition() - headFollower.transform.position).normalized, out hitInfo, (CurrentLeftHandPosition() - headFollower.transform.position).magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore))
             {
                 lastLeftHandPosition = CurrentLeftHandPosition();
                 leftHandColliding = false;
             }
 
-            if (rightHandColliding && (CurrentRightHandPosition() - lastRightHandPosition).magnitude > unStickDistance && !Physics.Raycast(headFollower.transform.position, (CurrentRightHandPosition() - headFollower.transform.position).normalized, out hitInfo, (CurrentRightHandPosition() - headFollower.transform.position).magnitude, locomotionEnabledLayers.value))
+            if (rightHandColliding && (CurrentRightHandPosition() - lastRightHandPosition).magnitude > unStickDistance && !Physics.Raycast(headFollower.transform.position, (CurrentRightHandPosition() - headFollower.transform.position).normalized, out hitInfo, (CurrentRightHandPosition() - headFollower.transform.position).magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore))
             {
                 lastRightHandPosition = CurrentRightHandPosition();
                 rightHandColliding = false;
@@ -660,6 +663,41 @@ namespace GorillaLocomotion
             return CurrentHandPosition(handTransform, handOffset);
         }
 
+        /// <summary>
+        /// Project change: a hand point that ended up inside a collider is moved back out to the surface, on the side the
+        /// head sees it from. Every sweep that starts inside geometry reports a hit at distance 0, so such a hand stayed
+        /// "planted" forever (and the unstick check can't free it: the ray from the head to the controller hits that surface).
+        /// </summary>
+        private Vector3 UnembedHand(Vector3 handPosition)
+        {
+            int layers = locomotionEnabledLayers.value;
+            float probe = minimumRaycastDistance * 0.75f;
+            if (layers == 0 || !Physics.CheckSphere(handPosition, probe, layers, QueryTriggerInteraction.Ignore))
+            {
+                return handPosition;
+            }
+
+            Vector3 head = headFollower.transform.position;
+            Vector3 toHand = handPosition - head;
+            float distance = toHand.magnitude;
+            Vector3 candidate = handPosition;
+            if (distance > 0.0001f && Physics.Raycast(head, toHand / distance, out RaycastHit entry, distance, layers, QueryTriggerInteraction.Ignore))
+            {
+                candidate = entry.point + entry.normal * minimumRaycastDistance;
+            }
+
+            // Corners and seams: step toward the head until the hand sphere is clear.
+            for (int i = 0; i < UnembedSteps && Physics.CheckSphere(candidate, probe, layers, QueryTriggerInteraction.Ignore); i++)
+            {
+                candidate = Vector3.MoveTowards(candidate, head, UnembedStepLength);
+            }
+
+            return candidate;
+        }
+
+        private const int UnembedSteps = 20;
+        private const float UnembedStepLength = 0.01f;
+
         private bool IterativeCollisionSphereCast(Vector3 startPosition, float sphereRadius, Vector3 movementVector, out Vector3 endPosition, bool singleHand, out float slipPercentage, out RaycastHit iterativeHitInfo, bool fullSlide)
         {
             slipPercentage = defaultSlideFactor;
@@ -705,7 +743,7 @@ namespace GorillaLocomotion
             MaxSphereSizeForNoOverlap(sphereRadius, startPosition, out maxSphereSize1);
             ClearRaycasthitBuffer(ref rayCastNonAllocColliders);
 
-            bufferCount = Physics.SphereCastNonAlloc(startPosition, maxSphereSize1, movementVector.normalized, rayCastNonAllocColliders, movementVector.magnitude, locomotionEnabledLayers.value);
+            bufferCount = Physics.SphereCastNonAlloc(startPosition, maxSphereSize1, movementVector.normalized, rayCastNonAllocColliders, movementVector.magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore);
 
             if (bufferCount > 0)
             {
@@ -721,7 +759,8 @@ namespace GorillaLocomotion
                 collisionsHitInfo = tempHitInfo;
                 finalPosition = collisionsHitInfo.point + collisionsHitInfo.normal * sphereRadius;
                 ClearRaycasthitBuffer(ref rayCastNonAllocColliders);
-                bufferCount = Physics.RaycastNonAlloc(startPosition, (finalPosition - startPosition).normalized, rayCastNonAllocColliders, (finalPosition - startPosition).magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore);
+                Vector3 towardFinal = (finalPosition - startPosition).normalized;
+                bufferCount = Physics.RaycastNonAlloc(startPosition, towardFinal, rayCastNonAllocColliders, (finalPosition - startPosition).magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore);
 
                 if (bufferCount > 0)
                 {
@@ -733,12 +772,14 @@ namespace GorillaLocomotion
                             tempHitInfo = rayCastNonAllocColliders[j];
                         }
                     }
-                    finalPosition = startPosition + movementVector.normalized * tempHitInfo.distance;
+                    // Project change: stop a sphere radius short of the surface, along the ray that hit it. Upstream put the
+                    // hand centre on the surface (and along the movement, not the ray), half inside the collider.
+                    finalPosition = startPosition + towardFinal * Mathf.Max(0f, tempHitInfo.distance - sphereRadius);
                 }
 
                 MaxSphereSizeForNoOverlap(sphereRadius, finalPosition, out maxSphereSize2);
                 ClearRaycasthitBuffer(ref rayCastNonAllocColliders);
-                bufferCount = Physics.SphereCastNonAlloc(startPosition, Mathf.Min(maxSphereSize1, maxSphereSize2), (finalPosition - startPosition).normalized, rayCastNonAllocColliders, (finalPosition - startPosition).magnitude, locomotionEnabledLayers.value);
+                bufferCount = Physics.SphereCastNonAlloc(startPosition, Mathf.Min(maxSphereSize1, maxSphereSize2), (finalPosition - startPosition).normalized, rayCastNonAllocColliders, (finalPosition - startPosition).magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore);
 
                 if (bufferCount > 0)
                 {
@@ -755,7 +796,7 @@ namespace GorillaLocomotion
                 }
 
                 ClearRaycasthitBuffer(ref rayCastNonAllocColliders);
-                bufferCount = Physics.RaycastNonAlloc(startPosition, (finalPosition - startPosition).normalized, rayCastNonAllocColliders, (finalPosition - startPosition).magnitude, locomotionEnabledLayers.value);
+                bufferCount = Physics.RaycastNonAlloc(startPosition, (finalPosition - startPosition).normalized, rayCastNonAllocColliders, (finalPosition - startPosition).magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore);
 
                 if (bufferCount > 0)
                 {
@@ -775,7 +816,7 @@ namespace GorillaLocomotion
             }
 
             ClearRaycasthitBuffer(ref rayCastNonAllocColliders);
-            bufferCount = Physics.RaycastNonAlloc(startPosition, movementVector.normalized, rayCastNonAllocColliders, movementVector.magnitude, locomotionEnabledLayers.value);
+            bufferCount = Physics.RaycastNonAlloc(startPosition, movementVector.normalized, rayCastNonAllocColliders, movementVector.magnitude, locomotionEnabledLayers.value, QueryTriggerInteraction.Ignore);
 
             if (bufferCount > 0)
             {
@@ -826,7 +867,9 @@ namespace GorillaLocomotion
         public void Carry(Vector3 delta)
         {
             transform.position += delta;
-            playerRigidBody.position += delta;
+            // Absolute, not += delta: the rigidbody already picks up part of the transform write at the next physics step,
+            // so adding the delta to it as well moved the player twice on every frame with a physics step (~20% too far).
+            playerRigidBody.position = transform.position;
             lastLeftHandPosition += delta;
             lastRightHandPosition += delta;
             lastHeadPosition += delta;

@@ -7,14 +7,15 @@ round, bottom-heavy body in dark brown fur with a lighter belly, a blunt dark sn
 (dark shafts, cream tips) swept back over the back, the head and a short tail. The padded paw mitts are the gloves,
 the only part safe to touch the balloon with, so they are a light tan that reads clearly against the dark fur.
 Only the skeleton layout and proportions follow the reference player rig the team supplied (UGPlayerModel): T-pose,
-narrow shoulders just under the head, upper arm ~0.9x the forearm, a hand bone pointing forward with index, middle
-and thumb finger chains. Scale: shoulder to glove centre ~0.74 m.
+narrow shoulders just under the head, upper arm ~0.9x the forearm, a hand bone pointing forward with index, middle,
+ring and thumb finger chains. Scale: shoulder to glove centre ~0.74 m. The paws are a padded palm with three stubby
+fingers and a thumb skinned to those chains, so GorillaBodyRig can curl them into a fist with the grip button.
 
 Rig (names are what GorillaBodyRig looks up in Unity), origin = the player's eyes:
     Body                                    torso, belly, back quills, tail (root)
       Head                                  pivots at the eyes, follows where the player looks
       UpperArm.L/R -> Forearm.L/R -> Hand.L/R
-        Hand.L/R -> Index1-3, Middle1-3, Thumb1-2 (.L/.R)   finger chains, ready for a grip curl
+        Hand.L/R -> Index1-3, Middle1-3, Ring1-3, Thumb1-2 (.L/.R)   finger chains, curled by the grip
         Hand.L/R -> GloveCenter.L/R          non-deforming marker where the tracked hand (controller) sits
 
 Two meshes share the armature: "Body" (torso + head: hidden in your own view) and "Arms" (arms + paws: shown to
@@ -52,6 +53,22 @@ TORSO_TOP = -0.14
 TORSO_BOTTOM = -0.57
 ELBOW_BLEND = 0.07                        # half-width of the elbow skin blend
 SHOULDER_BLEND = 0.06                     # where the upper arm starts to follow the body near the shoulder
+# Paw: a padded palm, three stubby fingers stacked top to bottom (index next to the thumb) and a thumb on top, palm
+# facing in. Each finger is a tube skinned across its three bones, so GorillaBodyRig can curl it into a fist.
+KNUCKLE = 0.05                            # wrist -> finger roots, along the hand
+FINGER_SEGMENT = 0.03                     # each of the three finger bones
+FINGER_RADIUS = 0.021
+FINGER_ROWS = (("Index", 0.034), ("Middle", -0.002), ("Ring", -0.038))  # height of each finger's root
+THUMB_SEGMENT = 0.03
+THUMB_RADIUS = 0.018
+JOINT_BLEND = 0.012                       # half-width of the skin blend at each finger joint
+
+
+def thumb_frame(wrist, sign):
+    """Thumb root (top of the palm, toward the palm side) and direction (forward, up a little, toward the palm)."""
+    palm = Vector((-sign, 0, 0))
+    root = wrist + Vector((0, -0.02, 0.045)) + palm * 0.02
+    return root, (Vector((0, -1, 0)) + Vector((0, 0, 0.45)) + palm * 0.35).normalized()
 
 clear_scene()
 scene = bpy.context.scene
@@ -238,18 +255,17 @@ for s, sign in sides:
     bone(f"Forearm.{s}", elbow, wrist, f"UpperArm.{s}")
     bone(f"Hand.{s}", wrist, wrist + FWD * HAND, f"Forearm.{s}")
     bone(f"GloveCenter.{s}", wrist + FWD * GLOVE_FORWARD, wrist + FWD * (GLOVE_FORWARD + 0.03), f"Hand.{s}", deform=False)
-    knuckle = wrist + FWD * (HAND + 0.015)
-    for finger, height, count in (("Index", -0.03, 3), ("Middle", 0.015, 3)):
+    knuckle = wrist + FWD * KNUCKLE
+    for finger, height in FINGER_ROWS:
         start = knuckle + Vector((0, 0, height))
         parent = f"Hand.{s}"
-        for i in range(count):
+        for i in range(3):
             name = f"{finger}{i + 1}.{s}"
-            bone(name, start + FWD * (0.03 * i), start + FWD * (0.03 * (i + 1)), parent)
+            bone(name, start + FWD * (FINGER_SEGMENT * i), start + FWD * (FINGER_SEGMENT * (i + 1)), parent)
             parent = name
-    thumb = wrist + FWD * 0.01 + Vector((0, 0, 0.045))
-    thumb_dir = (FWD + Vector((0, 0, 0.9))).normalized()
-    bone(f"Thumb1.{s}", thumb, thumb + thumb_dir * 0.035, f"Hand.{s}")
-    bone(f"Thumb2.{s}", thumb + thumb_dir * 0.035, thumb + thumb_dir * 0.07, f"Thumb1.{s}")
+    thumb, thumb_dir = thumb_frame(wrist, sign)
+    bone(f"Thumb1.{s}", thumb, thumb + thumb_dir * THUMB_SEGMENT, f"Hand.{s}")
+    bone(f"Thumb2.{s}", thumb + thumb_dir * THUMB_SEGMENT, thumb + thumb_dir * THUMB_SEGMENT * 2, f"Thumb1.{s}")
 bpy.ops.object.mode_set(mode="OBJECT")
 
 # --- Body mesh: round torso, belly, quills, tail, head -----------------------------------------------------------------
@@ -329,22 +345,47 @@ for s, sign in sides:
 
     arms.lathe(shoulder, Vector((sign, 0, 0)), Vector((0, 0, 1)), arm_profile, 14, SLOT_FUR, arm_weights,
                squash=(1.0, 0.92))
-    arms.ellipsoid(shoulder, (0.08, 0.08, 0.08), SLOT_FUR, {"Body": 0.5, upper: 0.5}, segments=12, rings=8)
+    arms.ellipsoid(shoulder, (0.08, 0.08, 0.08), SLOT_FUR, {"Body": 0.5, upper: 0.5}, segments=10, rings=7)
 
-    # Mitt: a padded paddle pointing forward from the wrist, palm facing in (like the hand holding the controller).
-    glove_center = wrist + FWD * GLOVE_FORWARD
-
-    def mitt_weights(p, hand=hand, s=s, wrist=wrist):
-        along = (wrist - p).dot(Vector((0, 1, 0)))  # metres forward of the wrist
-        f = smoothstep(0.06, 0.13, along)
-        return {hand: 1.0 - f, f"Middle1.{s}": f * 0.5, f"Index1.{s}": f * 0.5}
-
-    arms.ellipsoid(glove_center + Vector((sign * 0.0, 0, 0)), (0.05, 0.085, 0.075), SLOT_PAW, mitt_weights)
+    # Paw: padded palm, three stubby fingers and a thumb, palm facing in (like the hand holding the controller). The
+    # fingers' first segments start inside the palm so the knuckles stay covered when they curl into a fist.
+    arms.ellipsoid(wrist + FWD * 0.028, (0.042, 0.04, 0.062), SLOT_PAW, {hand: 1.0}, segments=10, rings=7)  # palm
     arms.ellipsoid(wrist + Vector((sign * 0.0, -0.015, 0)), (0.07, 0.04, 0.07), SLOT_PAW, {hand: 1.0},
-                   segments=12, rings=6)  # cuff
-    thumb_base = wrist + FWD * 0.03 + Vector((-sign * 0.03, 0, 0.055))
-    arms.ellipsoid(thumb_base + Vector((0, -0.02, 0.015)), (0.025, 0.035, 0.03), SLOT_PAW, {f"Thumb1.{s}": 1.0},
-                   segments=10, rings=6)
+                   segments=10, rings=5)  # cuff
+
+    def chain_weights(chain, length, hand=hand):
+        """Skin along a finger: the hand up to its root, then each bone, blended over JOINT_BLEND at every joint."""
+        def weights(d):
+            on_finger = smoothstep(-JOINT_BLEND, JOINT_BLEND, d)
+            result = {hand: 1.0 - on_finger}
+            previous = 1.0
+            for i, name in enumerate(chain):
+                end = length * (i + 1)
+                rest = 1.0 - smoothstep(end - JOINT_BLEND, end + JOINT_BLEND, d) if i < len(chain) - 1 else 0.0
+                result[name] = on_finger * (previous - rest)
+                previous = rest
+            return result
+        return weights
+
+    # Rings either side of each joint (the skin blend) so the tube bends smoothly instead of kinking; six sides keep
+    # the player inside the Quest triangle budget (smooth shading rounds them off at this size).
+    r = FINGER_RADIUS
+    finger_profile = [(-0.012, r * 0.9), (0.0, r)]
+    for joint in (FINGER_SEGMENT, FINGER_SEGMENT * 2):
+        finger_profile += [(joint - JOINT_BLEND, r), (joint + JOINT_BLEND, r * 0.98)]
+    finger_profile += [(0.08, r * 0.85), (0.088, r * 0.5)]
+    for finger, height in FINGER_ROWS:
+        chain = [f"{finger}{i}.{s}" for i in (1, 2, 3)]
+        root = wrist + FWD * KNUCKLE + Vector((0, 0, height))
+        arms.lathe(root, FWD, Vector((0, 0, 1)), finger_profile, 6, SLOT_PAW,
+                   chain_weights(chain, FINGER_SEGMENT), squash=(1.0, 0.95))
+
+    thumb_root, thumb_dir = thumb_frame(wrist, sign)
+    t = THUMB_RADIUS
+    thumb_profile = [(-0.012, t * 0.9), (0.0, t), (THUMB_SEGMENT - JOINT_BLEND, t), (THUMB_SEGMENT + JOINT_BLEND, t * 0.97),
+                     (0.052, t * 0.85), (0.06, t * 0.5)]
+    arms.lathe(thumb_root, thumb_dir, Vector((0, 0, 1)), thumb_profile, 6, SLOT_PAW,
+               chain_weights([f"Thumb1.{s}", f"Thumb2.{s}"], THUMB_SEGMENT))
 
 body_obj = body.build(armature, MATERIALS)
 arms_obj = arms.build(armature, MATERIALS)

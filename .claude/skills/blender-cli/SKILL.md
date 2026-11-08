@@ -9,7 +9,8 @@ All Blender work goes through `tools/blender/blender.sh`, which runs a Python sc
 (`--background --factory-startup --python-exit-code 1`). Never call Blender MCP tools (`mcp__blender__*`);
 the project blocks them in `.claude/settings.json`.
 
-- Blender: 5.2.3 LTS at `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe` (4.4 is also installed).
+- Blender: 5.2.3 LTS at `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe` (4.4 is also installed). Machines with
+  Blender elsewhere (e.g. `D:/New Folder/blender.exe`) set `BLENDER_EXE` before calling the wrapper.
   The wrapper takes `$BLENDER_EXE`, then `blender` on PATH, then the newest install. A run takes ~2–5 s.
 - Every script prints its JSON result between `@@RESULT_BEGIN@@` and `@@RESULT_END@@`. Blender also logs to stdout,
   so extract the block: `... 2>&1 | sed -n '/@@RESULT_BEGIN@@/,/@@RESULT_END@@/p' | sed '1d;$d'`.
@@ -24,6 +25,7 @@ the project blocks them in `.claude/settings.json`.
 | Game-ready character (drop parts, bake rig pose, upright, triangle budget) | `tools/blender/blender.sh tools/blender/scripts/prepare_character.py <in.blend\|.fbx> Assets/GameJam/Characters/<Name>/<Name>_Game.fbx [--max-tris 6000] [--exclude GloveL,GloveR] [--rest-pose]` |
 | Rig + animate a prepared show character in place (humanoid skeleton, auto weights, Idle/Walk/WindUp/Slap/Wave) | `tools/blender/blender.sh tools/blender/scripts/rig_character.py Assets/GameJam/Characters/<Name>/<Name>_Game.fbx Assets/GameJam/Characters/<Name>/<Name>_Game.fbx` (input must be unrigged) |
 | See a rig's clips (frames as PNGs) | `tools/blender/blender.sh tools/blender/scripts/render_pose.py <file.fbx> Screenshots/<name> Walk:8 Slap:7 [--angle 90] [--size 400]` |
+| Player paw close-ups, open and curled into a fist (same curl rule as GorillaBodyRig) | `tools/blender/blender.sh tools/blender/scripts/render_paw.py Assets/GameJam/Art/Characters/PorcupineBody.fbx Screenshots/paw [--curl 0,0.5,1]` |
 | Close-up of a character's face (eyes, glasses, hair) | `tools/blender/blender.sh tools/blender/scripts/render_face.py <file.fbx> Screenshots/<name> [--pose Clip:frame]` |
 | Unity-ready FBX | `tools/blender/blender.sh tools/blender/scripts/export_unity_fbx.py <in.blend> Assets/GameJam/Art/<...>.fbx [--objects A,B] [--no-anim]` |
 | Anything else | Write a script in `tools/blender/scripts/` (or the scratchpad for one-offs) that imports `blender_common` (`load`, `script_args`, `emit`, `fail`, `world_bounds`, `set_engine`) and run it with the wrapper |

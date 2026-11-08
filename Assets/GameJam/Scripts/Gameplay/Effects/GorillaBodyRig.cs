@@ -22,7 +22,18 @@ namespace GameJam.Gameplay
             [Tooltip("Non-deforming bone where the tracked hand (controller / glove centre) sits.")]
             public Transform GloveCenter;
             public Transform Target;
+            [Tooltip("Finger chains, three bones each (Index, Middle, Ring), curled toward the palm by the grip.")]
+            public Transform[] Fingers = Array.Empty<Transform>();
+            [Tooltip("Thumb chain (Thumb1, Thumb2), folded over the fingers by the grip.")]
+            public Transform[] Thumb = Array.Empty<Transform>();
 
+            [NonSerialized] public Quaternion[] FingerRest;
+            [NonSerialized] public Vector3[] FingerAxis;
+            [NonSerialized] public Quaternion[] ThumbRest;
+            [NonSerialized] public Vector3[] ThumbAxis;
+            [NonSerialized] public float Grip;
+            [NonSerialized] public float GripTarget;
+            [NonSerialized] public float AppliedGrip = -1f;
             [NonSerialized] public Quaternion UpperRest;
             [NonSerialized] public Quaternion ForearmRest;
             [NonSerialized] public Vector3 ForearmRestPosition;
@@ -45,6 +56,12 @@ namespace GameJam.Gameplay
         [Range(1f, 2f)] [SerializeField] private float _maxStretch = 1.35f;
         [Tooltip("Head pitch/roll is limited to this many degrees away from upright, so the neck never folds.")]
         [Range(0f, 90f)] [SerializeField] private float _maxHeadTilt = 70f;
+        [Tooltip("Closed fist: degrees each finger joint bends toward the palm (root, middle, tip). render_paw.py previews it.")]
+        [SerializeField] private Vector3 _fingerCurl = new Vector3(60f, 70f, 50f);
+        [Tooltip("Closed fist: degrees the thumb joints fold over the fingers (root, tip).")]
+        [SerializeField] private Vector2 _thumbCurl = new Vector2(30f, 40f);
+        [Tooltip("How fast the paws open and close (fraction of a full fist per second, eased).")]
+        [Min(0f)] [SerializeField] private float _gripSpeed = 14f;
 
         private Quaternion _headFromRoot = Quaternion.identity;
         private bool _isCached;
@@ -64,6 +81,19 @@ namespace GameJam.Gameplay
             _bodyRenderer = bodyRenderer;
             _armsRenderer = armsRenderer;
         }
+
+        /// <summary>
+        /// How closed each paw should be, 0 = open, 1 = fist (the grip button; holding an item keeps it closed). The paws
+        /// ease toward it in <see cref="Solve"/>.
+        /// </summary>
+        public void SetGrip(float left, float right)
+        {
+            _left.GripTarget = Mathf.Clamp01(left);
+            _right.GripTarget = Mathf.Clamp01(right);
+        }
+
+        /// <summary>How closed the paw drawn this frame is (0 open, 1 fist).</summary>
+        public float GetGrip(bool isRightHand) => isRightHand ? _right.Grip : _left.Grip;
 
         public void SetTargets(Transform head, Transform leftHand, Transform rightHand)
         {
@@ -110,6 +140,104 @@ namespace GameJam.Gameplay
 
             SolveArm(_left, -1f); // the left arm is on -X
             SolveArm(_right, 1f);
+            CurlPaw(_left);
+            CurlPaw(_right);
+        }
+
+        /// <summary>Eases the paw toward its grip and bends the finger and thumb bones (only when the amount changed).</summary>
+        private void CurlPaw(Arm arm)
+        {
+            if (arm.FingerRest == null)
+            {
+                return;
+            }
+
+            arm.Grip = Mathf.MoveTowards(arm.Grip, arm.GripTarget, _gripSpeed * Time.deltaTime);
+            if (Mathf.Abs(arm.Grip - arm.AppliedGrip) < 0.001f)
+            {
+                return;
+            }
+
+            arm.AppliedGrip = arm.Grip;
+            float eased = arm.Grip * arm.Grip * (3f - 2f * arm.Grip);
+            for (int i = 0; i < arm.Fingers.Length; i++)
+            {
+                if (arm.Fingers[i] != null)
+                {
+                    float degrees = _fingerCurl[Mathf.Min(i % 3, 2)];
+                    arm.Fingers[i].localRotation = arm.FingerRest[i] * Quaternion.AngleAxis(degrees * eased, arm.FingerAxis[i]);
+                }
+            }
+
+            for (int i = 0; i < arm.Thumb.Length; i++)
+            {
+                if (arm.Thumb[i] != null)
+                {
+                    float degrees = _thumbCurl[Mathf.Min(i, 1)];
+                    arm.Thumb[i].localRotation = arm.ThumbRest[i] * Quaternion.AngleAxis(degrees * eased, arm.ThumbAxis[i]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Rest rotations and curl axes (in each bone's own space): a finger bone turns about the axis that swings its tip
+        /// toward the palm; the thumb folds toward the palm and down. Same rule as tools/blender/scripts/render_paw.py.
+        /// </summary>
+        private void CacheFingers(Arm arm)
+        {
+            if (arm.Hand == null || arm.Fingers == null || arm.Thumb == null)
+            {
+                return;
+            }
+
+            // The palm faces the body's midline (the paws are held palm-in, like holding the controllers).
+            float handSide = Mathf.Sign(transform.InverseTransformPoint(arm.Hand.position).x);
+            Vector3 palm = transform.right * -handSide;
+            Vector3 thumbFold = (palm * 0.6f - transform.up).normalized;
+            arm.FingerRest = new Quaternion[arm.Fingers.Length];
+            arm.FingerAxis = new Vector3[arm.Fingers.Length];
+            for (int i = 0; i < arm.Fingers.Length; i++)
+            {
+                CacheCurl(arm.Fingers, i, palm, out arm.FingerRest[i], out arm.FingerAxis[i]);
+            }
+
+            arm.ThumbRest = new Quaternion[arm.Thumb.Length];
+            arm.ThumbAxis = new Vector3[arm.Thumb.Length];
+            for (int i = 0; i < arm.Thumb.Length; i++)
+            {
+                CacheCurl(arm.Thumb, i, thumbFold, out arm.ThumbRest[i], out arm.ThumbAxis[i]);
+            }
+
+            arm.AppliedGrip = -1f;
+        }
+
+        private static void CacheCurl(Transform[] chain, int index, Vector3 toward, out Quaternion rest, out Vector3 localAxis)
+        {
+            Transform bone = chain[index];
+            rest = bone != null ? bone.localRotation : Quaternion.identity;
+            localAxis = Vector3.right;
+            if (bone == null)
+            {
+                return;
+            }
+
+            // Along the bone: toward the next bone of the chain, or on from the previous one for the tip.
+            Transform next = index + 1 < chain.Length && chain[index + 1] != null && chain[index + 1].parent == bone ? chain[index + 1] : null;
+            Vector3 along = next != null ? next.position - bone.position : bone.position - bone.parent.position;
+            Vector3 axis = Vector3.Cross(along, toward);
+            if (along.sqrMagnitude < 1e-10f || axis.sqrMagnitude < 1e-10f)
+            {
+                return;
+            }
+
+            axis.Normalize();
+            // Whatever the handedness, the curl must swing the tip toward the palm.
+            if (Vector3.Dot(Quaternion.AngleAxis(10f, axis) * along - along, toward) < 0f)
+            {
+                axis = -axis;
+            }
+
+            localAxis = Quaternion.Inverse(bone.rotation) * axis;
         }
 
         private void CacheRestPose()
@@ -122,6 +250,8 @@ namespace GameJam.Gameplay
 
             CacheArm(_left, toRoot);
             CacheArm(_right, toRoot);
+            CacheFingers(_left);
+            CacheFingers(_right);
             _isCached = true;
         }
 

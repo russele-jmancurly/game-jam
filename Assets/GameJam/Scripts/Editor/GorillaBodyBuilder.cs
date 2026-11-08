@@ -127,6 +127,14 @@ namespace GameJam.Editor
             Forearm = Bone(root, $"Forearm.{side}"),
             Hand = Bone(root, $"Hand.{side}"),
             GloveCenter = Bone(root, $"GloveCenter.{side}"),
+            // Three-bone chains in order (root, middle, tip), curled into a fist by the grip.
+            Fingers = new[]
+            {
+                Bone(root, $"Index1.{side}"), Bone(root, $"Index2.{side}"), Bone(root, $"Index3.{side}"),
+                Bone(root, $"Middle1.{side}"), Bone(root, $"Middle2.{side}"), Bone(root, $"Middle3.{side}"),
+                Bone(root, $"Ring1.{side}"), Bone(root, $"Ring2.{side}"), Bone(root, $"Ring3.{side}"),
+            },
+            Thumb = new[] { Bone(root, $"Thumb1.{side}"), Bone(root, $"Thumb2.{side}") },
         };
 
         private static Transform Bone(Transform root, string name)

@@ -37,3 +37,10 @@ Not taken from GorillaPlus: its networking, Opus voice and PlayFab (we use Fusio
 Tuning lives in `Config/PlayerRigConfig.asset` (Locomotion section); `LocalRig` copies it onto `Player` every frame,
 so it can be tuned live in Play mode. Slippery or bouncy set pieces: add a `Surface`, or give the collider a
 PhysicsMaterial with low friction or some bounciness. The balloon is on its own layer, so it never bounces the player.
+- Hands never stay stuck inside geometry: every hand/body cast ignores triggers (avatar hitboxes and effect zones sit on
+  Default and used to catch hands), the anti-clip raycast stops the hand a radius short of the surface instead of putting
+  its centre on it, and `UnembedHand` moves a hand point found inside a collider back out to the surface the head sees.
+  Upstream, a hand inside a collider stayed "planted" for good (every sweep from inside hits at distance 0), worst in the
+  pool's rim seams and corners. `.claude/unity-snippets/hand_stuck_test.cs` checks it.
+- `Carry` sets the rigidbody to the moved transform (absolute) instead of adding the delta to both: the delta was applied
+  twice on frames with a physics step (~20 % too far). `LocalRig.StickWalk` (left thumbstick) moves the player through it.

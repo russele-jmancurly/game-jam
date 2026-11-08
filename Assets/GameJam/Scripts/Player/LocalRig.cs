@@ -21,6 +21,8 @@ namespace GameJam.Player
         private const float TriggerUpPressure = 0.3f;
         private const float RideStandHeight = 1f;          // eyes within this of a ride's surface = standing on it
         private const float RideLetGoVerticalSpeed = 1f;   // faster than this up or down = hopping, the ride lets go
+        private const float WalkSkin = 0.02f;              // stick walking stops this far short of a wall
+        private const int WalkSlideIterations = 2;
 
         // Where an untracked controller's hand waits, relative to the head (x is mirrored for the left hand).
         private static readonly Vector3 ParkedHandOffset = new Vector3(0.15f, -0.3f, 0.25f);
@@ -49,6 +51,8 @@ namespace GameJam.Player
         private bool _controllersTracked;
         private bool _leftTriggerDown;
         private bool _rightTriggerDown;
+        private float _leftGripAnalog;
+        private float _rightGripAnalog;
 
         public static LocalRig Instance { get; private set; }
 
@@ -88,6 +92,31 @@ namespace GameJam.Player
 
         public bool IsHolding(SlapHand hand) =>
             (hand == _leftSlapHand && _leftGrip?.Held != null) || (hand == _rightSlapHand && _rightGrip?.Held != null);
+
+        /// <summary>
+        /// How closed a paw is drawn, 0 open to 1 fist: the analog grip in the headset (the grip button in PC test mode),
+        /// always a fist while holding an item, open while knocked down or with the controller set down.
+        /// </summary>
+        public float GripAmount(bool isRightHand)
+        {
+            HandGrip grip = isRightHand ? _rightGrip : _leftGrip;
+            if (grip == null || IsKnockedDown || !AreControllersTracked)
+            {
+                return 0f;
+            }
+
+            if (grip.Held != null)
+            {
+                return 1f;
+            }
+
+            if (UsesHeadset)
+            {
+                return isRightHand ? _rightGripAnalog : _leftGripAnalog;
+            }
+
+            return grip.IsDown ? 1f : 0f;
+        }
 
         /// <summary>Wires the rig up; used by the editor scene builder.</summary>
         public void Configure(
@@ -316,8 +345,15 @@ namespace GameJam.Player
                 UpdateTracking();
                 UpdateControllerPresence();
                 UpdateSnapTurn();
+                if (_controllersTracked)
+                {
+                    StickWalk(ReadStick(XRNode.LeftHand));
+                }
+
                 SetGrip(false, _controllersTracked && ReadGrip(XRNode.LeftHand));
                 SetGrip(true, _controllersTracked && ReadGrip(XRNode.RightHand));
+                _leftGripAnalog = _controllersTracked ? ReadGripAmount(XRNode.LeftHand) : 0f;
+                _rightGripAnalog = _controllersTracked ? ReadGripAmount(XRNode.RightHand) : 0f;
                 SetUse(false, _controllersTracked && ReadTrigger(XRNode.LeftHand));
                 SetUse(true, _controllersTracked && ReadTrigger(XRNode.RightHand));
             }
@@ -507,6 +543,127 @@ namespace GameJam.Player
         {
             InputDevice device = InputDevices.GetDeviceAtXRNode(node);
             return device.isValid && device.TryGetFeatureValue(CommonUsages.gripButton, out bool isDown) && isDown;
+        }
+
+        /// <summary>How far the grip is squeezed (0..1); falls back to the button for controllers without an analog grip.</summary>
+        private static float ReadGripAmount(XRNode node)
+        {
+            InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+            if (!device.isValid)
+            {
+                return 0f;
+            }
+
+            if (device.TryGetFeatureValue(CommonUsages.grip, out float amount))
+            {
+                return Mathf.Clamp01(amount);
+            }
+
+            return device.TryGetFeatureValue(CommonUsages.gripButton, out bool isDown) && isDown ? 1f : 0f;
+        }
+
+        /// <summary>
+        /// Walks with a thumbstick (left stick in the headset): the whole rig moves the way you look, planted hands
+        /// included so they don't hold you back, stopping at walls (sliding along them) and stepping over low bumps.
+        /// Gravity and arm swinging work as usual on top; the walk isn't counted as hand speed, so it never launches you.
+        /// </summary>
+        public void StickWalk(Vector2 stick)
+        {
+            float deflection = Mathf.Min(1f, stick.magnitude);
+            float deadZone = _config.StickDeadZone;
+            if (!_config.StickMovement || IsKnockedDown || deflection <= deadZone)
+            {
+                return;
+            }
+
+            Vector3 forward = Vector3.ProjectOnPlane(_head.forward, Vector3.up);
+            if (forward.sqrMagnitude < 0.01f)
+            {
+                forward = Vector3.ProjectOnPlane(_head.up, Vector3.up); // looking straight down
+            }
+
+            forward.Normalize();
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+            Vector3 direction = (forward * stick.y + right * stick.x).normalized;
+            float speed = _config.StickMoveSpeed * Mathf.Clamp01((deflection - deadZone) / (1f - deadZone));
+            Vector3 step = SweepWalk(direction * (speed * Time.deltaTime));
+            if (step.sqrMagnitude > 0f)
+            {
+                _locomotion.Carry(step);
+            }
+        }
+
+        /// <summary>How far a walk step can go before the head or body meets a wall; slides along it with the rest.</summary>
+        private Vector3 SweepWalk(Vector3 move)
+        {
+            Vector3 total = Vector3.zero;
+            for (int i = 0; i < WalkSlideIterations && move.sqrMagnitude > 1e-8f; i++)
+            {
+                float distance = move.magnitude;
+                Vector3 direction = move / distance;
+                if (!CastBody(total, direction, distance + WalkSkin, out RaycastHit hit))
+                {
+                    return total + move;
+                }
+
+                float allowed = Mathf.Max(0f, hit.distance - WalkSkin);
+                total += direction * allowed;
+                Vector3 wall = Vector3.ProjectOnPlane(hit.normal, Vector3.up);
+                if (wall.sqrMagnitude < 1e-6f)
+                {
+                    break;
+                }
+
+                move = Vector3.ProjectOnPlane(direction * (distance - allowed), wall.normalized);
+                move.y = 0f;
+            }
+
+            return total;
+        }
+
+        /// <summary>Sweeps the head sphere and the body capsule (minus the step height at its bottom) along a direction.</summary>
+        private bool CastBody(Vector3 offset, Vector3 direction, float distance, out RaycastHit hit)
+        {
+            int layers = _climbableLayers.value;
+            bool isBlocked = false;
+            hit = default;
+            SphereCollider headCollider = _locomotion.headCollider;
+            if (headCollider != null
+                && Physics.SphereCast(headCollider.transform.position + offset, headCollider.radius, direction, out RaycastHit headHit,
+                    distance, layers, QueryTriggerInteraction.Ignore))
+            {
+                hit = headHit;
+                isBlocked = true;
+            }
+
+            CapsuleCollider bodyCollider = _locomotion.bodyCollider;
+            if (bodyCollider != null)
+            {
+                Vector3 center = bodyCollider.transform.position + offset;
+                float radius = bodyCollider.radius;
+                float halfHeight = bodyCollider.height * 0.5f;
+                Vector3 top = center + Vector3.up * Mathf.Max(0f, halfHeight - radius);
+                Vector3 bottom = center + Vector3.up * (radius - halfHeight + _config.StickStepHeight);
+                if (bottom.y > top.y)
+                {
+                    bottom = top;
+                }
+
+                if (Physics.CapsuleCast(top, bottom, radius, direction, out RaycastHit bodyHit, distance, layers, QueryTriggerInteraction.Ignore)
+                    && (!isBlocked || bodyHit.distance < hit.distance))
+                {
+                    hit = bodyHit;
+                    isBlocked = true;
+                }
+            }
+
+            return isBlocked;
+        }
+
+        private static Vector2 ReadStick(XRNode node)
+        {
+            InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+            return device.isValid && device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stick) ? stick : Vector2.zero;
         }
 
         private void UpdateSnapTurn()

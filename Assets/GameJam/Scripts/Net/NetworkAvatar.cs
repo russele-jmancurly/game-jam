@@ -37,6 +37,11 @@ namespace GameJam.Net
         private Vector3 _lastBodyPosition;
         private Vector3 _bodyVelocity;
 
+        /// <summary>How closed each paw is (0 open .. 255 fist), written by the owner so everyone sees the hands close.</summary>
+        [Networked] private byte LeftGrip { get; set; }
+
+        [Networked] private byte RightGrip { get; set; }
+
         public static NetworkAvatar Local { get; private set; }
 
         public bool IsLocal => Object != null && Object.IsValid && HasStateAuthority;
@@ -118,6 +123,12 @@ namespace GameJam.Net
                 ShowOwnArms();
                 if (_bodyRig != null)
                 {
+                    LocalRig rig = LocalRig.Instance;
+                    if (rig != null)
+                    {
+                        _bodyRig.SetGrip(rig.GripAmount(false), rig.GripAmount(true)); // your own paws: no network delay
+                    }
+
                     _bodyRig.Solve();
                 }
 
@@ -126,6 +137,7 @@ namespace GameJam.Net
 
             if (_bodyRig != null && _isVisible)
             {
+                _bodyRig.SetGrip(LeftGrip / 255f, RightGrip / 255f);
                 _bodyRig.Solve();
             }
 
@@ -196,6 +208,12 @@ namespace GameJam.Net
 
             Quaternion yaw = Quaternion.Euler(0f, head.eulerAngles.y, 0f);
             _body.SetPositionAndRotation(head.position + Vector3.down * _bodyDrop, yaw);
+
+            if (Object != null && Object.IsValid && HasStateAuthority)
+            {
+                LeftGrip = (byte)Mathf.RoundToInt(rig.GripAmount(false) * 255f);
+                RightGrip = (byte)Mathf.RoundToInt(rig.GripAmount(true) * 255f);
+            }
         }
 
         /// <summary>

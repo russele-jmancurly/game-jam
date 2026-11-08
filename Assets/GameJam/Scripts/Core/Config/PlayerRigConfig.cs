@@ -37,6 +37,16 @@ namespace GameJam.Core
         [Range(0f, 1f)] public float TapHapticStrength = 0.5f;
         [Range(0f, 1f)] public float SlideHapticStrength = 0.075f;
 
+        [Header("Stick movement (left thumbstick, headset only)")]
+        [Tooltip("Walk with the left thumbstick, in the direction you look. Arm swinging still works on top of it.")]
+        public bool StickMovement = true;
+        [Tooltip("Walking speed (m/s) with the stick pushed all the way.")]
+        [Range(0f, 6f)] public float StickMoveSpeed = 2.5f;
+        [Tooltip("Stick deflection ignored around the centre (drifting sticks).")]
+        [Range(0f, 0.5f)] public float StickDeadZone = 0.15f;
+        [Tooltip("Ledges and bumps up to this high are stepped over while walking with the stick (m).")]
+        [Range(0f, 0.5f)] public float StickStepHeight = 0.2f;
+
         [Header("Body")]
         [Tooltip("See your own gorilla arms (shoulder to glove) in first person; off = floating glove spheres only.")]
         public bool ShowOwnArms = true;
