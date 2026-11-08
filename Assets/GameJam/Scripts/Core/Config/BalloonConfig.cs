@@ -62,11 +62,8 @@ namespace GameJam.Core
         [Tooltip("Solo testing: while only one player is in the session, the same player may hit the balloon " +
                  "twice in a row without popping it. Switches off automatically when a second player joins.")]
         public bool AllowSoloDoubleHits = true;
-        [Tooltip("What the balloon looks like to the player who hit it last (their next touch would pop it): a dull " +
-                 "colour pulsing gently. Everyone else sees the normal colour, so it reads as 'your turn'.")]
-        public Color NotYourTurnColor = new Color(0.55f, 0.57f, 0.62f);
-        [Tooltip("Pulses per second of the not-your-turn colour.")]
-        [Min(0f)] public float NotYourTurnPulse = 1.2f;
+        // The player who hit last (their next touch would pop it) sees an on-screen "not your turn" icon (TurnIndicator);
+        // the balloon itself keeps the hitter's colour for everyone.
 
         [Header("Pop blast")]
         [Min(0f)] public float PopBlastRadius = 1.5f;

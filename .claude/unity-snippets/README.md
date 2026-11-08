@@ -12,3 +12,8 @@ Locomotion regression tests (Play mode, PC mode, no headset; each logs PASS/FAIL
   the stage; the red button drops the walls and shows the balloon on station; the run makes it live.
 - `lobby_cams.cs`: review cameras `LobbyCam_Eye` (spawn view of the button) and `LobbyCam_Out` (the glass box from outside).
 - `knockdown_check.cs` (`[KnockTest]`): with knockdowns off, a hazard knock and a networked knockback are short shoves, no ragdoll.
+- `audio_loop_check.cs`: peak/RMS of every generated clip and whether each loop's seam is clean (no click).
+- `light_probe.cs`: capture camera `LightCam` with post-processing on/off and a light scale, to compare the headset look
+  (no HDR, no tonemapping) with the PC look; measure the PNGs' brightness to pick `PlayerRigConfig.HeadsetLightScale`.
+- `turn_indicator_check.cs` (`[TurnTest]`): the "not your turn" icon shows after your hit and hides after another player's
+  (turns the solo pass-rule exemption off for the test and restores it).

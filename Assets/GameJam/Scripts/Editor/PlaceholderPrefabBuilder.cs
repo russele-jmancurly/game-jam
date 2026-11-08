@@ -203,6 +203,7 @@ namespace GameJam.Editor
             hitAudio.minDistance = 1.5f;
             hitAudio.maxDistance = 30f;
             hitAudio.dopplerLevel = 0f;
+            AddSoundLevel(hitAudio, SoundCategory.Effects, 1f); // slaps and pop play through it (PlayOneShot)
 
             balloon.Configure(configs.Balloon, configs.Slap, visual.GetComponent<Renderer>(), rallyText, rubber, hitAudio, slaps);
             balloon.ConfigurePopSound(GeneratedAudio.BalloonPop("Balloon_Pop"));
@@ -641,19 +642,36 @@ namespace GameJam.Editor
         /// is 0. Never plays on awake unless it loops (a looping one is started by its owner, or plays at once if
         /// <paramref name="loop"/> is set and the owner never stops it).
         /// </summary>
-        public static AudioSource Sound(GameObject host, AudioClip clip, bool loop, float maxDistance, float volume, bool playOnAwake = false)
+        /// <summary>
+        /// An AudioSource whose volume follows the game's mix (SoundLevel + Config/AudioConfig.asset): loops are Ambience,
+        /// one-shots Effects (or pass a category). maxDistance 0 = 2D (heard the same everywhere). volume = this sound's
+        /// own level within its category.
+        /// </summary>
+        public static AudioSource Sound(GameObject host, AudioClip clip, bool loop, float maxDistance, float volume, bool playOnAwake = false,
+            SoundCategory? category = null)
         {
             var source = host.AddComponent<AudioSource>();
             source.clip = clip;
             source.loop = loop;
             source.playOnAwake = playOnAwake;
-            source.volume = volume;
             source.dopplerLevel = 0f;
             source.spatialBlend = maxDistance > 0f ? 1f : 0f;
             source.rolloffMode = AudioRolloffMode.Linear;
             source.minDistance = Mathf.Min(2f, maxDistance);
             source.maxDistance = Mathf.Max(maxDistance, 1f);
+            AddSoundLevel(source, category ?? (loop ? SoundCategory.Ambience : SoundCategory.Effects), volume);
             return source;
+        }
+
+        public const string AudioConfigPath = "Assets/GameJam/Config/AudioConfig.asset";
+
+        /// <summary>Puts a SoundLevel on a source so its volume follows Config/AudioConfig.asset.</summary>
+        public static SoundLevel AddSoundLevel(AudioSource source, SoundCategory category, float volume)
+        {
+            AudioConfig config = PlaceholderAssets.LoadOrCreateConfig<AudioConfig>(AudioConfigPath);
+            var level = source.gameObject.AddComponent<SoundLevel>();
+            level.Configure(config, category, volume);
+            return level;
         }
 
         /// <summary>Soft round transparent particle (URP Particles/Unlit with a generated radial blob).</summary>

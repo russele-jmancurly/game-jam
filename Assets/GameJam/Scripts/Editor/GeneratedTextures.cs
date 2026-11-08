@@ -32,6 +32,47 @@ namespace GameJam.Editor
                 return new Color(1f, 1f, 1f, alpha * alpha * (3f - 2f * alpha));
             });
 
+        /// <summary>
+        /// The "not your turn" icon: a white balloon (dark outline, knot and string) under a red no-sign (ring + slash), on a
+        /// soft dark disc so it reads against a bright sky. Shapes are signed-distance fields, antialiased over ~1.5 px.
+        /// </summary>
+        public static Texture2D NotYourTurnIcon(string name, int size = 256) =>
+            Create(name, size, FilterMode.Bilinear, TextureWrapMode.Clamp, (x, y) =>
+            {
+                float px = 2f / size;
+                var p = new Vector2((x + 0.5f) / size * 2f - 1f, (y + 0.5f) / size * 2f - 1f);
+                float Cover(float distance) => Mathf.Clamp01(0.5f - distance / (px * 1.5f));
+
+                // Soft backing disc.
+                Color result = new Color(ArtPalette.TextDark.r, ArtPalette.TextDark.g, ArtPalette.TextDark.b, 0f);
+                result.a = Cover(p.magnitude - 0.96f) * 0.5f;
+
+                // Balloon: ellipse body, little knot, wavy string.
+                Vector2 q = (p - new Vector2(0f, 0.14f)) / new Vector2(0.4f, 0.48f);
+                float body = (q.magnitude - 1f) * 0.4f;
+                float knot = Mathf.Max(Mathf.Abs(p.x) - (0.07f - (p.y + 0.4f) * 0.6f), Mathf.Abs(p.y + 0.385f) - 0.05f);
+                float stringX = 0.04f * Mathf.Sin((p.y + 0.45f) * 14f);
+                float line = p.y < -0.42f && p.y > -0.8f ? Mathf.Abs(p.x - stringX) - 0.012f : 1f;
+                float balloon = Mathf.Min(body, knot);
+                result = Over(result, ArtPalette.TextDark, Cover(Mathf.Min(balloon - 0.035f, line)));
+                result = Over(result, new Color(0.97f, 0.97f, 0.97f), Cover(balloon));
+
+                // Red no-sign on top: a ring and a slash from top left to bottom right.
+                float ring = Mathf.Abs(p.magnitude - 0.8f) - 0.075f;
+                Vector2 axis = new Vector2(0.7071f, -0.7071f);
+                float along = Mathf.Clamp(Vector2.Dot(p, axis), -0.8f, 0.8f);
+                float slash = (p - axis * along).magnitude - 0.075f;
+                result = Over(result, ArtPalette.Hazard, Cover(Mathf.Min(ring, slash)));
+                return result;
+            });
+
+        private static Color Over(Color below, Color colour, float coverage)
+        {
+            Color c = Color.Lerp(below, colour, coverage);
+            c.a = Mathf.Lerp(below.a, 1f, coverage);
+            return c;
+        }
+
         /// <summary>Low-octave value noise between two colours (lawn, pool ripples); 10-15% value variation.</summary>
         public static Texture2D Noise(string name, Color a, Color b, float scale, int size = 128) =>
             Create(name, size, FilterMode.Bilinear, TextureWrapMode.Repeat, (x, y) =>

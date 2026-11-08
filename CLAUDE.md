@@ -171,8 +171,13 @@ Assets/GameJam/
   QuadraticDrag at 0: `HoopAim` assumes linear drag. Items and the giant bypass the slap shaping. Hits squash it along the hit direction, flash it white, rumble harder for harder slaps, and play one of three generated
   `Balloon_Slap_*` sounds for everyone. `balloon_smoothness.cs` (per-frame motion), `balloon_slap_flight.cs` (rise/travel of a given slap) and
   `slap_speed_record.cs` (your real slap speeds in a headset) are the tuning tools.
-- Balloon look per player: to whoever hit it last (pass rule on), it shows `BalloonConfig.NotYourTurnColor`, pulsing;
-  everyone else sees the hitter colour. In the headset (no colour grading) `LocalRig` multiplies sun and ambient by `PlayerRigConfig.HeadsetLightBoost`.
+- Turn cue: the balloon always shows the hitter colour; whoever hit it last (pass rule on, during a run) sees a "not
+  your turn" icon (balloon + red no-sign, `T_NotYourTurn`) low in the middle of their view, drawn over the arms
+  (`TurnIndicator` on the head camera, `PrototypeSceneBuilder.BuildTurnIndicator`); it fades out when someone else hits
+  it (a giant's hit is nobody's and keeps it). `turn_indicator_check.cs` tests it.
+- Headset lighting: the Quest has no HDR and no tonemapping, so bright colours clip to white; `LocalRig` scales sun and
+  ambient by `PlayerRigConfig.HeadsetLightScale` (0.8; the old 1.35 boost washed the build out). `light_probe.cs` compares
+  scales from the same view.
 - Bounce pads (trampoline, diving-board spring, tree mushroom) launch players only (`BouncePad._balloonFactor` 0): a
   balloon relaunched by a pad hovered over it forever.
 - Easy mode: players never die or get knocked down. Water only pops the balloon (players can wade in the pool), and with
@@ -181,7 +186,15 @@ Assets/GameJam/
   `NetworkAvatar.RpcKnockback` turn every knockdown into that shove; `knockdown_check.cs` tests it. Only falling below
   `KillHeight` (through the map) respawns you.
 - Sound and ambience: every sound is synthesized by `GeneratedAudio` into `Audio/Generated` (balloon slaps and pop, hoop
-  chime, win fanfare, trampoline boing, bubble and wind loops); `PlaceholderPrefabBuilder.Sound` makes the AudioSources.
+  chime, win fanfare, trampoline boing, bubble and wind loops, background music) at 44.1 kHz, normalised per kind; loops
+  are rendered long and crossfaded into their start (seamless), effects PCM, music Vorbis (loops gaplessly). Clips carry a
+  version stamp (importer userData, `GeneratedAudio.Version`): bump it to regenerate. Music: `Music_Backyard`, an upbeat
+  116 BPM groove (Am F C G: four-on-the-floor kick, clap, swung hats, syncopated bass, pumping pad; no lead, the user
+  didn't want the bell-like hook), on the scene's `Music` object at volume 0.15 (0.25 was too loud). Mix: `Config/AudioConfig.asset` (Master, Music,
+  Ambience, Effects, fades), applied live by `SoundLevel` on every source; loops start/stop by fading
+  (`SoundLevel.FadeIn/FadeOut`), the hand-slide hiss fades in `Player` (it used to restart every frame: stutter). Taps and
+  slide: `PlayerRigConfig.TapVolume/SlideVolume`. `audio_loop_check.cs` checks seams and levels;
+  `PlaceholderPrefabBuilder.Sound` makes the AudioSources.
   Hooks: `HoopCheckpoint` (chime + confetti when a hoop clears), `GameState` (2D fanfare on a medal finish),
   `NetworkBalloon.RpcPlayPopEffects`, `BouncePad.PlayBounce` (from `RigHazardSensor`), `ItemEffectZone` (loop while
   the effect runs) and the fan's `AirStream`. `AmbientEffectsBuilder` adds yard pollen and falling tree leaves (no

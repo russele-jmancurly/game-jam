@@ -389,6 +389,7 @@ GameObject:
   - component: {fileID: 6416887938518760988}
   - component: {fileID: 7859883069210027376}
   - component: {fileID: 956654051649400870}
+  - component: {fileID: 5391329810218176669}
   - component: {fileID: 8444913637873992337}
   m_Layer: 8
   m_Name: Balloon
@@ -568,7 +569,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 79831d7a15ba4f34dacce29ac5c79cc5, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.85
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -652,6 +653,21 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &5391329810218176669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7526426569265707756}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e134c049654f2b45b4f010d09a1330a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameJam.Gameplay::GameJam.Gameplay.SoundLevel
+  _config: {fileID: 11400000, guid: 22ff86e8884faaa4ebdb4e14b37f12ed, type: 2}
+  _category: 0
+  _volume: 1
 --- !u!114 &8444913637873992337
 MonoBehaviour:
   m_ObjectHideFlags: 0

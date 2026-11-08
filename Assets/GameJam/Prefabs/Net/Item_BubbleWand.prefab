@@ -5014,6 +5014,7 @@ GameObject:
   - component: {fileID: 6881504093425687132}
   - component: {fileID: 4167196875426989822}
   - component: {fileID: 5381258263439141749}
+  - component: {fileID: 511895149525732714}
   m_Layer: 2
   m_Name: EffectZone
   m_TagString: Untagged
@@ -5101,7 +5102,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 533f421ef5aed0742a40abd637cdafee, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 0.7
+  m_Volume: 0.35
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -5185,6 +5186,21 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &511895149525732714
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8903443175101152821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e134c049654f2b45b4f010d09a1330a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameJam.Gameplay::GameJam.Gameplay.SoundLevel
+  _config: {fileID: 11400000, guid: 22ff86e8884faaa4ebdb4e14b37f12ed, type: 2}
+  _category: 1
+  _volume: 0.7
 --- !u!1001 &5112335003775923228
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -68,6 +68,7 @@ namespace GameJam.Editor
             EnvironmentLightingBuilder.Build();
             EnvironmentDressingBuilder.Build();
             BuildRig(configs);
+            BuildMusic();
             BuildNetwork(avatar, balloon, gameState, items, roamer);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -77,6 +78,38 @@ namespace GameJam.Editor
             // New or regenerated network prefabs must be in Fusion's prefab table, or Spawn fails at runtime.
             Fusion.Editor.NetworkProjectConfigUtilities.RebuildPrefabTable();
             return $"Prototype built: {ScenePath} with {items.Length} items. Press Play (desktop mode works without a headset).";
+        }
+
+        /// <summary>The background music: a seamless generated loop, 2D, fading in at the start (volume: AudioConfig.Music).</summary>
+        private static void BuildMusic()
+        {
+            var music = new GameObject("Music");
+            PlaceholderPrefabBuilder.Sound(music, GeneratedAudio.MusicLoop("Music_Backyard"), true, 0f, 1f, playOnAwake: true, category: SoundCategory.Music);
+        }
+
+        /// <summary>
+        /// The "not your turn" icon on the head camera: low in the middle of the view (between the arms), drawn on top of
+        /// everything, hidden until TurnIndicator shows it.
+        /// </summary>
+        private static void BuildTurnIndicator(Transform head)
+        {
+            var root = new GameObject("TurnIndicator").transform;
+            root.SetParent(head, false);
+            root.localPosition = new Vector3(0f, -0.22f, 0.55f);
+
+            Material material = PlaceholderAssets.TransparentUnlit("NotYourTurnIcon", GeneratedTextures.NotYourTurnIcon("T_NotYourTurn"));
+            material.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always); // never hidden by the arms
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay;
+            EditorUtility.SetDirty(material);
+            GameObject icon = PlaceholderShapes.Primitive(PrimitiveType.Quad, "Icon", root, Vector3.zero, Vector3.one * 0.1f, material, false);
+            if (icon.TryGetComponent(out Renderer iconRenderer))
+            {
+                iconRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                iconRenderer.receiveShadows = false;
+            }
+
+            TextMesh label = PlaceholderShapes.Text("Label", root, new Vector3(0f, -0.068f, 0f), 0.0045f, "NOT YOUR TURN", ArtPalette.Hazard);
+            root.gameObject.AddComponent<TurnIndicator>().Configure(iconRenderer, label);
         }
 
         private static void BuildRig(PrototypeConfigSet configs)
@@ -99,6 +132,7 @@ namespace GameJam.Editor
             // Script-created cameras default to no post-processing; LocalRig turns it on for PC mode at runtime.
             head.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>().renderPostProcessing = true;
             head.AddComponent<AudioListener>();
+            BuildTurnIndicator(head.transform);
             var headCollider = head.AddComponent<SphereCollider>();
             headCollider.radius = 0.12f;
 

@@ -314,12 +314,12 @@ namespace GameJam.Player
         private Color _ambientGround;
 
         /// <summary>
-        /// Headset only (no colour grading there): brighten the sun and the ambient light by
-        /// PlayerRigConfig.HeadsetLightBoost. Re-applied whenever the value changes, from the authored base values.
+        /// Headset only (no HDR or tonemapping there, so bright colours clip): scale the sun and the ambient light by
+        /// PlayerRigConfig.HeadsetLightScale. Re-applied whenever the value changes, from the authored base values.
         /// </summary>
         private void UpdateHeadsetLighting()
         {
-            float boost = UsesHeadset && !_config.PostProcessingInHeadset ? _config.HeadsetLightBoost : 1f;
+            float boost = UsesHeadset && !_config.PostProcessingInHeadset ? _config.HeadsetLightScale : 1f;
             if (Mathf.Approximately(boost, _appliedLightBoost))
             {
                 return;
@@ -394,6 +394,7 @@ namespace GameJam.Player
             _locomotion.defaultSlideFactor = _config.DefaultSlideFactor;
             _locomotion.tapHapticStrength = _config.TapHapticStrength;
             _locomotion.slideHapticStrength = _config.SlideHapticStrength;
+            _locomotion.slideVolume = _config.SlideVolume;
             if (_locomotion.leftTapSource != null)
             {
                 _locomotion.leftTapSource.volume = _config.TapVolume;

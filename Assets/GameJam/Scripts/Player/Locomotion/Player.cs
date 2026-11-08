@@ -434,18 +434,10 @@ namespace GorillaLocomotion
             }
             else if (IsHandSliding(true))
             {
-                if (leftSlipSource != null && !leftSlipSource.isPlaying)
-                {
-                    leftSlipSource.Play();
-                }
-
                 StartVibration(true, slideHapticStrength, SlideHapticSeconds);
             }
 
-            if (!IsHandSliding(true) && leftSlipSource != null && leftSlipSource.isPlaying)
-            {
-                leftSlipSource.Stop();
-            }
+            UpdateSlideSound(leftSlipSource, IsHandSliding(true), ref leftSlideFade);
 
             if (!IsHandSliding(false) && IsHandTouching(false) && rightTapArmed && Time.time > lastRightTap + tapCoolDown)
             {
@@ -458,18 +450,10 @@ namespace GorillaLocomotion
             }
             else if (IsHandSliding(false))
             {
-                if (rightSlipSource != null && !rightSlipSource.isPlaying)
-                {
-                    rightSlipSource.Play();
-                }
-
                 StartVibration(false, slideHapticStrength, SlideHapticSeconds);
             }
 
-            if (!IsHandSliding(false) && rightSlipSource != null && rightSlipSource.isPlaying)
-            {
-                rightSlipSource.Stop();
-            }
+            UpdateSlideSound(rightSlipSource, IsHandSliding(false), ref rightSlideFade);
 
             leftHandTouching = IsHandTouching(true);
             rightHandTouching = IsHandTouching(false);
@@ -572,6 +556,36 @@ namespace GorillaLocomotion
             materialTouchIndex = 0;
             touchedOverride = null;
         }
+
+        /// <summary>
+        /// Project change: the slide hiss fades in and out instead of Play/Stop. A sliding hand flickers in and out of
+        /// contact every few frames, and upstream restarted the loop from its first sample each time (a stutter).
+        /// </summary>
+        private void UpdateSlideSound(AudioSource source, bool isSliding, ref float fade)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            fade = Mathf.MoveTowards(fade, isSliding ? 1f : 0f, Time.deltaTime / (isSliding ? SlideFadeInSeconds : SlideFadeOutSeconds));
+            if (fade > 0f && !source.isPlaying)
+            {
+                source.Play();
+            }
+
+            source.volume = slideVolume * fade;
+            if (fade <= 0f && source.isPlaying)
+            {
+                source.Stop();
+            }
+        }
+
+        [Tooltip("Volume of the slide hiss at full slide (LocalRig copies PlayerRigConfig.SlideVolume here).")]
+        [Range(0f, 1f)] public float slideVolume = 0.35f;
+        private float leftSlideFade, rightSlideFade;
+        private const float SlideFadeInSeconds = 0.06f;
+        private const float SlideFadeOutSeconds = 0.2f;
 
         private void PlayHandTap(AudioSource source, Material material)
         {

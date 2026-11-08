@@ -81,7 +81,20 @@ namespace GameJam.Gameplay
 
             if (_loopAudio != null)
             {
-                if (isOn)
+                // Fade the loop in and out (SoundLevel) instead of a hard start/cut: no clicks.
+                var level = _loopAudio.GetComponent<SoundLevel>();
+                if (level != null)
+                {
+                    if (isOn)
+                    {
+                        level.FadeIn();
+                    }
+                    else
+                    {
+                        level.FadeOut();
+                    }
+                }
+                else if (isOn)
                 {
                     _loopAudio.Play();
                 }

@@ -44,3 +44,5 @@ PhysicsMaterial with low friction or some bounciness. The balloon is on its own 
   pool's rim seams and corners. `.claude/unity-snippets/hand_stuck_test.cs` checks it.
 - `Carry` sets the rigidbody to the moved transform (absolute) instead of adding the delta to both: the delta was applied
   twice on frames with a physics step (~20 % too far). `LocalRig.StickWalk` (left thumbstick) moves the player through it.
+- The slide hiss fades in and out (`UpdateSlideSound`, volume `slideVolume` from `PlayerRigConfig.SlideVolume`) instead of
+  `Play()`/`Stop()`: a sliding hand flickers in and out of contact, and upstream restarted the loop each time (a stutter).

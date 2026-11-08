@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 635224368191680308}
   - component: {fileID: 3881865721377677776}
   - component: {fileID: 44655930556442544}
+  - component: {fileID: 4701641482895024132}
   m_Layer: 0
   m_Name: GameState
   m_TagString: Untagged
@@ -87,7 +88,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 9e8e5f04481f0b54cad7bde616cba1b9, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 0.8
+  m_Volume: 0.68
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -171,3 +172,18 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &4701641482895024132
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5114228500136334593}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e134c049654f2b45b4f010d09a1330a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameJam.Gameplay::GameJam.Gameplay.SoundLevel
+  _config: {fileID: 11400000, guid: 22ff86e8884faaa4ebdb4e14b37f12ed, type: 2}
+  _category: 0
+  _volume: 0.8

@@ -13,9 +13,11 @@ namespace GameJam.Core
         [Tooltip("Post-processing (colour grading, vignette) costs a full-screen pass. Off in the headset by default " +
                  "to protect Quest frame time; always on in PC test mode.")]
         public bool PostProcessingInHeadset;
-        [Tooltip("The headset skips the PC colour grading, so the same scene looks darker in it. Sun and ambient light " +
-                 "are multiplied by this in the headset only (applied live). 1 = as authored.")]
-        [Range(1f, 2f)] public float HeadsetLightBoost = 1.35f;
+        [Tooltip("Sun and ambient light are multiplied by this in the headset only (applied live; 1 = as authored). The " +
+                 "headset has no HDR and no tonemapping, so bright colours clip to white: at 1.35 (the old boost) the Quest build " +
+                 "was washed out, and 0.8 keeps the deck, grass and bunting colourful. light_probe.cs compares values.")]
+        [UnityEngine.Serialization.FormerlySerializedAs("HeadsetLightBoost")]
+        [Range(0.5f, 1.5f)] public float HeadsetLightScale = 0.8f;
 
         [Header("Gorilla locomotion (GorillaPlus; applied every frame, so tune it live)")]
         [Tooltip("Hand speed (m/s, averaged) needed to launch off a surface. Lower = jumps trigger more easily.")]
@@ -34,6 +36,8 @@ namespace GameJam.Core
         [Tooltip("Hand grip on ordinary surfaces (0 = sticky, higher = hands slide along walls).")]
         [Range(0.001f, 0.1f)] public float DefaultSlideFactor = 0.03f;
         [Range(0f, 1f)] public float TapVolume = 0.6f;
+        [Tooltip("Volume of the hiss while a hand slides on a slippery surface (it fades in and out).")]
+        [Range(0f, 1f)] public float SlideVolume = 0.35f;
         [Range(0f, 1f)] public float TapHapticStrength = 0.5f;
         [Range(0f, 1f)] public float SlideHapticStrength = 0.075f;
 
