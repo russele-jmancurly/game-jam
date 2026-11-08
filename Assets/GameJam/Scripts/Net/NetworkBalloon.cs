@@ -86,6 +86,13 @@ namespace GameJam.Net
 
         private bool IsLive => GameState.Instance == null || GameState.Instance.IsBalloonLive;
 
+        /// <summary>Hidden in the lobby: it shows up on its station when the red button is slapped.</summary>
+        private bool IsShown => GameState.Instance == null || GameState.Instance.IsBalloonShown;
+
+        private Renderer[] _renderers = System.Array.Empty<Renderer>();
+        private Collider[] _colliders = System.Array.Empty<Collider>();
+        private int _appliedShown = -1;
+
         private bool IsReady => Object != null && Object.IsValid;
 
         public void ConfigurePopSound(AudioClip popClip) => _popClip = popClip;
@@ -106,7 +113,7 @@ namespace GameJam.Net
         {
             feedback = HapticPulse.None;
             float speed = slap.Speed;
-            if (speed < _slapConfig.MinBalloonSlapSpeed || !IsReady)
+            if (speed < _slapConfig.MinBalloonSlapSpeed || !IsReady || !IsShown)
             {
                 return false;
             }
@@ -167,6 +174,10 @@ namespace GameJam.Net
             {
                 _stringRest = _string.localPosition;
             }
+
+            _renderers = GetComponentsInChildren<Renderer>(true);
+            _colliders = GetComponentsInChildren<Collider>(true);
+            _appliedShown = -1;
 
             // Fusion 2.1 send priority: on this client, receive the balloon's state every send tick (it is the object
             // everyone is looking at). Shared Mode only accepts the local player here.
@@ -250,8 +261,36 @@ namespace GameJam.Net
             }
         }
 
+        /// <summary>Shows or hides the whole balloon (body, string, rally text) and its colliders, only when it changes.</summary>
+        private void ApplyShown()
+        {
+            int shown = IsShown ? 1 : 0;
+            if (shown == _appliedShown)
+            {
+                return;
+            }
+
+            _appliedShown = shown;
+            foreach (Renderer part in _renderers)
+            {
+                if (part != null)
+                {
+                    part.enabled = shown == 1;
+                }
+            }
+
+            foreach (Collider part in _colliders)
+            {
+                if (part != null)
+                {
+                    part.enabled = shown == 1;
+                }
+            }
+        }
+
         public override void Render()
         {
+            ApplyShown();
             if (_visual != null)
             {
                 // A white flash on contact, fading in a few frames.

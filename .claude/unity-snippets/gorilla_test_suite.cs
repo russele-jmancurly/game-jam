@@ -15,6 +15,11 @@ var body = rig.Body;
 Transform ts = rig.TrackingSpace;
 int mask = GameJam.Core.GameLayers.DefaultMask;
 desk.enabled = false;
+// The scenarios need open ground around the spawn: take the lobby's clear walls down while the suite runs (restored at DONE).
+var lobbyOnly = Object.FindFirstObjectByType<GameJam.Gameplay.LobbyOnly>();
+GameObject lobbyWalls = GameObject.Find("LobbyWalls");
+if (lobbyOnly != null) lobbyOnly.enabled = false;
+if (lobbyWalls != null) lobbyWalls.SetActive(false);
 rig.Head.localPosition = new Vector3(0f, 1.2f, 0f);
 rig.Head.localRotation = Quaternion.identity;
 
@@ -344,6 +349,8 @@ tick = () =>
             float idleAvg = idleFrames > 0 ? (float)allocIdle / idleFrames : 0f;
             float runAvg = runFrames > 0 ? (float)allocRun / runFrames : 0f;
             Debug.Log($"[LocoTest] INFO garbage per frame on the main thread: idle {idleAvg:F0} B, while hands tap/slide {runAvg:F0} B (difference = locomotion cost)");
+            if (lobbyWalls != null) lobbyWalls.SetActive(true);
+            if (lobbyOnly != null) lobbyOnly.enabled = true;
             Debug.Log("[LocoTest] DONE");
         }
     }

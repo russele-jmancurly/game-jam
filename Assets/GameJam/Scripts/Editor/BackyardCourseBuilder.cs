@@ -237,6 +237,7 @@ namespace GameJam.Editor
             button.GetComponent<Collider>().isTrigger = true;
             button.AddComponent<StartButton>();
             button.layer = GameLayers.IgnoreRaycast;
+            BuildLobbyOnly(stage, new Vector3(12f, 0.4f, 9f), stage + new Vector3(4f, 0.4f, 2.5f));
 
             // Commentator: a big board on stilts behind the finish pad, facing down the trail.
             Material board = PlaceholderAssets.Material("Backboard", ArtPalette.TextDark, 0.3f);
@@ -264,6 +265,79 @@ namespace GameJam.Editor
             BuildMirror(stage);
             BuildShowCrew(stage, screen);
         }
+
+        /// <summary>
+        /// Lobby only (<see cref="LobbyOnly"/>, gone once the red button is slapped): clear glass walls round the start
+        /// stage, so the crew stays on it but can still see the whole yard, and a "slap to start" sign on the button's
+        /// pedestal with a bobbing arrow hovering over the button, pointing down at it. The walls are on Default (so gorilla hands meet them) but
+        /// slippery like ice, so nobody climbs out, and tall enough that no jump clears them.
+        /// </summary>
+        private static void BuildLobbyOnly(Vector3 stageCenter, Vector3 stageSize, Vector3 pedestalBase)
+        {
+            var root = new GameObject("LobbyOnly");
+            root.transform.SetParent(_course, false);
+            root.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity); // children below are placed in world space
+
+            // Walls: just outside the stage edges, from the ground up, corners overlapping.
+            var fence = new GameObject("LobbyWalls");
+            fence.transform.SetParent(root.transform, false);
+            Material glass = PlaceholderAssets.Glass("LobbyGlass", new Color(0.75f, 0.9f, 1f, 0.07f));
+            Material rail = PlaceholderAssets.Emissive("LobbyRail", ArtPalette.Accent, 1.2f);
+            float top = stageSize.y + LobbyWallHeight;
+            float halfX = stageSize.x * 0.5f + LobbyWallThickness * 0.5f;
+            float halfZ = stageSize.z * 0.5f + LobbyWallThickness * 0.5f;
+            var walls = new (string name, Vector3 offset, Vector3 size)[]
+            {
+                ("North", new Vector3(0f, 0f, halfZ), new Vector3(stageSize.x + LobbyWallThickness * 2f, top, LobbyWallThickness)),
+                ("South", new Vector3(0f, 0f, -halfZ), new Vector3(stageSize.x + LobbyWallThickness * 2f, top, LobbyWallThickness)),
+                ("East", new Vector3(halfX, 0f, 0f), new Vector3(LobbyWallThickness, top, stageSize.z)),
+                ("West", new Vector3(-halfX, 0f, 0f), new Vector3(LobbyWallThickness, top, stageSize.z)),
+            };
+            Vector3 floor = new Vector3(stageCenter.x, 0f, stageCenter.z);
+            foreach ((string name, Vector3 offset, Vector3 size) in walls)
+            {
+                GameObject wall = Box($"LobbyWall{name}", fence.transform, floor + offset + Vector3.up * (top * 0.5f), size, glass);
+                wall.AddComponent<GorillaLocomotion.Surface>().slipPercentage = 0.99f; // ice: hands slide, can't climb out
+                // Glowing rails at hand height and along the top, so the clear wall reads as a wall.
+                var railSize = new Vector3(Mathf.Max(size.x, 0.04f), 0.04f, Mathf.Max(size.z, 0.04f));
+                Box($"LobbyRail{name}", fence.transform, floor + offset + Vector3.up * (stageSize.y + 1.1f), railSize, rail, false);
+                Box($"LobbyRailTop{name}", fence.transform, floor + offset + Vector3.up * top, railSize, rail, false);
+            }
+
+            // Sign on the pedestal's front (the side facing the spawn), below the button, and an arrow pointing up at it.
+            var sign = new GameObject("LobbyStartSign");
+            sign.transform.SetParent(root.transform, false);
+            Vector3 front = pedestalBase + new Vector3(0f, 0f, -0.27f);
+            Box("StartSignBoard", sign.transform, front + new Vector3(0f, 0.27f, -0.01f), new Vector3(1.5f, 0.48f, 0.03f),
+                PlaceholderAssets.Material("SignBoard", ArtPalette.TextDark, 0.3f), false);
+            PlaceholderShapes.Text("StartSignText", sign.transform, front + new Vector3(0f, 0.27f, -0.035f), 0.021f,
+                "SLAP THE RED\nBUTTON TO START!", ArtPalette.Accent);
+            // Arrow hovering over the button, pointing down at it: two crossed chevrons (readable from any side of the stage),
+            // turned upside down, bobbing and slowly spinning. Button top: 0.745 m above the stage.
+            var arrow = new GameObject("StartArrow").transform;
+            arrow.SetParent(sign.transform, false);
+            arrow.SetPositionAndRotation(pedestalBase + new Vector3(0f, 1.22f, 0f), Quaternion.Euler(0f, 0f, 180f));
+            arrow.localScale = Vector3.one * 1.8f; // readable from the spawn, ~5.5 m away; tip ~0.25 m over the button
+            Material glow = PlaceholderAssets.Emissive("StartArrowGlow", ArtPalette.Hazard, 1.6f);
+            foreach (float yaw in new[] { 0f, 90f })
+            {
+                var fin = new GameObject("ArrowFin").transform;
+                fin.SetParent(arrow, false);
+                fin.localRotation = Quaternion.Euler(0f, yaw, 0f);
+                Box("ArrowShaft", fin, new Vector3(0f, -0.07f, 0f), new Vector3(0.06f, 0.22f, 0.03f), glow, false);
+                Box("ArrowHeadLeft", fin, new Vector3(-0.055f, 0.06f, 0f), new Vector3(0.06f, 0.17f, 0.03f), glow, false)
+                    .transform.localRotation = Quaternion.Euler(0f, 0f, -45f);
+                Box("ArrowHeadRight", fin, new Vector3(0.055f, 0.06f, 0f), new Vector3(0.06f, 0.17f, 0.03f), glow, false)
+                    .transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            }
+
+            arrow.gameObject.AddComponent<IdleMotion>().Configure(0.06f, 1.2f, 0f, 60f, 0f);
+
+            root.AddComponent<LobbyOnly>().Configure(new[] { fence, sign });
+        }
+
+        private const float LobbyWallHeight = 5f;     // above the stage: no gorilla jump (~2.9 m) clears it
+        private const float LobbyWallThickness = 0.2f;
 
         /// <summary>A tall wood-framed mirror at the stage's west edge, turned to the spawn so players see their porcupine.</summary>
         private static void BuildMirror(Vector3 stage)

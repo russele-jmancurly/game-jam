@@ -101,8 +101,12 @@ Assets/GameJam/
   `BackyardCourseBuilder` centre constants; `TrailHoops` and `TrailCheckpoints` are offsets from them (checkpoint k = open
   lawn on the working side of the approach to the next hoop, so nobody respawns in the pool or on the grill). Yard 52 x 100 m
   (`HalfWidth` 26, `SouthEdge` -16, `NorthEdge` 84) with a lawn strip west for the giant; `RoamerAvoidCircles` is computed
-  from the stations, `RoamerWanderPoints` are literal. A cleared hoop shrinks away until the next run. Hoops count during a run, and the first hoop cleared in the lobby starts
-  the run on the spot (no countdown); the red button still starts a fresh run with a countdown. Movers are
+  from the stations, `RoamerWanderPoints` are literal. A cleared hoop shrinks away until the next run. Hoops count only during a run. Lobby: the crew waits on
+  the start stage inside clear glass walls (slippery, 5 m, on Default so hands meet them) with a "slap the red button" sign
+  and an arrow hovering over the button (`BackyardCourseBuilder.BuildLobbyOnly`, toggled by `LobbyOnly` from the networked
+  run state); the balloon is hidden there (`GameState.IsBalloonShown`). Slapping the button drops the walls and shows the
+  balloon on its station, frozen through the countdown, live at GO. `lobby_check.cs` tests it, `lobby_cams.cs` frames it;
+  `gorilla_test_suite.cs` lowers the walls while it runs. Movers are
   `MovingObstacle` on the shared `CourseClock` (no network cost). After moving anything, in Play mode run
   `.claude/unity-snippets/map_check.cs` (item spawns, giant spots vs its avoid circles, all 4 player slots per checkpoint,
   overlapping set pieces, every collider vs rings > 1.2 m and waiting balloons > 0.35 m; hoop 2's sheet and hoop 5's
@@ -161,7 +165,7 @@ Assets/GameJam/
   to procedural motion and a builder-made `SlapArm`/`SlapHand`. Movement and slap tuning: `CharacterRoster` (`Roamer*`).
   The host and commentator on stage idle and wave now and then.
 - The balloon is stationed (`NetworkBalloon.IsStationed`): after spawning, a reset or a pop it hovers and bobs at its
-  `SpawnPoint.BalloonPosition` until the first hit (start: 1.4 m above the stage). Feel: a hand slap sends it the way the hand moved, as hard as it
+  `SpawnPoint.BalloonPosition` until the first hit (start: 1.4 m above the stage, hidden until the red button). Feel: a hand slap sends it the way the hand moved, as hard as it
   moved (`SlapConfig.BalloonVelocityScale`, capped by `BalloonConfig.MaxHitSpeed`); gentle taps get extra lift (SlapTapLift),
   hard slaps almost none (SlapHardLift). Linear Drag + low Gravity make it hang and float down (~0.35 m/s). Keep
   QuadraticDrag at 0: `HoopAim` assumes linear drag. Items and the giant bypass the slap shaping. Hits squash it along the hit direction, flash it white, rumble harder for harder slaps, and play one of three generated
@@ -171,9 +175,11 @@ Assets/GameJam/
   everyone else sees the hitter colour. In the headset (no colour grading) `LocalRig` multiplies sun and ambient by `PlayerRigConfig.HeadsetLightBoost`.
 - Bounce pads (trampoline, diving-board spring, tree mushroom) launch players only (`BouncePad._balloonFactor` 0): a
   balloon relaunched by a pad hovered over it forever.
-- Simple mode: water only pops the balloon (players can wade in the pool), and players hitting players (slaps, thrown or
-  swung items) only shove (`KnockbackConfig.PlayerHitsKnockDown` off; `LocalRig.Push`). The giant, flames and pop blasts
-  still knock you down.
+- Easy mode: players never die or get knocked down. Water only pops the balloon (players can wade in the pool), and with
+  `KnockbackConfig.KnockdownsEnabled` off (default) the giant, moving obstacles, flames, pop blasts and other players only
+  give a light shove (`PlayerPushForce`, `LocalRig.Push`): no ragdoll, you keep your hands and items. `LocalRig.Knock` and
+  `NetworkAvatar.RpcKnockback` turn every knockdown into that shove; `knockdown_check.cs` tests it. Only falling below
+  `KillHeight` (through the map) respawns you.
 - Sound and ambience: every sound is synthesized by `GeneratedAudio` into `Audio/Generated` (balloon slaps and pop, hoop
   chime, win fanfare, trampoline boing, bubble and wind loops); `PlaceholderPrefabBuilder.Sound` makes the AudioSources.
   Hooks: `HoopCheckpoint` (chime + confetti when a hoop clears), `GameState` (2D fanfare on a medal finish),

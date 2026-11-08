@@ -117,6 +117,16 @@ namespace GameJam.Editor
             return material;
         }
 
+        /// <summary>URP Unlit, alpha-blended, one colour (its alpha sets how see-through): clear glass walls.</summary>
+        public static Material Glass(string name, Color color)
+        {
+            Material material = TransparentUnlit(name, null);
+            material.color = color;
+            material.SetFloat("_Cull", 0f); // both sides: seen from inside and outside the stage
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static Material LoadOrCreate(string name, string shaderName)
         {
             string path = $"{MaterialFolder}/{name}.mat";

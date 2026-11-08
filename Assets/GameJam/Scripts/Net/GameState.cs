@@ -17,6 +17,7 @@ namespace GameJam.Net
         private const float MasterStallSeconds = 2.5f;
         private const float ReassignRetrySeconds = 3f;
         private const int NoHoop = -1;
+        private const string LobbyHeadline = "Slap the big red button to start!";
         private const float LockedFinishReportSeconds = 2f;
 
         [SerializeField] private RunConfig _config;
@@ -54,8 +55,11 @@ namespace GameJam.Net
         /// <summary>Incremented by the master every tick; other clients watch it to spot a frozen master.</summary>
         [Networked] private int Heartbeat { get; set; }
 
-        /// <summary>The balloon only moves in the lobby (free play) and during a run.</summary>
-        public bool IsBalloonLive => State == RunState.Lobby || State == RunState.Running;
+        /// <summary>The balloon only moves during a run (it waits frozen through the countdown and the result).</summary>
+        public bool IsBalloonLive => State == RunState.Running;
+
+        /// <summary>The balloon is hidden in the lobby and shows up when the red button is slapped.</summary>
+        public bool IsBalloonShown => State != RunState.Lobby;
 
         public int CurrentCheckpoint => LastHoop + 1;
 
@@ -77,7 +81,7 @@ namespace GameJam.Net
             RunState.Running => $"{TimeFormat.MinutesSeconds(TimeLeft)}  {HoopsCleared}/{_hoopCount}",
             RunState.Countdown => "Ready",
             RunState.Finished => LastScore > 0 ? MedalText(LastScore) : "Time up",
-            _ => $"{_hoopCount} hoops\nslap one to start",
+            _ => "Slap the red\nbutton to start",
         };
 
         /// <summary>Everyone hears the fanfare once when a run ends with a medal; it re-arms for the next run.</summary>
@@ -101,13 +105,10 @@ namespace GameJam.Net
 
         public void RequestStart() => RpcRequestStart();
 
-        /// <summary>
-        /// The balloon went through a hoop. During a run it counts; in the lobby it starts the run on the spot (so playing
-        /// without pressing Start still counts) and counts that hoop.
-        /// </summary>
+        /// <summary>The balloon went through a hoop: it counts during a run (in the lobby the balloon is hidden).</summary>
         public void ReportHoop(int hoopIndex)
         {
-            if ((State == RunState.Running || State == RunState.Lobby) && !IsHoopCleared(hoopIndex))
+            if (State == RunState.Running && !IsHoopCleared(hoopIndex))
             {
                 RpcReportHoop(hoopIndex);
             }
@@ -149,7 +150,7 @@ namespace GameJam.Net
             {
                 State = RunState.Lobby;
                 LastHoop = NoHoop;
-                Headline = "Slap the balloon through a hoop to start!";
+                Headline = LobbyHeadline;
             }
         }
 
@@ -236,7 +237,7 @@ namespace GameJam.Net
             HoopMask = 0;
             LastHoop = NoHoop;
             Pops = 0;
-            Headline = "Get ready...";
+            Headline = "Here comes the balloon...";
 
             if (NetworkBalloon.Instance != null)
             {
@@ -268,11 +269,6 @@ namespace GameJam.Net
                 return;
             }
 
-            if (State == RunState.Lobby)
-            {
-                BeginRunInPlace();
-            }
-
             if (State != RunState.Running || IsHoopCleared(hoopIndex))
             {
                 return;
@@ -295,7 +291,7 @@ namespace GameJam.Net
             HoopMask = 0;
             LastHoop = NoHoop;
             Pops = 0;
-            Headline = "Slap the balloon through a hoop to start!";
+            Headline = LobbyHeadline;
             if (NetworkBalloon.Instance != null)
             {
                 NetworkBalloon.Instance.ResetTo(CourseLayout.BalloonSpawn(0));
@@ -307,16 +303,6 @@ namespace GameJam.Net
             }
 
             RpcRespawnCrewAtStart();
-        }
-
-        /// <summary>A run started by playing (a hoop cleared in the lobby): no countdown, no reset, the clock starts now.</summary>
-        private void BeginRunInPlace()
-        {
-            State = RunState.Running;
-            Timer = TickTimer.CreateFromSeconds(Runner, _config.RunSeconds);
-            HoopMask = 0;
-            LastHoop = NoHoop;
-            Pops = 0;
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
