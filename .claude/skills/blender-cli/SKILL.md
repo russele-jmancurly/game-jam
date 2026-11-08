@@ -9,9 +9,10 @@ All Blender work goes through `tools/blender/blender.sh`, which runs a Python sc
 (`--background --factory-startup --python-exit-code 1`). Never call Blender MCP tools (`mcp__blender__*`);
 the project blocks them in `.claude/settings.json`.
 
-- Blender: 5.2.3 LTS at `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe` (4.4 is also installed). Machines with
-  Blender elsewhere (e.g. `D:/New Folder/blender.exe`) set `BLENDER_EXE` before calling the wrapper.
-  The wrapper takes `$BLENDER_EXE`, then `blender` on PATH, then the newest install. A run takes ~2–5 s.
+- Blender: 5.2.3 LTS at `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe` (4.4 is also installed).
+  The wrapper takes `$BLENDER_EXE`, then `blender` on PATH, then the newest install under Program Files, then the
+  newest one Windows lists under installed programs (any drive or folder, e.g. `D:/New Folder/blender.exe`, Steam).
+  A run takes ~2–5 s.
 - Every script prints its JSON result between `@@RESULT_BEGIN@@` and `@@RESULT_END@@`. Blender also logs to stdout,
   so extract the block: `... 2>&1 | sed -n '/@@RESULT_BEGIN@@/,/@@RESULT_END@@/p' | sed '1d;$d'`.
   Failures print `{"success": false, "error": ...}` and exit 1.
