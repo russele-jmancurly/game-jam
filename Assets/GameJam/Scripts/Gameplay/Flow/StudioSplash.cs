@@ -9,9 +9,11 @@ namespace GameJam.Gameplay
 {
     /// <summary>
     /// The studio splash that opens the game (Splash.unity, build index 0): the logo pops in on a dark backdrop,
-    /// holds while the background music plays (louder than in game: AudioConfig.SplashMusic), fades out with it, then the game scene takes over. The logo is
-    /// world-locked a few metres in front of where the player is looking once the headset reports a pose (head-locked
-    /// UI is uncomfortable in VR). The game scene loads in the background the whole time, so the switch is quick.
+    /// holds while the background music plays (louder than in game: AudioConfig.SplashMusic), fades out with it, then
+    /// the game scene takes over (8 s in all). The logo is placed once, 5 m in front of where the player is looking,
+    /// and then stays there (it does not follow the head). It is only placed once the headset reports a real pose:
+    /// placed earlier it landed wherever the untracked camera faced, out of the player's sight.
+    /// The game scene loads in the background the whole time, so the switch is quick.
     /// </summary>
     public sealed class StudioSplash : MonoBehaviour
     {
@@ -27,16 +29,19 @@ namespace GameJam.Gameplay
         [Header("Timing (seconds)")]
         [SerializeField] private float _startDelay = 0.6f;
         [SerializeField] private float _fadeIn = 0.9f;
-        [SerializeField] private float _hold = 3f;
+        [SerializeField] private float _hold = 5.4f;
         [SerializeField] private float _fadeOut = 1.1f;
 
         [Header("Placement")]
-        [SerializeField] private float _distance = 3f;
+        [SerializeField] private float _distance = 5f;
+        [Tooltip("Longest wait (seconds) for the headset to report its pose before placing the logo anyway.")]
+        [SerializeField] private float _maxPoseWait = 3f;
         [SerializeField] private float _popStartScale = 0.82f;
 
         private MaterialPropertyBlock _block;
         private Vector3 _logoScale;
         private float _musicVolume;
+        private bool _hasHeadPose;
 
         public void Configure(Transform head, Transform logo, Renderer logoRenderer, AudioSource music, AudioConfig audio, string nextScene)
         {
@@ -57,6 +62,7 @@ namespace GameJam.Gameplay
             {
                 _music.volume = _musicVolume;
             }
+
             SetAlpha(0f);
         }
 
@@ -85,8 +91,14 @@ namespace GameJam.Gameplay
                 load.allowSceneActivation = false;
             }
 
-            // Give the headset a moment to report its pose before placing the logo in front of the player.
+            // Wait for the headset to report its pose, so the logo goes where the player is really looking.
             yield return new WaitForSeconds(_startDelay);
+            for (float waited = 0f; !_hasHeadPose && XRSettings.isDeviceActive && waited < _maxPoseWait; waited += Time.unscaledDeltaTime)
+            {
+                yield return null;
+            }
+
+            yield return null; // one more frame so the camera has rendered with that pose
             PlaceInFront();
             if (_music != null)
             {
@@ -152,20 +164,32 @@ namespace GameJam.Gameplay
                 || hmd.TryGetFeatureValue(CommonUsages.deviceRotation, out rotation))
             {
                 _head.localRotation = rotation;
+                _hasHeadPose = true;
             }
         }
 
         private void PlaceInFront()
         {
+            _logo.SetPositionAndRotation(TargetPosition(out Quaternion rotation), rotation);
+        }
+
+        /// <summary>Straight ahead of the player at eye height, facing them (level, so it never tilts with the head).</summary>
+        private Vector3 TargetPosition(out Quaternion rotation)
+        {
             Vector3 forward = Vector3.ProjectOnPlane(_head.forward, Vector3.up);
             if (forward.sqrMagnitude < 0.01f)
+            {
+                forward = Vector3.ProjectOnPlane(_head.up, Vector3.up); // looking straight up or down
+            }
+
+            if (forward.sqrMagnitude < 0.0001f)
             {
                 forward = Vector3.forward;
             }
 
             forward.Normalize();
-            _logo.position = _head.position + forward * _distance;
-            _logo.rotation = Quaternion.LookRotation(forward, Vector3.up);
+            rotation = Quaternion.LookRotation(forward, Vector3.up);
+            return _head.position + forward * _distance;
         }
 
         private void SetAlpha(float alpha)

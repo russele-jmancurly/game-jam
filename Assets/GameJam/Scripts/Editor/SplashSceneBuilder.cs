@@ -18,7 +18,7 @@ namespace GameJam.Editor
     {
         public const string ScenePath = PlaceholderAssets.SceneFolder + "/Splash.unity";
         public const string LogoPath = PlaceholderAssets.Root + "/Art/UI/CurlyBlueLogo.png";
-        private const float LogoWidth = 2.4f; // metres, at 3 m away: comfortably inside the view
+        private const float LogoWidth = 4f; // metres, at 5 m away (about 44 degrees): comfortably inside the view
         private static readonly Color Backdrop = new Color(0.035f, 0.05f, 0.13f);
 
         [MenuItem("Game Jam/Build Splash Scene")]
@@ -70,7 +70,7 @@ namespace GameJam.Editor
             var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             quad.name = "Logo";
             Object.DestroyImmediate(quad.GetComponent<Collider>());
-            quad.transform.position = new Vector3(0f, 1.6f, 3f);
+            quad.transform.position = new Vector3(0f, 1.6f, 5f);
             quad.transform.localScale = new Vector3(LogoWidth, LogoWidth * logo.height / logo.width, 1f);
             var renderer = quad.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = PlaceholderAssets.TransparentUnlit("SplashLogo", logo);
