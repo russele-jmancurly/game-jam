@@ -2,6 +2,7 @@
 // not inside solid geometry. Part 2 (SECONDS s, so swings and spinners cover their range): every collider in the Course
 // (lawn excluded; balloon-popping triggers included) vs every hoop ring (< 1.2 m from the centre can clip it) and every
 // checkpoint's waiting balloon (< 0.35 m touches it). Run again after it finishes for the part-2 report.
+const float SECONDS = 12f; // part 2 sampling time (real seconds)
 var domain = System.AppDomain.CurrentDomain;
 if (domain.GetData("mapCheck") is System.Collections.Generic.Dictionary<string, (float, string)> res && domain.GetData("mapCheckDone") is bool fin && fin)
 {

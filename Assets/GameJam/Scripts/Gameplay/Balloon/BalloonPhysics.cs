@@ -104,9 +104,9 @@ namespace GameJam.Gameplay
                     result.HoopReached = hoop.Index;
                 }
 
-                if (other.GetComponentInParent<FinishLine>() != null)
+                if (other.GetComponentInParent<FinishLine>() is { } finish && finish.Accepts(position, velocity))
                 {
-                    result.FinishReached = true;
+                    result.FinishReached = true; // only dropping down through the basket's ring
                 }
 
                 if (input.AreSpikesArmed && other.GetComponentInParent<ISpikeSurface>() != null)

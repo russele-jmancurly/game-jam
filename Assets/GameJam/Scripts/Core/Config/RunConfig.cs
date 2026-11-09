@@ -4,7 +4,7 @@ namespace GameJam.Core
 {
     /// <summary>
     /// Tuning for the timed run and its score (GDD: Core loop and time limit). Open yard: clear every hoop in any order,
-    /// then land the balloon on the finish pad.
+    /// then drop the balloon down through the finish basket.
     /// </summary>
     [CreateAssetMenu(menuName = "Game Jam/Config/Run Config", fileName = "RunConfig")]
     public sealed class RunConfig : ScriptableObject

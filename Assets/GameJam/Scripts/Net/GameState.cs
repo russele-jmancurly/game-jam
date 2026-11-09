@@ -8,7 +8,7 @@ namespace GameJam.Net
 {
     /// <summary>
     /// The run in the open backyard: lobby, countdown, then 3:00 to guide the balloon through every hoop (any order) and
-    /// onto the finish pad, then a medal. A pop sends the balloon back beside the last hoop cleared; the crew stays put.
+    /// down through the finish basket, then a medal. A pop sends the balloon back beside the last hoop cleared; the crew stays put.
     /// Owned by the Shared Mode master client (Master Client Object flag), so it moves to a new master if the owner leaves.
     /// Anyone can report events; only the owner decides.
     /// </summary>
@@ -317,7 +317,7 @@ namespace GameJam.Net
             HoopMask |= 1 << hoopIndex;
             LastHoop = hoopIndex;
             Headline = AllHoopsCleared
-                ? "All hoops! Get it to the finish pad!"
+                ? "All hoops! Drop it in the finish basket!"
                 : $"Hoop {HoopsCleared}/{_hoopCount}! Keep it up!";
         }
 

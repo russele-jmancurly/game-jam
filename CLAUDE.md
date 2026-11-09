@@ -106,8 +106,11 @@ Assets/GameJam/
   harder: lawn warm-up (2.4 m), 1 m in front of the washing line (2.4, sheets swing into it), over the pool off the
   diving board (4.0), above the merry-go-round with a trampoline beside it (3.1; a ride: `MovingObstacle.CarriesPlayers` turns riders with it
   via `Player.Ride`, never knocks them off, and lets go as soon as they hop; its handle bars have no colliders), over the grill (3.25, flames on a beat,
-  a fan blowing across; launch from ~4 m back), above the low tree branch via the mushroom pad (6.15), then the finish pad
-  under a swinging pinata. Rule from the playtest: nothing stays that doesn't shape the way to a hoop (the swing set,
+  a fan blowing across; launch from ~4 m back), above the low tree branch via the mushroom pad (6.15), then the finish basket
+  past a swinging pinata: a horizontal ring 2.9 m over the finish pad (out of reach even with a jump) with a solid rim,
+  backboard and net; the balloon only finishes by dropping down through it (`FinishLine.Accepts`: moving down, centre inside
+  the opening and within 0.25 m under the rim plane), so it can't be steered in from the side any more (playtest).
+  `finish_check.cs` tests side, skim and drop entries. Rule from the playtest: nothing stays that doesn't shape the way to a hoop (the swing set,
   seesaw, slide, sandbox, picnic table, bug zapper, second washing line and yard-wide movers were cut). Stations are
   `BackyardCourseBuilder` centre constants; `TrailHoops` and `TrailCheckpoints` are offsets from them (checkpoint k = open
   lawn on the working side of the approach to the next hoop, so nobody respawns in the pool or on the grill). Yard 52 x 100 m

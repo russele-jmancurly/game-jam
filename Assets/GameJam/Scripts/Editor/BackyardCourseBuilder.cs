@@ -780,6 +780,13 @@ namespace GameJam.Editor
         private const float HoopRingRadius = 1f;            // 2 m across: ~2.5x a player, 4 balloons wide
         private const float HoopTriggerRadius = HoopRingRadius - 0.25f;
         private const float PinataAlong = 0.6f;             // how far along the last gap the finish pinata swings
+        // Finish basket: a horizontal ring over the pad, scored only by dropping the balloon down through it. 2.9 m above
+        // the pad is out of reach even with a jump (~2.25 m above what you stand on), so it takes a lofted slap that floats
+        // down into it; the opening is 1.7 m across (3.4 balloons), a little smaller than a hoop.
+        private const float BasketHeight = 2.9f;
+        private const float BasketRadius = 0.85f;
+        private const float BasketRimTube = 0.1f;
+        private const float BasketOpening = BasketRadius - BasketRimTube / 2f - 0.18f; // balloon centre limit: it clears the rim
 
         /// <summary>
         /// The six hoops in trail order, each at its station (hoop 1 is the warm-up on open lawn after the start). Heights:
@@ -828,7 +835,7 @@ namespace GameJam.Editor
                 SpawnPoint(i + 1, checkpoint, YawToward(checkpoint, next), new Vector3(0f, 1.4f, 1.0f));
             }
 
-            BuildFinishPad(TrailFinish);
+            BuildFinishPad(TrailFinish, TrailHoops[TrailHoops.Length - 1]);
             FinishPinata(TrailHoops[TrailHoops.Length - 1], TrailFinish);
         }
 
@@ -868,17 +875,67 @@ namespace GameJam.Editor
             return Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
         }
 
-        /// <summary>A low deck at the end of the trail: land the balloon on it once every hoop is cleared.</summary>
-        private static void BuildFinishPad(Vector3 top)
+        /// <summary>
+        /// A low deck at the end of the trail with the finish basket over it: a horizontal ring with a solid rim, a backboard
+        /// on the far side (bank shots welcome) and a hanging net. Once every hoop is cleared, the balloon has to drop down
+        /// through the ring (FinishLine.Accepts); flying in from the side doesn't count. The rim is red while locked.
+        /// </summary>
+        private static void BuildFinishPad(Vector3 top, Vector3 approachFrom)
         {
             Box("FinishPad", top + new Vector3(0f, -0.2f, 0f), new Vector3(8f, 0.4f, 6f), _palette.Deck);
             Box("FinishMat", top + new Vector3(0f, 0.02f, 0f), new Vector3(7f, 0.04f, 5f), _palette.Checker, false);
-            GameObject beacon = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "FinishBeacon", _course, top + new Vector3(0f, 0.38f, 0f), new Vector3(1.4f, 0.35f, 1.4f),
-                PlaceholderAssets.Emissive("FinishBeacon", ArtPalette.Hazard, 1.3f), false);
-            // Locked (red beacon) until every hoop is cleared.
-            GameObject finish = PlaceholderShapes.TriggerBox("FinishLine", _course, top + new Vector3(0f, 1.6f, 0f), new Vector3(7f, 3f, 5f));
-            finish.AddComponent<FinishLine>().Configure(beacon.GetComponent<Renderer>());
-            PlaceholderShapes.Text("FinishSign", _course, top + new Vector3(0f, 4.2f, 3.2f), 0.08f, "FINISH", ArtPalette.Accent);
+
+            Vector3 along = Flat(top - approachFrom).normalized; // the way players face as they arrive
+            Quaternion facing = Quaternion.LookRotation(along, Vector3.up);
+            Vector3 ring = top + Vector3.up * BasketHeight;
+            var indicators = new List<Renderer>(); // the rim shows locked/unlocked (no beacon on the pad: it read as the target)
+
+            // Rim: a closed ring of short boxes with colliders, so a balloon coming in from the side bounces off it.
+            Material rimMaterial = PlaceholderAssets.Emissive("FinishBeacon", ArtPalette.Hazard, 1.3f);
+            const int rimPieces = 24;
+            float pieceLength = 2f * Mathf.PI * BasketRadius / rimPieces * 1.08f;
+            for (int k = 0; k < rimPieces; k++)
+            {
+                float angle = k * 360f / rimPieces;
+                Quaternion around = Quaternion.Euler(0f, angle, 0f);
+                GameObject piece = Box($"FinishRim{k}", ring + around * Vector3.forward * BasketRadius,
+                    new Vector3(pieceLength, BasketRimTube, BasketRimTube), rimMaterial);
+                piece.transform.rotation = around;
+                indicators.Add(piece.GetComponent<Renderer>());
+            }
+
+            // Net: strands hanging from the rim, gathering toward the bottom (visual only).
+            Material netMaterial = PlaceholderAssets.Material("FinishNet", ArtPalette.Picket);
+            const int strands = 12;
+            const float netDepth = 0.75f, netBottomRadius = 0.5f;
+            for (int k = 0; k < strands; k++)
+            {
+                Quaternion around = Quaternion.Euler(0f, k * 360f / strands, 0f);
+                Vector3 upper = ring + around * Vector3.forward * (BasketRadius - 0.03f);
+                Vector3 lower = ring + around * Vector3.forward * netBottomRadius + Vector3.down * netDepth;
+                GameObject strand = Box($"FinishNet{k}", (upper + lower) / 2f, new Vector3(0.025f, (upper - lower).magnitude, 0.025f), netMaterial, false);
+                strand.transform.rotation = Quaternion.FromToRotation(Vector3.up, upper - lower);
+            }
+
+            // Backboard behind the ring on the far side, a bracket to the rim, and a post down to the pad.
+            const float boardGap = 0.25f, boardWidth = 2.2f, boardHeight = 1.4f;
+            Vector3 boardCenter = ring + along * (BasketRadius + boardGap) + Vector3.up * (boardHeight / 2f - 0.2f);
+            Box("FinishBackboard", boardCenter, new Vector3(boardWidth, boardHeight, 0.08f), _palette.Checker).transform.rotation = facing;
+            Box("FinishBracket", ring + along * (BasketRadius + boardGap / 2f), new Vector3(0.1f, 0.1f, boardGap + 0.1f), _palette.Wood).transform.rotation = facing;
+            Vector3 postBase = top + along * (BasketRadius + boardGap + 0.2f);
+            float postHeight = BasketHeight + boardHeight - 0.2f;
+            Box("FinishPost", postBase + Vector3.up * (postHeight / 2f), new Vector3(0.2f, postHeight, 0.2f), _palette.Wood);
+
+            // Scoring trigger centred on the ring; FinishLine decides whether the balloon is dropping through it.
+            GameObject finish = PlaceholderShapes.TriggerBox("FinishLine", _course, Vector3.zero,
+                new Vector3(BasketOpening * 2f, 0.4f, BasketOpening * 2f));
+            finish.transform.position = ring; // on the rim plane: FinishLine measures heights from it
+            finish.AddComponent<FinishLine>().Configure(indicators.ToArray(), BasketOpening);
+
+            TextMesh sign = PlaceholderShapes.Text("FinishSign", _course, Vector3.zero, 0.08f, "FINISH", ArtPalette.Accent);
+            sign.transform.SetPositionAndRotation(boardCenter + Vector3.up * (boardHeight / 2f + 0.45f) - along * 0.05f, facing);
+            TextMesh hint = PlaceholderShapes.Text("FinishHint", _course, Vector3.zero, 0.035f, "drop it in from above!", ArtPalette.Picket);
+            hint.transform.SetPositionAndRotation(boardCenter + Vector3.up * (boardHeight / 2f + 0.12f) - along * 0.05f, facing);
         }
 
         private static void Hoop(int index, Vector3 center, float yaw)
