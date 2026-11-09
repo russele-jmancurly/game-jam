@@ -17,6 +17,9 @@ Locomotion regression tests (Play mode, PC mode, no headset; each logs PASS/FAIL
   (no HDR, no tonemapping) with the PC look; measure the PNGs' brightness to pick `PlayerRigConfig.HeadsetLightScale`.
 - `turn_indicator_check.cs` (`[TurnTest]`): the "not your turn" icon shows after your hit and hides after another player's
   (turns the solo pass-rule exemption off for the test and restores it).
+- `save_rally_check.cs` (`[SaveRally]`): starts a run; a hit on a falling balloon just above the stage is a SAVE, a high
+  one isn't; ten alternating stand-in hitters reach the rally milestones; a bounce off the stage breaks the rally (sad
+  trombone). Writes `Screenshots/save_popup.png` and `Screenshots/rally.png` from the player's head.
 - `predicted_hit_check.cs` (`[PredictTest]`): fakes network latency offline (env `PREDICT_LATENCY`) and checks the
   slapper's predicted hit: visuals move on the first frame, no jump at the hand-over, end on the real balloon.
   Note: `LOCOTEST_ONLY=slap` in the gorilla suite always fails (PC input stays off without the WASD scenario).

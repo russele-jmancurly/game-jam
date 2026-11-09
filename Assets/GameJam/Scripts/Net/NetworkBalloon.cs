@@ -24,7 +24,6 @@ namespace GameJam.Net
         [SerializeField] private BalloonConfig _config;
         [SerializeField] private SlapConfig _slapConfig;
         [SerializeField] private Renderer _visual;
-        [SerializeField] private TextMesh _rallyText;
         [SerializeField] private Material _effectMaterial;
         [Tooltip("Plays the hit sound at the balloon (3D).")]
         [SerializeField] private AudioSource _hitAudio;
@@ -43,6 +42,9 @@ namespace GameJam.Net
         private float _lastHitTime = -10f;
         private float _lastHitStrength;
         private Vector3 _lastHitDirection = Vector3.up;
+        private BalloonCallouts _callouts;
+        private BalloonGroundShadow _ground;
+        private int _seenPopCount;
 
         public static NetworkBalloon Instance { get; private set; }
 
@@ -97,7 +99,7 @@ namespace GameJam.Net
 
         public void ConfigurePopSound(AudioClip popClip) => _popClip = popClip;
 
-        public void Configure(BalloonConfig config, SlapConfig slapConfig, Renderer visual, TextMesh rallyText, Material effectMaterial,
+        public void Configure(BalloonConfig config, SlapConfig slapConfig, Renderer visual, Material effectMaterial,
             AudioSource hitAudio, AudioClip[] hitClips)
         {
             _hitAudio = hitAudio;
@@ -105,7 +107,6 @@ namespace GameJam.Net
             _config = config;
             _slapConfig = slapConfig;
             _visual = visual;
-            _rallyText = rallyText;
             _effectMaterial = effectMaterial;
         }
 
@@ -176,9 +177,10 @@ namespace GameJam.Net
             _predictedPosition = _view.position;
             _predictedVelocity = shaped;
             _predictedAt = Time.time;
+            bool save = !IsStationed && IsSave(_view.position, (_isPredicting ? _predictedVelocity : Velocity).y);
             _predictedHitCount = HitCount + 1;
             _isPredicting = true;
-            PlayHitEffects(shaped.normalized, Mathf.Clamp01(Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed).magnitude / _config.MaxHitSpeed));
+            PlayHitEffects(shaped.normalized, Mathf.Clamp01(Vector3.ClampMagnitude(velocity, _config.MaxHitSpeed).magnitude / _config.MaxHitSpeed), save);
         }
 
         /// <summary>Moves the visuals: along the prediction, then blending onto the networked balloon. Every frame.</summary>
@@ -277,6 +279,9 @@ namespace GameJam.Net
                 _stringRest = _string.localPosition;
             }
 
+            _callouts = GetComponent<BalloonCallouts>();
+            _ground = GetComponent<BalloonGroundShadow>();
+            _seenPopCount = PopCount;
             _renderers = GetComponentsInChildren<Renderer>(true);
             _colliders = GetComponentsInChildren<Collider>(true);
             _appliedShown = -1;
@@ -422,20 +427,28 @@ namespace GameJam.Net
                 _string.localRotation = local;
             }
 
-            if (_rallyText != null)
+            if (_callouts != null)
             {
-                string text = Rally > 1 ? Rally.ToString() : string.Empty;
-                if (_rallyText.text != text)
-                {
-                    _rallyText.text = text;
-                }
-
-                Camera view = Camera.main;
-                if (view != null)
-                {
-                    _rallyText.transform.rotation = Quaternion.LookRotation(_rallyText.transform.position - view.transform.position);
-                }
+                // A rally that drops to 0 because of a pop, a reset or the lobby is not a "broken rally" moment.
+                bool announce = IsShown && IsLive && !IsStationed && PopCount == _seenPopCount;
+                _callouts.ShowRally(Rally, announce);
             }
+
+            _seenPopCount = PopCount;
+        }
+
+        /// <summary>
+        /// A save: the balloon was falling and nearly on the ground (BalloonConfig.SaveHeight above the surface below it,
+        /// from the ground shadow's probe; the pool counts at its water line).
+        /// </summary>
+        private bool IsSave(Vector3 position, float verticalVelocity)
+        {
+            if (_ground == null || float.IsNegativeInfinity(_ground.GroundY))
+            {
+                return false;
+            }
+
+            return position.y - _ground.GroundY < _config.SaveHeight && -verticalVelocity >= _config.SaveMinFallSpeed;
         }
 
         /// <summary>Not tick-aligned: the owner applies a hit the moment it arrives instead of waiting for its tick.</summary>
@@ -447,6 +460,7 @@ namespace GameJam.Net
                 return;
             }
 
+            bool save = hitter != PlayerRef.None && !IsStationed && IsSave(_body.position, _body.linearVelocity.y);
             if (hitter != PlayerRef.None)
             {
                 if (!IsPassRuleSuspended && hitter == LastHitter)
@@ -470,26 +484,31 @@ namespace GameJam.Net
             _body.linearVelocity = ShapeHit(velocity);
             HitGrace = TickTimer.CreateFromSeconds(Runner, _config.HitGraceSeconds);
             HitCount++;
-            RpcHitEffects(hitter, _body.linearVelocity.normalized, Mathf.Clamp01(capped.magnitude / _config.MaxHitSpeed));
+            RpcHitEffects(hitter, _body.linearVelocity.normalized, Mathf.Clamp01(capped.magnitude / _config.MaxHitSpeed), save);
         }
 
         /// <summary>
-        /// Everyone hears the hit (louder and higher for a harder hit) and sees the balloon jiggle. The slapper already
-        /// played it when they predicted the hit, so they skip it here.
+        /// Everyone hears the hit (louder and higher for a harder hit) and sees the balloon jiggle, plus the SAVE! callout
+        /// when it was one. The slapper already played it (save included) when they predicted the hit, so they skip it here.
         /// </summary>
         [Rpc(RpcSources.StateAuthority, RpcTargets.All, TickAligned = false)]
-        private void RpcHitEffects(PlayerRef hitter, Vector3 direction, float strength)
+        private void RpcHitEffects(PlayerRef hitter, Vector3 direction, float strength, NetworkBool save)
         {
             if (hitter == Runner.LocalPlayer && !HasStateAuthority && Time.time - _predictedAt < 1f)
             {
                 return;
             }
 
-            PlayHitEffects(direction, strength);
+            PlayHitEffects(direction, strength, save);
         }
 
-        private void PlayHitEffects(Vector3 direction, float strength)
+        private void PlayHitEffects(Vector3 direction, float strength, bool save)
         {
+            if (save && _callouts != null)
+            {
+                _callouts.PlaySave(_view != null ? _view.position : transform.position);
+            }
+
             _lastHitTime = Time.time;
             _lastHitDirection = direction.sqrMagnitude > 0.001f ? direction : Vector3.up;
             _lastHitStrength = Mathf.Lerp(0.35f, 1f, strength);

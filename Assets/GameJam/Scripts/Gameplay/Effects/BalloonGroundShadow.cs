@@ -28,6 +28,12 @@ namespace GameJam.Gameplay
 
         private MaterialPropertyBlock _block;
 
+        /// <summary>
+        /// Height of the surface under the balloon (ground, deck or the pool's water line) from the last frame's probe;
+        /// negative infinity when nothing is below. NetworkBalloon reads it to spot a save.
+        /// </summary>
+        public float GroundY { get; private set; } = float.NegativeInfinity;
+
         public void Configure(Transform shadow, Renderer shadowRenderer)
         {
             _shadow = shadow;
@@ -72,9 +78,12 @@ namespace GameJam.Gameplay
             }
             else
             {
+                GroundY = float.NegativeInfinity;
                 _shadowRenderer.enabled = false;
                 return;
             }
+
+            GroundY = point.y;
 
             float height01 = Mathf.Clamp01((origin.y - point.y) / _fadeHeight);
             float size = Mathf.Lerp(_nearSize, _farSize, height01);

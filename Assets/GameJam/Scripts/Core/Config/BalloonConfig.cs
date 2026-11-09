@@ -65,6 +65,18 @@ namespace GameJam.Core
         // The player who hit last (their next touch would pop it) sees an on-screen "not your turn" icon (TurnIndicator);
         // the balloon itself keeps the hitter's colour for everyone.
 
+        [Header("Save and rally callouts (feedback only, no effect on flight)")]
+        [Tooltip("A player hit counts as a SAVE when the balloon is lower than this above the ground (metres, from its " +
+                 "centre)...")]
+        [Min(0f)] public float SaveHeight = 0.7f;
+        [Tooltip("...and falling at least this fast (m/s), so low dribbling taps don't each count (free fall tops out " +
+                 "near 0.82 m/s).")]
+        [Min(0f)] public float SaveMinFallSpeed = 0.45f;
+        [Tooltip("Every this many passes in a row is a rally milestone: crowd 'ooh', the number grows and changes colour.")]
+        [Min(2)] public int RallyMilestoneStep = 5;
+        [Tooltip("Losing a rally at least this long plays the sad trombone.")]
+        [Min(2)] public int RallyBreakMinimum = 5;
+
         [Header("Pop blast")]
         [Min(0f)] public float PopBlastRadius = 1.5f;
         [Min(0f)] public float PopBlastForce = 3f;

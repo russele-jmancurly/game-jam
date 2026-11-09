@@ -207,6 +207,16 @@ Assets/GameJam/
   your turn" icon (balloon + red no-sign, `T_NotYourTurn`) low in the middle of their view, drawn over the arms
   (`TurnIndicator` on the head camera, `PrototypeSceneBuilder.BuildTurnIndicator`); it fades out when someone else hits
   it (a giant's hit is nobody's and keeps it). `turn_indicator_check.cs` tests it.
+- Save and rally callouts (`BalloonCallouts` on the balloon, local only; tuning in `BalloonConfig` "Save and rally
+  callouts"): a player hit on a balloon falling (>= `SaveMinFallSpeed`) within `SaveHeight` of the surface below
+  (`BalloonGroundShadow.GroundY`, the pool counts at its water line) is a SAVE: "SAVE!" pops up over it with
+  `Balloon_Save` and confetti for everyone (a `save` flag on `RpcHitEffects`; the slapper's predicted hit runs the same
+  check, so they see it at once). The rally number grows and changes colour every `RallyMilestoneStep` passes (white,
+  yellow, orange, red and throbbing) with a crowd `Crowd_Ooh` pitched up per milestone, punches on each pass, and when a
+  rally of `RallyBreakMinimum`+ ends on a bounce it droops away grey with `Rally_Break` (sad trombone); a pop, reset or the
+  lobby resets it quietly (detected in `Render` by diffing `Rally`, no extra network state). Cues are 2D on the balloon.
+  Both texts get a runtime dark drop shadow. `save_rally_check.cs` tests it. Changing `RpcHitEffects` means every headset
+  in a playtest needs the new APK.
 - Headset lighting: the Quest has no HDR and no tonemapping, so bright colours clip to white; `LocalRig` scales sun and
   ambient by `PlayerRigConfig.HeadsetLightScale` (0.8; the old 1.35 boost washed the build out). `light_probe.cs` compares
   scales from the same view.

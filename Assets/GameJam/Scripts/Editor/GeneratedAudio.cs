@@ -252,6 +252,136 @@ namespace GameJam.Editor
         }
 
         /// <summary>
+        /// A save (the balloon rescued just above the ground): a quick sparkly run up (G5 B5 D6 G6) with a swish of air,
+        /// topped by a high C7 that rings on. Brighter and faster than the hoop chime, so the two never get confused.
+        /// </summary>
+        public static AudioClip SaveChime(string name) =>
+            Create(name, 1.2f, false, 31, PeakEffect, (t, soft, deep) =>
+            {
+                float run = Bell(784f, t, 7f) + Bell(988f, t - 0.05f, 7f) + Bell(1175f, t - 0.1f, 7f) + Bell(1568f, t - 0.15f, 3.5f);
+                float sparkle = 0.55f * Bell(2093f, t - 0.22f, 3f) * (1f + 0.3f * Sine(9f, t));
+                float swish = soft * Mathf.Exp(-Mathf.Pow((t - 0.09f) / 0.06f, 2f)) * 0.35f;
+                return run * 0.8f + sparkle + swish;
+            });
+
+        /// <summary>
+        /// A rally milestone: a small crowd going "ooooh!", about 1.7 s. Fourteen voices on an "oo" vowel (formants near
+        /// 330 Hz and 850 Hz) that slide up together as they are impressed, then sag, with a scatter of claps at the end.
+        /// The balloon raises its pitch a little for each higher milestone.
+        /// </summary>
+        public static AudioClip CrowdOoh(string name)
+        {
+            string path = $"{Folder}/{name}.wav";
+            if (IsCurrent(path, out AudioClip existing))
+            {
+                return existing;
+            }
+
+            const float seconds = 1.7f;
+            int count = Mathf.RoundToInt(seconds * SampleRate);
+            var samples = new float[count];
+            var random = new System.Random(32);
+            float Rand(float a, float b) => a + (float)random.NextDouble() * (b - a);
+
+            const int voices = 14;
+            const int harmonics = 10;
+            for (int v = 0; v < voices; v++)
+            {
+                bool high = v % 3 != 0;
+                float f0 = high ? Rand(220f, 360f) : Rand(110f, 190f);
+                float onset = Rand(0f, 0.12f);
+                float level = Rand(0.6f, 1f) / voices;
+                float wobbleRate = Rand(4.5f, 6.5f);
+                var amplitudes = new float[harmonics];
+                for (int n = 1; n <= harmonics; n++)
+                {
+                    float hz = n * f0;
+                    amplitudes[n - 1] = Mathf.Exp(-Mathf.Pow((hz - 330f) / 140f, 2f)) + 0.45f * Mathf.Exp(-Mathf.Pow((hz - 850f) / 220f, 2f))
+                                        + 0.1f / n;
+                }
+
+                double phase = Rand(0f, 6.28f);
+                int start = Mathf.RoundToInt(onset * SampleRate);
+                for (int i = start; i < count; i++)
+                {
+                    float t = (float)(i - start) / SampleRate;
+                    // "oooOOOooh": the pitch climbs about a fifth over the first 0.6 s, then sags back a little.
+                    float slide = 1f + 0.42f * Mathf.Clamp01(t / 0.6f) - 0.14f * Mathf.Clamp01((t - 0.75f) / 0.7f);
+                    float wobble = 1f + 0.02f * Mathf.Sin(2f * Mathf.PI * wobbleRate * t);
+                    phase += 2.0 * Math.PI * f0 * slide * wobble / SampleRate;
+                    float env = Mathf.Clamp01(t / 0.18f) * Mathf.Clamp01((seconds - onset - t) / 0.55f);
+                    float voice = 0f;
+                    for (int n = 1; n <= harmonics; n++)
+                    {
+                        voice += amplitudes[n - 1] * (float)Math.Sin(phase * n);
+                    }
+
+                    samples[i] += voice * env * level;
+                }
+            }
+
+            // A few claps as the "ooh" fades.
+            for (int c = 0; c < 30; c++)
+            {
+                int start = Mathf.RoundToInt(Rand(0.9f, seconds - 0.1f) * SampleRate);
+                float gain = Rand(0.2f, 0.45f);
+                float low = 0f;
+                for (int k = 0; k < SampleRate / 80 && start + k < count; k++)
+                {
+                    float white = Rand(-1f, 1f);
+                    low += (white - low) * 0.35f;
+                    samples[start + k] += (white - low) * Mathf.Exp(-k / (SampleRate * 0.004f)) * gain * 0.1f;
+                }
+            }
+
+            Normalize(samples, PeakEffect * 0.85f);
+            return Save(path, samples, 1, false);
+        }
+
+        /// <summary>
+        /// A long rally broken: the sad trombone, "wah wah wah waaah" (Bb3 A3 Ab3, then a long G3 with a wobbling plunger
+        /// mute). Brass is a stack of harmonics whose brightness opens and closes on every note (the "wah").
+        /// </summary>
+        public static AudioClip SadTrombone(string name) =>
+            Create(name, 2.6f, false, 33, PeakEffect, (t, soft, deep) =>
+            {
+                const float shortNote = 0.4f;
+                int index = Mathf.Min((int)(t / shortNote), 3);
+                float local = t - index * shortNote;
+                bool last = index == 3;
+                float length = last ? 2.6f - 3f * shortNote : shortNote;
+                if (local >= length)
+                {
+                    return 0f;
+                }
+
+                float note = index switch { 0 => 233.1f, 1 => 220f, 2 => 207.7f, _ => 196f };
+                float hz = note * (1f - 0.012f * local / length); // each note droops a touch
+                float phase;
+                float brightness;
+                if (last)
+                {
+                    const float rate = 5.5f, depth = 0.018f;
+                    phase = 2f * Mathf.PI * hz * local + hz * depth / rate * (1f - Mathf.Cos(2f * Mathf.PI * rate * local));
+                    brightness = 0.35f + 0.35f * (0.5f + 0.5f * Mathf.Sin(2f * Mathf.PI * 2.6f * local)) * Mathf.Exp(-local * 0.6f);
+                }
+                else
+                {
+                    phase = 2f * Mathf.PI * hz * local;
+                    brightness = 0.2f + 0.6f * Mathf.Sin(Mathf.PI * Mathf.Clamp01(local / length));
+                }
+
+                float s = 0f;
+                for (int n = 1; n <= 9; n++)
+                {
+                    s += Mathf.Exp(-n / (0.8f + 4f * brightness)) * Mathf.Sin(phase * n);
+                }
+
+                float env = Mathf.Clamp01(local / 0.035f) * Mathf.Clamp01((length - local) / (last ? 0.6f : 0.06f));
+                return s * env + soft * 0.03f * env; // a breath of air in the bell
+            });
+
+        /// <summary>
         /// Time up: a referee's pea whistle, tweet, tweet, tweeeet. A shrill ~2.9 kHz tone frequency-modulated by the
         /// rattling pea (~34 Hz, written in closed form so the pitch never drifts), a little amplitude flutter, a touch of
         /// breath noise, soft edges on every blast.

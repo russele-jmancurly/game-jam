@@ -197,6 +197,9 @@ namespace GameJam.Editor
             GameObject visual = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Visual", view, Vector3.zero, Vector3.one * diameter, rubber, false);
             PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "String", view, new Vector3(0f, -0.45f, 0f), new Vector3(0.01f, 0.2f, 0.01f), PlaceholderAssets.Material("String", Color.white), false);
             TextMesh rallyText = PlaceholderShapes.Text("RallyText", view, new Vector3(0f, 0.5f, 0f), 0.04f, string.Empty, Color.white);
+            TextMesh saveText = PlaceholderShapes.Text("SaveText", view, new Vector3(0f, 0.6f, 0f), 0.06f, string.Empty, ArtPalette.Accent);
+            saveText.fontStyle = FontStyle.Bold;
+            rallyText.fontStyle = FontStyle.Bold;
 
             var hitAudio = root.AddComponent<AudioSource>();
             hitAudio.playOnAwake = false;
@@ -214,7 +217,11 @@ namespace GameJam.Editor
             hitAudio.dopplerLevel = 0f;
             AddSoundLevel(hitAudio, SoundCategory.Effects, 1f); // slaps and pop play through it (PlayOneShot)
 
-            balloon.Configure(configs.Balloon, configs.Slap, visual.GetComponent<Renderer>(), rallyText, rubber, hitAudio, slaps);
+            balloon.Configure(configs.Balloon, configs.Slap, visual.GetComponent<Renderer>(), rubber, hitAudio, slaps);
+            // Save pop-up and rally drama (BalloonCallouts): 2D cues, so the whole crew hears them wherever they stand.
+            AudioSource cueAudio = Sound(root, GeneratedAudio.SaveChime("Balloon_Save"), false, 0f, 0.8f);
+            root.AddComponent<BalloonCallouts>().Configure(configs.Balloon, view, rallyText, saveText, cueAudio,
+                GeneratedAudio.SaveChime("Balloon_Save"), GeneratedAudio.CrowdOoh("Crowd_Ooh"), GeneratedAudio.SadTrombone("Rally_Break"));
             balloon.ConfigurePopSound(GeneratedAudio.BalloonPop("Balloon_Pop"));
             AddBalloonOutline(visual);
             AddBalloonLocator(root, balloon, view, configs.Balloon.Radius);
