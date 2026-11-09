@@ -23,6 +23,9 @@ namespace GameJam.Player
         private const float RideLetGoVerticalSpeed = 1f;   // faster than this up or down = hopping, the ride lets go
         private const float WalkSkin = 0.02f;              // stick walking stops this far short of a wall
         private const int WalkSlideIterations = 2;
+        private const float GroundProbe = 0.1f;            // the body's bottom within this of a walkable surface = grounded
+        private const float GroundMinUp = 0.5f;            // walkable = surface normal at most ~60 degrees from straight up
+        private const float GroundGraceSeconds = 0.12f;    // stick walking survives this long off the ground (small bumps)
 
         // Where an untracked controller's hand waits, relative to the head (x is mirrored for the left hand).
         private static readonly Vector3 ParkedHandOffset = new Vector3(0.15f, -0.3f, 0.25f);
@@ -577,9 +580,16 @@ namespace GameJam.Player
         /// </summary>
         public void StickWalk(Vector2 stick)
         {
+            if (CheckGrounded())
+            {
+                _lastGroundedTime = Time.time;
+            }
+
             float deflection = Mathf.Min(1f, stick.magnitude);
             float deadZone = _config.StickDeadZone;
-            if (!_config.StickMovement || IsKnockedDown || deflection <= deadZone)
+            // Only on the ground: in the air (a jump, a launch off a pad, a fall) the stick does nothing, so nobody steers
+            // mid-air. A short grace keeps the walk smooth over small bumps.
+            if (!_config.StickMovement || IsKnockedDown || deflection <= deadZone || !IsGrounded)
             {
                 return;
             }
@@ -599,6 +609,30 @@ namespace GameJam.Player
             {
                 _locomotion.Carry(step);
             }
+        }
+
+        /// <summary>
+        /// True while the body stands on a walkable surface (or left one under GroundGraceSeconds ago). Updated by StickWalk.
+        /// </summary>
+        public bool IsGrounded => Time.time - _lastGroundedTime <= GroundGraceSeconds;
+
+        private float _lastGroundedTime = -1f;
+
+        /// <summary>The body capsule's bottom is resting on (or just above) a walkable surface: a short sphere cast down.</summary>
+        private bool CheckGrounded()
+        {
+            CapsuleCollider body = _locomotion.bodyCollider;
+            if (body == null)
+            {
+                return true; // no body to test with: never block walking
+            }
+
+            float radius = body.radius * 0.9f;
+            Vector3 bottomSphere = body.transform.position + Vector3.up * (body.radius - body.height * 0.5f);
+            Vector3 origin = bottomSphere + Vector3.up * 0.05f;
+            float distance = 0.05f + (body.radius - radius) + GroundProbe;
+            return Physics.SphereCast(origin, radius, Vector3.down, out RaycastHit hit, distance, _climbableLayers, QueryTriggerInteraction.Ignore)
+                   && hit.normal.y >= GroundMinUp;
         }
 
         /// <summary>How far a walk step can go before the head or body meets a wall; slides along it with the rest.</summary>

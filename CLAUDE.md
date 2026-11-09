@@ -130,7 +130,8 @@ Assets/GameJam/
   controllers" on the wrist; when both return it re-seats the hands and lifts the player out of the ground if they sank
   (untracked hands used to stay planted on the floor and drag the body into it). The left thumbstick walks you the way you
   look (`LocalRig.StickWalk`, `PlayerRigConfig` Stick Movement: speed, dead zone, step height; sweeps head and body so walls
-  stop you, moves planted hands along through `Player.Carry`). Hands caught inside geometry are pushed back out
+  stop you, moves planted hands along through `Player.Carry`), only while grounded (`LocalRig.IsGrounded`: a short sphere cast
+  under the body capsule hits a walkable surface, 0.12 s grace for bumps; no steering mid-air; `stick_grounded_check.cs`). Hands caught inside geometry are pushed back out
   (`Player.UnembedHand`); run `hand_stuck_test.cs`, `stick_walk_test.cs` and `gorilla_test_suite.cs` after locomotion
   changes. `locomotion_record.cs`/`_report.cs`
   record a headset session to diagnose movement. Slippery/bouncy set pieces: a `Surface`
@@ -271,6 +272,12 @@ Assets/GameJam/
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with
   `PlayerRigConfig.ForceDesktopMode`. Solo, the pass rule is suspended (`BalloonConfig.AllowSoloDoubleHits`).
   All players join one Photon region (`NetworkBootstrap._fixedRegion`, default `asia`), or they can miss each other.
+  Each build gets its own room: the session name ends in the build's ID (`BalloonDrop-Dev-<buildGUID>`; the Editor and its
+  MPPM clones share `-editor`), because a client whose prefabs or networked fields differ from the master's never receives
+  its objects and sits on "Connecting..." (that happened on the Quest). Every headset in a playtest needs the same APK;
+  untick `NetworkBootstrap._separateBuilds` to put the Editor and a headset in one room on purpose.
+  Quest debugging: `adb` is in the Editor's Android SDK (`.../PlaybackEngines/AndroidPlayer/SDK/platform-tools`); run
+  `adb logcat -G 16M` first, since the XR runtime floods the default 256 KB buffer and pushes out the `[Net]` lines.
   Two players in the Editor: Multiplayer Play Mode (Window > Multiplayer > Multiplayer Play Mode), which
   needs the Fusion App ID.
 

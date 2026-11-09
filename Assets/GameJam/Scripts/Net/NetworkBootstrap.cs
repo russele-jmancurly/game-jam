@@ -21,6 +21,11 @@ namespace GameJam.Net
         [Header("Session")]
         [Tooltip("Everyone using the same session name ends up together. Change it to keep playtests apart.")]
         [SerializeField] private string _sessionName = "BalloonDrop-Dev";
+        [Tooltip("Keep each build in its own room (the session name gets the build's ID; the Editor and its Multiplayer Play " +
+                 "Mode clones share an 'editor' room). Two different builds in one room break each other: the master's network " +
+                 "objects never arrive on a client whose prefabs or networked fields differ, and it sits on 'Connecting...'. " +
+                 "Turn off to put the Editor and a headset in one room on purpose (only when both have the same code and prefabs).")]
+        [SerializeField] private bool _separateBuilds = true;
         [SerializeField, Range(1, 4)] private int _maxPlayers = 4;
         [Tooltip("Photon region every player connects to (e.g. asia, jp, us, eu). A room only exists in one region: with " +
                  "best-region picking, two players near the border of two regions (or two Editors on one PC) can each pick " +
@@ -126,13 +131,14 @@ namespace GameJam.Net
                 }
             }
 
-            Debug.Log($"[Net] Starting {mode} session '{_sessionName}'...");
+            string sessionName = SessionNameForThisBuild();
+            Debug.Log($"[Net] Starting {mode} session '{sessionName}'...");
             try
             {
                 StartGameResult result = await runner.StartGame(new StartGameArgs
                 {
                     GameMode = mode,
-                    SessionName = _sessionName,
+                    SessionName = sessionName,
                     PlayerCount = _maxPlayers,
                     SceneManager = sceneManager,
                     ObjectProvider = objectProvider,
@@ -141,7 +147,7 @@ namespace GameJam.Net
 
                 if (result.Ok)
                 {
-                    Debug.Log($"[Net] Connected to '{_sessionName}'.");
+                    Debug.Log($"[Net] Connected to '{sessionName}'.");
                 }
                 else
                 {
@@ -177,6 +183,18 @@ namespace GameJam.Net
             Fusion.Photon.Realtime.FusionAppSettings settings = global.AppSettings.GetCopy();
             settings.FixedRegion = _fixedRegion.Trim();
             return settings;
+        }
+
+        /// <summary>The session name, tagged with this build's ID when builds are kept apart (see <c>_separateBuilds</c>).</summary>
+        private string SessionNameForThisBuild()
+        {
+            if (!_separateBuilds)
+            {
+                return _sessionName;
+            }
+
+            string build = Application.isEditor || string.IsNullOrEmpty(Application.buildGUID) ? "editor" : Application.buildGUID;
+            return $"{_sessionName}-{build.Substring(0, Mathf.Min(8, build.Length))}";
         }
 
         private static bool HasFusionAppId()
