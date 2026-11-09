@@ -392,6 +392,7 @@ namespace GameJam.Editor
             scenes.RemoveAll(entry => entry.path == path);
             scenes.Insert(0, new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = scenes.ToArray();
+            SplashSceneBuilder.KeepFirstInBuildSettings(); // the game opens on the splash, then this scene
         }
     }
 }

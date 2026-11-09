@@ -13,6 +13,8 @@ namespace GameJam.Core
         [Range(0f, 1f)] public float Master = 1f;
         [Tooltip("Background music: under the game, never over it.")]
         [Range(0f, 1f)] public float Music = 0.15f;
+        [Tooltip("The background music on the splash screen, where nothing else plays.")]
+        [Range(0f, 1f)] public float SplashMusic = 0.5f;
         [Tooltip("World loops: the fan's wind, the bubble wand, the leaf blower.")]
         [Range(0f, 1f)] public float Ambience = 0.5f;
         [Tooltip("One-shots: balloon slaps and pop, hoop chime, trampoline, win fanfare.")]

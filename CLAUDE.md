@@ -77,6 +77,11 @@ Assets/GameJam/
 - Rebuild the placeholder prototype with
   `unity command script eval ... -- --code 'return GameJam.Editor.PrototypeSceneBuilder.BuildFromCli();'`
   (menu: Game Jam > Build Prototype Scene). It keeps existing config assets.
+- Splash: `Scenes/Splash.unity` (build index 0) shows the Curly Blue logo (`Art/UI/CurlyBlueLogo.png`) on a dark backdrop
+  while `Music_Backyard` plays (at `AudioConfig.SplashMusic`, louder than in game; the user didn't want a separate jingle),
+  then loads Prototype (`StudioSplash` in Gameplay/Flow; it loads the game in the background and world-locks the logo in
+  front of the headset). Rebuild with `GameJam.Editor.SplashSceneBuilder.BuildFromCli()` (menu: Game Jam > Build Splash
+  Scene). The prototype builder keeps the splash first in the build settings.
 - Photon: Fusion 2.1.4 only. Never import PUN 2 or the Asset Store Photon Voice 2 package: it breaks
   Fusion's Photon Realtime (see the `fusion-networked` skill). Without a Fusion App ID the game runs
   offline in Fusion's Single mode.
