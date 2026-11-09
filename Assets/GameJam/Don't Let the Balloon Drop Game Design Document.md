@@ -1,4 +1,4 @@
-# Don't Let the Balloon Drop: Game Design Document
+# Prickly Pop (working title: Don't Let the Balloon Drop): Game Design Document
 
 Nov 4, 2026 · @Russele
 

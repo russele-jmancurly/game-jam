@@ -1,6 +1,6 @@
 ---
 name: jam-feature
-description: Builds one Don't Let the Balloon Drop gameplay feature end to end (balloon, slap, item, hazard, timer, ragdoll, checkpoint...) from the GDD to a verified, playable prefab. Use when the user asks to add or implement a game feature.
+description: Builds one Prickly Pop gameplay feature end to end (balloon, slap, item, hazard, timer, ragdoll, checkpoint...) from the GDD to a verified, playable prefab. Use when the user asks to add or implement a game feature.
 ---
 
 # Build a jam feature

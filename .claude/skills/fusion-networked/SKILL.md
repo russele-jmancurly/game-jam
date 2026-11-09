@@ -1,6 +1,6 @@
 ---
 name: fusion-networked
-description: Patterns for networking a Don't Let the Balloon Drop feature with Photon Fusion 2.1 Shared Mode and Photon Voice (authority on slap, last-hitter rule, ragdoll RPCs, master-client game state). Use for any NetworkObject, NetworkBehaviour, RPC, authority or voice work.
+description: Patterns for networking a Prickly Pop feature with Photon Fusion 2.1 Shared Mode and Photon Voice (authority on slap, last-hitter rule, ragdoll RPCs, master-client game state). Use for any NetworkObject, NetworkBehaviour, RPC, authority or voice work.
 ---
 
 # Networking with Fusion 2.1 Shared Mode

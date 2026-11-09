@@ -1,6 +1,6 @@
-# Don't Let the Balloon Drop: Claude working rules
+# Prickly Pop: Claude working rules
 
-Co-op VR physics game for the Curly Blue three-day jam. Unity 6000.3.8f1, URP, OpenXR (Meta Quest),
+Prickly Pop (working title "Don't Let the Balloon Drop"; Android package `com.curlyblue.pricklypop`). Co-op VR physics game for the Curly Blue three-day jam. Unity 6000.3.8f1, URP, OpenXR (Meta Quest),
 XR Interaction Toolkit 3.5, Photon Fusion 2 (Shared Mode) + Photon Voice 2.
 The design source of truth is `Assets/GameJam/Don't Let the Balloon Drop Game Design Document.md`.
 Read only the section you need (grep its `##` headings); never paste the whole GDD into context.
@@ -294,7 +294,7 @@ Assets/GameJam/
 - Parse `--format json`; branch on the exit code and `errors[0].code`. Never merge stderr into stdout.
 - If the Editor is in Safe Mode (compile errors), `unity status` lists the errors: fix the code first.
 - Quest APK (Editor open, target already Android): `unity command build run ... -- --target Android --output-path
-  Builds/Quest/BalloonDrop.apk --scenes '["Assets/GameJam/Scenes/Prototype.unity"]' --confirm`, then poll `build status`
+  Builds/Quest/PricklyPop.apk --scenes '["Assets/GameJam/Scenes/Prototype.unity"]' --confirm`, then poll `build status`
   (~8 min, IL2CPP). `Builds/` and `*.apk` are gitignored. Builds rewrite the URP config prefilters and the preloaded
   assets; commit those. The URP global settings must stay at `m_AssetVersion` 9 (URP 17.3), or the build refuses to start.
 - If a command times out or the Editor drops, stop and tell the user; don't loop or fall back to YAML edits.

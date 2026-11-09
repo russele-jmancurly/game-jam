@@ -1,6 +1,6 @@
 ---
 name: blender-cli
-description: Drives Blender headless from the command line for Don't Let the Balloon Drop assets (inspect a model, render a preview, export a Unity-ready FBX, run any bpy script). Use for any Blender or 3D-model task instead of the Blender MCP server.
+description: Drives Blender headless from the command line for Prickly Pop assets (inspect a model, render a preview, export a Unity-ready FBX, run any bpy script). Use for any Blender or 3D-model task instead of the Blender MCP server.
 ---
 
 # Blender through the CLI
