@@ -117,6 +117,7 @@ Transform:
   m_Children:
   - {fileID: 7047729999237968684}
   - {fileID: 4543454925631939849}
+  - {fileID: 8219163056236469783}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7956497304141750110
@@ -199,6 +200,7 @@ MonoBehaviour:
   _alert: {fileID: 246617951726368497}
   _slapHand: {fileID: 7648760879783926123}
   _slapArm: {fileID: 8107188757075125517}
+  _stars: {fileID: 2441418655448453982}
   _wanderPoints:
   - {x: -20, y: 0, z: -10}
   - {x: -20, y: 0, z: 8}
@@ -206,12 +208,17 @@ MonoBehaviour:
   - {x: -18, y: 0, z: 44}
   - {x: -20, y: 0, z: 62}
   - {x: -20, y: 0, z: 78}
+  - {x: -10, y: 0, z: 34}
   - {x: 12, y: 0, z: -10}
   - {x: 10, y: 0, z: 8}
   - {x: 18, y: 0, z: 38}
   - {x: 16, y: 0, z: 52}
   - {x: 0, y: 0, z: 74}
-  - {x: -10, y: 0, z: 34}
+  - {x: 20, y: 0, z: -8}
+  - {x: 22, y: 0, z: 10}
+  - {x: 21, y: 0, z: 50}
+  - {x: 20, y: 0, z: 66}
+  - {x: 8, y: 0, z: 70}
   _avoidCircles:
   - {x: 13, y: 24, z: 10.5}
   - {x: 1, y: 24, z: 1.5}
@@ -255,6 +262,51 @@ CapsuleCollider:
   m_Height: 3.8400002
   m_Direction: 1
   m_Center: {x: 0, y: 1.9200001, z: 0}
+--- !u!1 &4505361930042044662
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8219163056236469783}
+  - component: {fileID: 2441418655448453982}
+  m_Layer: 0
+  m_Name: DizzyStars
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8219163056236469783
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4505361930042044662}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2947834730138596742}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2441418655448453982
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4505361930042044662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 904dcf32e395463429f2c9ccf552ea01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameJam.Gameplay::GameJam.Gameplay.DizzyStars
+  _material: {fileID: 2100000, guid: 8a2da23e3a164d0418f69344e2f27fc4, type: 2}
 --- !u!1 &5306585071474018829
 GameObject:
   m_ObjectHideFlags: 0

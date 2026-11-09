@@ -37,6 +37,22 @@ namespace GameJam.Gameplay
             return true;
         }
 
+        /// <summary>
+        /// A big celebration burst (the win party): more strips than a hoop's, each about <paramref name="size"/> metres
+        /// long so they read from a few metres away. False when the scene has no burst effects.
+        /// </summary>
+        public static bool BigConfetti(Vector3 position, int count, float size)
+        {
+            if (Instance == null || Instance._confetti == null)
+            {
+                return false;
+            }
+
+            var emit = new ParticleSystem.EmitParams { position = position, applyShapeToPosition = true, startSize = size };
+            Instance._confetti.Emit(emit, count);
+            return true;
+        }
+
         /// <summary>A balloon pop: shreds in the given colour and a puff. False when the scene has none (fall back).</summary>
         public static bool Pop(Vector3 position, Color color)
         {

@@ -18,10 +18,10 @@ MonoBehaviour:
   YawOffset: 0
   Tint: {r: 0.43529412, g: 0.8901961, b: 0.75686276, a: 1}
   MaterialOverride: {fileID: 0}
-  Idle: {fileID: -8945691123924629249, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  Walk: {fileID: 8349542763059015795, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  WindUp: {fileID: 700840491832751701, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  Slap: {fileID: -1864434862892928613, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  Wave: {fileID: 5404347575020875500, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Idle: {fileID: 9003578906191587930, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Walk: {fileID: -8009762979154779912, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  WindUp: {fileID: 6705597155012824914, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Slap: {fileID: -7688018542199487317, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Wave: {fileID: -3975253962399551617, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
   SlapHitTime: 0.23333333
   WalkStrideHeights: 1.007

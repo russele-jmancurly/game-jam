@@ -504,6 +504,19 @@ namespace GameJam.Net
                 return;
             }
 
+            // A thrown item (not a swung or loose one) knocks a giant down: ragdoll and dizzy stars.
+            var giant = other.GetComponentInParent<MischiefMaker>();
+            if (giant != null)
+            {
+                if (_hand == null && Thrower != PlayerRef.None && !giant.IsKnockedDown)
+                {
+                    _nextHitTime = Time.time + FriendHitCooldown;
+                    giant.RequestKnockDown(velocity);
+                }
+
+                return;
+            }
+
             var hitbox = other.GetComponentInParent<AvatarHitbox>();
             if (hitbox == null || hitbox.Avatar == null || hitbox.Avatar.Object == null)
             {

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.RunConfig
   RunSeconds: 360
   CountdownSeconds: 3
-  ResultSeconds: 8
+  ResultSeconds: 10
   BasePoints: 1000
   PointsPerSecondLeft: 10
   PointsPerHoop: 150

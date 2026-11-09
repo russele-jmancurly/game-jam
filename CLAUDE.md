@@ -79,8 +79,9 @@ Assets/GameJam/
   (menu: Game Jam > Build Prototype Scene). It keeps existing config assets.
 - Splash: `Scenes/Splash.unity` (build index 0) shows the Curly Blue logo (`Art/UI/CurlyBlueLogo.png`) on a dark backdrop
   while `Music_Backyard` plays (at `AudioConfig.SplashMusic`, louder than in game; the user didn't want a separate jingle),
-  then loads Prototype (`StudioSplash` in Gameplay/Flow; it loads the game in the background and world-locks the logo in
-  front of the headset). Rebuild with `GameJam.Editor.SplashSceneBuilder.BuildFromCli()` (menu: Game Jam > Build Splash
+  then loads Prototype after 8 s (`StudioSplash` in Gameplay/Flow; it loads the game in the background; the logo is placed once, 5 m
+  in front of the player's view, and stays there (the user doesn't want it to follow the head); it waits for the headset to
+  report a pose first, since placing it on a fixed timer left it out of sight in the headset). Rebuild with `GameJam.Editor.SplashSceneBuilder.BuildFromCli()` (menu: Game Jam > Build Splash
   Scene). The prototype builder keeps the splash first in the build settings.
 - Photon: Fusion 2.1.4 only. Never import PUN 2 or the Asset Store Photon Voice 2 package: it breaks
   Fusion's Photon Realtime (see the `fusion-networked` skill). Without a Fusion App ID the game runs
@@ -142,7 +143,12 @@ Assets/GameJam/
   `<Name>_Game.fbm` at <= 1024 px, `--budget Mesh=N` for one dense part like hair; players <= 6000 tris, map
   characters ~10000); then `tools/blender/scripts/rig_character.py <Name>_Game.fbx <Name>_Game.fbx` rigs it in place
   (fitted 19-bone humanoid, auto weights, one skinned mesh with one UV channel, clips Idle/Walk/WindUp/Slap/Wave; check
-  poses with `render_pose.py` and the face with `render_face.py`; parts' differently named UV maps once merged into unread
+  poses with `render_pose.py` and the face with `render_face.py`; heat weights pinched the shoulders (the deltoid stayed
+  on the collarbone bone while the arm swung ~80 degrees down at one joint), so run `fix_shoulders.py <x>_Game.fbx <x>_Game.fbx`
+  after rigging: it moves the deltoid to UpperArm and, in every clip, lets the collarbone take 30 % of the arm's swing
+  (`--clavicle`), counter-rotating the upper arm so it points where it did
+  (`--hide-under <skinMat>:<clothMat>` also deletes skin poking through a shirt; Squoof: `Squoof:outfit_top`), and rebuild the
+  prototype after any character re-export, which relinks the clips into the `CharacterDefinition`; parts' differently named UV maps once merged into unread
   extra channels and left Jman with white eyes). `ShowCharacterImport` names and loops the clips; the prototype builder links model and clips into
   `CharacterDefinition`, and `CharacterVisual` plays them through `CharacterAnimator` (Playables, no controller asset).
   A placeholder shows while a model is missing.
@@ -169,15 +175,25 @@ Assets/GameJam/
   `BackyardCourseBuilder.RoamerSpawns`), each fixed to its character via `AssignCharacter` (`MischiefMaker.Active` lists them;
   master-client owned). It only picks wander spots it can walk to in a straight line clear of its avoid circles
   (`HasClearPath`; set pieces chain into walls, e.g. pool + diving-board stand + clothesline), reaching far ones in hops, and
-  `map_check.cs` verifies every spot is reachable that way. If it still makes no progress for 4 s it picks a new spot, or
+  `map_check.cs` verifies every spot is reachable that way. It picks a destination among all spots (far ones and ones
+  away from the other giant likelier) and walks there in hops along the shortest route over the spots that see each other
+  (`PickWanderTarget`, Dijkstra over `_links`): picking only straight-line spots kept a giant on one side (the user wants
+  them roaming the whole yard). `giant_roam_coverage.cs` measures it (Fusion ignores timeScale: sample in real time). If it still makes no progress for 4 s it picks a new spot, or
   gives up a chase for a cooldown: eased walking, idle pauses, then
   WindUp (held over the telegraph) and Slap clips timed so the hand lands on the hit. With an unrigged model it falls back
   to procedural motion and a builder-made `SlapArm`/`SlapHand`. Movement and slap tuning: `CharacterRoster` (`Roamer*`).
   The host and commentator on stage idle and wave now and then.
+  A thrown item (not swung or loose; `NetworkItem.HandleContact` -> `RequestKnockDown` RPC to the master) knocks a giant down
+  for `RoamerKnockdownSeconds` (3 s, mood `KnockedDown`): every client drops a real ragdoll built at runtime from the rig's
+  bones (`GiantRagdoll`: 10 bodies, the head rides on the chest because a hinged head flopped back; get-up resets every bone
+  to its standing pose before the Animator runs, since the clips don't drive the neck) with `DizzyStars` over its head. The
+  body capsule is off and it bowls nobody over while down; it stands up where its hips landed, then cools down
+  (`RoamerBonkCooldown`). Unrigged models tip over instead. `giant_knockdown_check.cs` tests it with a real throw.
 - The balloon is stationed (`NetworkBalloon.IsStationed`): after spawning, a reset or a pop it hovers and bobs at its
   `SpawnPoint.BalloonPosition` until the first hit (start: 1.4 m above the stage, hidden until the red button). Feel: a hand slap sends it the way the hand moved, as hard as it
   moved (`SlapConfig.BalloonVelocityScale`, capped by `BalloonConfig.MaxHitSpeed`); gentle taps get extra lift (SlapTapLift),
-  hard slaps almost none (SlapHardLift). Linear Drag + low Gravity make it hang and float down (Gravity 1.2 / Drag 1.1 = ~1.1 m/s; 0.64 m/s felt too slow in the headset, all hoops still pass `hoop_reach_check.cs`). Keep
+  hard slaps almost none (SlapHardLift). Linear Drag + low Gravity make it hang and float down (Gravity 0.9 / Drag 1.1 = ~0.82 m/s: 0.64 m/s felt too slow and 1.1 m/s
+  too fast; all hoops still pass `hoop_reach_check.cs`, which needs a run going since the balloon ignores hits in the lobby). Keep
   QuadraticDrag at 0: `HoopAim` assumes linear drag. Items and the giant bypass the slap shaping. Hits squash it along the hit direction, flash it white, rumble harder for harder slaps, and play one of three generated
   `Balloon_Slap_*` sounds for everyone. `balloon_smoothness.cs` (per-frame motion), `balloon_slap_flight.cs` (rise/travel of a given slap) and
   `slap_speed_record.cs` (your real slap speeds in a headset) are the tuning tools. Online, a slap by anyone but the
@@ -226,17 +242,32 @@ Assets/GameJam/
   and captures the bursts and dirt. The start stage has a `PlanarMirror` (off-axis render-texture camera, only
   near and in front of it, shows your own hidden body through `GorillaBodyRig.All`). Check them in Play mode with
   `ambience_check.cs` (sounds per hook, emitters, fan stream; review cams) and `mirror_view.cs` (views the mirror; run it a second
-  time to restore the Head as main camera). A finished run (medal or time up) returns to the lobby after
-  `RunConfig.ResultSeconds`: hoops reset, balloon back on station at the start, crew respawned on the stage, every item back
+  time to restore the Head as main camera). A medal finish plays the fanfare and a generated crowd cheer
+  (`GeneratedAudio.CrowdCheer`, `Crowd_Cheer`) for everyone and pops big confetti round each player's own view
+  (`WinCelebration`, through `BurstEffects.BigConfetti`; the confetti pool is 900). A finished run (medal or time up) returns to
+  the lobby after `RunConfig.ResultSeconds` (10 s): hoops reset, balloon back on station at the start, crew respawned on the stage, every item back
   on its spot (`NetworkItem.ReturnHome`, home spot networked so late joiners agree). A run is 6 minutes (`RunConfig.RunSeconds`
   360; medals Silver 3900 / Gold 4500, raised by 1800 with the longer clock); when time runs out everyone hears a referee
   whistle (`Whistle_TimeUp`, 2D on `GameState`) and sees "TIME'S UP!" with a countdown to the lobby (`ResultBanner` on the
   head camera, drawn on top). `time_up_check.cs` tests the flow. Wind (box fan,
   leaf blower) is drawn by `PlaceholderPrefabBuilder.StyleAsWind`: trail wisps on scrolling noise plus a few leaves.
+- Finding the balloon: `BalloonLocator` (on the balloon, local only) shows a bobbing arrow over it (no beam: the user had it removed) and, when
+  it is out of your view, an arrow at the edge of your view with its distance, only while it is stationed (start, reset,
+  after a pop); the first hit hides everything (user's call: no indicator while it is in play). The balloon has a dark ink
+  outline: `Shaders/Outline.shader` (`GameJam/Outline`, inverted hull, stereo-instancing safe) on a child sphere of `Visual`.
+- Lobby picture signs (lobby only, both built by `BackyardCourseBuilder.BuildPictureSign`): "How to play" inside the north glass
+  wall, straight ahead of the spawn (slap the balloon, through a hoop, clear all 6, fly it to the finish, plus the two pop
+  rules), and "Items knock out the giants" inside the east wall (grab an item, throw it, bonk the giant). Icons
+  `Art/UI/Icon_*.png` are rendered by `tools/blender/scripts/build_lobby_icons.py` (transparent, cartoon outline); rerun it
+  and rebuild the prototype to change them. Course TextMeshes use `Shaders/WorldText.shader` (`GameJam/WorldText`, depth
+  tested; `DepthTestCourseText`): the built-in text shader reads its depth test from a GUI global and drew every label
+  through walls and signs.
 - Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
 - Layer 9 is `Item`: loose items are off the Default layer so gorilla hands never grip them, and each item ignores
   collisions with the local rig's solid colliders (`NetworkItem.IgnoreLocalRig`), so items never push you. Only an item
   another player threw or swung shoves you (simple mode); loose ones never do.
+- Layer 10 is `Ragdoll` (a knocked-down giant's bones): `PhysicsLayerRules` lets it touch only Default and itself, so a
+  falling giant never hits players (Ignore Raycast), the balloon or items.
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with
   `PlayerRigConfig.ForceDesktopMode`. Solo, the pass rule is suspended (`BalloonConfig.AllowSoloDoubleHits`).
   All players join one Photon region (`NetworkBootstrap._fixedRegion`, default `asia`), or they can miss each other.

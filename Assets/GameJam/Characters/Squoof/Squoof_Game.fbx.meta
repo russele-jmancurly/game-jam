@@ -52,8 +52,8 @@ ModelImporter:
     clipAnimations:
     - serializedVersion: 16
       name: Idle
-      takeName: Armature|Idle
-      internalID: -8945691123924629249
+      takeName: Armature|Armature|Armature|Idle
+      internalID: 9003578906191587930
       firstFrame: 0
       lastFrame: 90
       wrapMode: 0
@@ -81,8 +81,8 @@ ModelImporter:
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
       name: Slap
-      takeName: Armature|Slap
-      internalID: -1864434862892928613
+      takeName: Armature|Armature|Armature|Slap
+      internalID: -7688018542199487317
       firstFrame: 0
       lastFrame: 22
       wrapMode: 0
@@ -110,8 +110,8 @@ ModelImporter:
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
       name: Walk
-      takeName: Armature|Walk
-      internalID: 8349542763059015795
+      takeName: Armature|Armature|Armature|Walk
+      internalID: -8009762979154779912
       firstFrame: 0
       lastFrame: 30
       wrapMode: 0
@@ -139,8 +139,8 @@ ModelImporter:
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
       name: Wave
-      takeName: Armature|Wave
-      internalID: 5404347575020875500
+      takeName: Armature|Armature|Armature|Wave
+      internalID: -3975253962399551617
       firstFrame: 0
       lastFrame: 60
       wrapMode: 0
@@ -168,8 +168,8 @@ ModelImporter:
       additiveReferencePoseFrame: 0
     - serializedVersion: 16
       name: WindUp
-      takeName: Armature|WindUp
-      internalID: 700840491832751701
+      takeName: Armature|Armature|Armature|WindUp
+      internalID: 6705597155012824914
       firstFrame: 0
       lastFrame: 24
       wrapMode: 0

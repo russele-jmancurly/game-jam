@@ -9,7 +9,9 @@ namespace GameJam.Net
     /// A giant version of a random character (re-rolled every run) loose in the yard. It strolls between open spots,
     /// easing in and out of its walk, turning before it sets off and pausing to look around. When the balloon drifts
     /// close and low it hurries over, raises its slap hand (the telegraph, with a "!"), swings and slaps the balloon away
-    /// as nobody's hit, then cools down. It bowls over players it walks into and you can climb it.
+    /// as nobody's hit, then cools down. It bowls over players it walks into and you can climb it. A thrown item knocks it
+    /// down for RoamerKnockdownSeconds: it falls as a ragdoll (GiantRagdoll, local on every client) with dizzy stars over its
+    /// head, gets up where it landed, then cools down (ignores the balloon) for RoamerBonkCooldown.
     /// The master client simulates it (Master Client Object); everyone else sees it through its NetworkTransform, and
     /// the walk cycle and slap swing are animated locally from its speed and networked mood.
     /// </summary>
@@ -28,6 +30,8 @@ namespace GameJam.Net
         [Tooltip("The giant's slap mitt and the arm joining it to the shoulder (visual only, no colliders).")]
         [SerializeField] private Transform _slapHand;
         [SerializeField] private Transform _slapArm;
+        [Tooltip("Stars circling its head while it is knocked down.")]
+        [SerializeField] private DizzyStars _stars;
 
         [Header("Yard (set by the builder)")]
         [Tooltip("Open lawn spots it wanders between.")]
@@ -38,7 +42,10 @@ namespace GameJam.Net
         [SerializeField] private Vector4 _bounds = new Vector4(-44f, -20f, 44f, 86f);
 
         // Authority-side simulation.
-        private Vector3 _wanderTarget;
+        private Vector3 _wanderTarget;   // the spot it is walking to now (a hop on the way, or the destination)
+        private Vector3 _wanderGoal;     // where the current route ends
+        private readonly System.Collections.Generic.List<int> _route = new System.Collections.Generic.List<int>();
+        private System.Collections.Generic.List<int>[] _links;
         private float _speed;
         private float _progressDeadline = -1f;
         private float _progressMark;
@@ -52,6 +59,10 @@ namespace GameJam.Net
         private float _bodyHeight = 3.8f;
         private int _shownCharacter = -1;
         private RoamerMood _animatedMood = RoamerMood.Wander;
+        private RoamerMood _shownMood = RoamerMood.Wander;
+        private Collider _bodyCollider;
+        private GiantRagdoll _ragdoll;
+        private float _tipOver;  // 0 standing .. 1 lying (static-model fallback)
 
         /// <summary>Every giant in the yard (one per roster character: Jman and Squoof).</summary>
         public static readonly System.Collections.Generic.List<MischiefMaker> Active = new System.Collections.Generic.List<MischiefMaker>();
@@ -71,13 +82,19 @@ namespace GameJam.Net
 
         [Networked] private TickTimer StateTimer { get; set; }
 
-        public bool KnocksPlayers => true;
+        /// <summary>The hit that knocked it down (the item's velocity), so every client flings its ragdoll the same way.</summary>
+        [Networked] private Vector3 KnockVelocity { get; set; }
+
+        public bool IsKnockedDown => Mood == RoamerMood.KnockedDown;
+
+        public bool KnocksPlayers => !IsKnockedDown; // a giant lying on the lawn bowls nobody over
 
         public string DisplayName => _roster != null && _roster.Get(CharacterIndex) != null ? _roster.Get(CharacterIndex).DisplayName : "The giant";
 
         public void Configure(CharacterRoster roster, CharacterVisual visual, Transform visualRoot, TextMesh alert, Transform slapHand, Transform slapArm,
-            Vector3[] wanderPoints, Vector3[] avoidCircles, Vector4 bounds)
+            DizzyStars stars, Vector3[] wanderPoints, Vector3[] avoidCircles, Vector4 bounds)
         {
+            _stars = stars;
             _roster = roster;
             _visual = visual;
             _visualRoot = visualRoot;
@@ -98,6 +115,9 @@ namespace GameJam.Net
             return _velocity + shove;
         }
 
+        /// <summary>A thrown item hit it: knock it down (any client; the master client decides).</summary>
+        public void RequestKnockDown(Vector3 itemVelocity) => RpcKnockDown(itemVelocity);
+
         /// <summary>Picks a new random character (called at every run start).</summary>
         public void Reroll() => RpcReroll();
 
@@ -112,6 +132,12 @@ namespace GameJam.Net
             }
 
             _lastPosition = transform.position;
+            _bodyCollider = GetComponent<Collider>();
+            if (_stars != null)
+            {
+                _stars.Hide();
+            }
+
             if (HasStateAuthority)
             {
                 CharacterIndex = AssignedCharacter > 0 ? AssignedCharacter - 1 : RandomCharacter();
@@ -144,6 +170,10 @@ namespace GameJam.Net
                     if (canSeeBalloon)
                     {
                         Mood = RoamerMood.Chase;
+                    }
+                    else if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance && NextHop())
+                    {
+                        // a hop on the way: keep walking
                     }
                     else if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance)
                     {
@@ -217,9 +247,22 @@ namespace GameJam.Net
 
                     break;
 
+                case RoamerMood.KnockedDown:
+                    _speed = 0f;
+                    if (StateTimer.Expired(Runner))
+                    {
+                        GetUp();
+                    }
+
+                    break;
+
                 case RoamerMood.Cooldown:
                     WalkToward(_wanderTarget, _roster.RoamerWalkSpeed, dt, true);
-                    if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance || IsStalled(_wanderTarget))
+                    if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance && NextHop())
+                    {
+                        // a hop on the way: keep walking
+                    }
+                    else if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance || IsStalled(_wanderTarget))
                     {
                         PickWanderTarget();
                     }
@@ -244,6 +287,7 @@ namespace GameJam.Net
             _velocity = (transform.position - _lastPosition) / dt;
             _lastPosition = transform.position;
 
+            ShowKnockdown();
             float rawSpeed = new Vector2(_velocity.x, _velocity.z).magnitude;
             _shownSpeed = Mathf.Lerp(_shownSpeed, rawSpeed, 1f - Mathf.Exp(-8f * dt)); // network interpolation is jittery
             CharacterAnimator rig = _visual != null ? _visual.Animation : null;
@@ -282,7 +326,7 @@ namespace GameJam.Net
                 _visualRoot.localScale = Vector3.one;
             }
 
-            rig.SetSpeed(_shownSpeed);
+            rig.SetSpeed(IsKnockedDown ? 0f : _shownSpeed);
             if (Mood == _animatedMood)
             {
                 return;
@@ -331,7 +375,12 @@ namespace GameJam.Net
                 return;
             }
 
-            SetSlapArmVisible(true);
+            SetSlapArmVisible(!IsKnockedDown);
+            if (TipOver(dt))
+            {
+                return;
+            }
+
             float h = _bodyHeight;
             float walkSpeed = _roster != null ? _roster.RoamerWalkSpeed : 2f;
             float gait = Mathf.Clamp01(_shownSpeed / Mathf.Max(walkSpeed, 0.1f)); // 0 standing .. 1 walking (more when chasing)
@@ -418,6 +467,116 @@ namespace GameJam.Net
                 float thickness = 0.07f * h;
                 _slapArm.localScale = new Vector3(thickness, length * 0.5f, thickness); // the cylinder primitive is 2 m tall
             }
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RpcKnockDown(Vector3 itemVelocity)
+        {
+            if (IsKnockedDown || _roster == null)
+            {
+                return;
+            }
+
+            Mood = RoamerMood.KnockedDown;
+            StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerKnockdownSeconds);
+            Vector3 along = new Vector3(itemVelocity.x, 0f, itemVelocity.z);
+            along = along.sqrMagnitude > 0.0001f ? along.normalized : -transform.forward;
+            KnockVelocity = along * _roster.RoamerKnockdownFling + Vector3.up * (_roster.RoamerKnockdownFling * 0.35f);
+            _speed = 0f;
+
+            GameState gameState = GameState.Instance;
+            if (gameState != null)
+            {
+                gameState.Announce($"{DisplayName} is seeing stars!");
+            }
+        }
+
+        /// <summary>
+        /// Knockdown over: stand up where the ragdoll's hips landed (on this screen; the other screens' falls end close by
+        /// and blend to it), then cool down so the crew gets a breather from it.
+        /// </summary>
+        private void GetUp()
+        {
+            if (_ragdoll != null && _ragdoll.IsDown)
+            {
+                Vector3 landed = Steer(_ragdoll.HipsGroundPoint(transform.position.y));
+                if (HorizontalDistance(landed, transform.position) < 1.2f * _bodyHeight) // a fall can't carry it further than that
+                {
+                    transform.position = landed;
+                }
+            }
+
+            Mood = RoamerMood.Cooldown;
+            StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerBonkCooldown);
+            PickWanderTarget();
+        }
+
+        /// <summary>
+        /// Every client: on the knockdown the ragdoll falls (rigged models) and the stars come out; on recovery it gets up.
+        /// The body capsule is off while down, so nobody bumps into or climbs an invisible standing giant.
+        /// </summary>
+        private void ShowKnockdown()
+        {
+            bool isDown = IsKnockedDown;
+            bool wasDown = _shownMood == RoamerMood.KnockedDown;
+            _shownMood = Mood;
+            if (_bodyCollider != null && _bodyCollider.enabled == isDown)
+            {
+                _bodyCollider.enabled = !isDown;
+            }
+
+            if (isDown == wasDown)
+            {
+                return;
+            }
+
+            CharacterAnimator rig = _visual != null ? _visual.Animation : null;
+            if (isDown)
+            {
+                if (rig != null)
+                {
+                    rig.Stop(); // drop a raised slap hand
+                    _ragdoll = GiantRagdoll.For(rig.gameObject, _bodyHeight);
+                    _ragdoll.Fall(KnockVelocity);
+                }
+
+                if (_stars != null)
+                {
+                    bool onHead = _ragdoll != null && _ragdoll.IsValid && _ragdoll.Head != null;
+                    _stars.Show(onHead ? _ragdoll.Head : _visualRoot, _bodyHeight, onHead ? 0.22f * _bodyHeight : 0.35f * _bodyHeight);
+                }
+            }
+            else
+            {
+                if (_ragdoll != null)
+                {
+                    _ragdoll.GetUp(_roster != null ? _roster.RoamerGetUpSeconds : 0.8f);
+                }
+
+                if (_stars != null)
+                {
+                    _stars.Hide();
+                }
+            }
+        }
+
+        /// <summary>Static-model fallback for the knockdown: the whole model tips over along the hit and lies there.</summary>
+        private bool TipOver(float dt)
+        {
+            float getUp = _roster != null ? _roster.RoamerGetUpSeconds : 0.8f;
+            _tipOver = IsKnockedDown ? Mathf.Min(1f, _tipOver + dt / 0.45f) : Mathf.Max(0f, _tipOver - dt / getUp);
+            if (_tipOver <= 0f)
+            {
+                return false;
+            }
+
+            Vector3 along = transform.InverseTransformDirection(new Vector3(KnockVelocity.x, 0f, KnockVelocity.z));
+            Vector3 axis = Vector3.Cross(Vector3.up, along.sqrMagnitude > 0.0001f ? along.normalized : Vector3.back);
+            float eased = IsKnockedDown ? 1f - (1f - _tipOver) * (1f - _tipOver) : Smooth(_tipOver);
+            _visualRoot.localPosition = Vector3.zero;
+            _visualRoot.localRotation = Quaternion.AngleAxis(85f * eased, axis);
+            _visualRoot.localScale = Vector3.one;
+            return true;
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -609,42 +768,214 @@ namespace GameJam.Net
             PickWanderTarget();
         }
 
+        /// <summary>
+        /// Picks a destination anywhere in the yard and the route there. Set pieces chain into walls (pool, diving board,
+        /// clothesline), so it only ever walks straight lines that clear them (HasClearPath) and reaches far spots in hops
+        /// over the wander spots, shortest way first. Picking only spots in a straight line kept a giant on whichever side it
+        /// was on (the west strip, later the east once it had more spots); now every spot in the yard can be the destination,
+        /// far ones and ones away from the other giant likelier, so both roam the whole yard.
+        /// </summary>
         private void PickWanderTarget()
         {
             _progressDeadline = -1f;
+            _route.Clear();
             if (_wanderPoints == null || _wanderPoints.Length == 0)
             {
-                _wanderTarget = transform.position;
+                _wanderTarget = _wanderGoal = transform.position;
                 return;
             }
 
-            // Only spots it can walk to in a straight line: set pieces chain into walls (pool, diving board, clothesline),
-            // and a spot behind one made it walk into the corner and stall. Far spots are reached in hops around them.
+            EnsureLinks();
             Vector3 here = transform.position;
-            int reachable = 0;
-            foreach (Vector3 point in _wanderPoints)
+            int goal = PickGoal(here);
+            float[] toGoal = DistancesTo(goal);
+
+            // First hop: a spot it can walk to straight from here, on the shortest way to the goal.
+            int first = -1;
+            float best = float.MaxValue;
+            for (int i = 0; i < _wanderPoints.Length; i++)
             {
-                if (HorizontalDistance(point, here) > 3f && HasClearPath(here, point))
+                if (float.IsPositiveInfinity(toGoal[i]) || !HasClearPath(here, _wanderPoints[i]))
                 {
-                    reachable++;
+                    continue;
+                }
+
+                float cost = HorizontalDistance(here, _wanderPoints[i]) + toGoal[i];
+                if (cost < best)
+                {
+                    best = cost;
+                    first = i;
                 }
             }
 
-            if (reachable == 0)
+            if (first < 0)
             {
-                _wanderTarget = _wanderPoints[Random.Range(0, _wanderPoints.Length)];
+                first = Nearest(here); // boxed in: head for the nearest spot and route on from there
+            }
+
+            // The rest of the way: follow the shortest-distance links down to the goal.
+            for (int at = first, guard = 0; at != goal && guard < _wanderPoints.Length; guard++)
+            {
+                int next = -1;
+                float nextCost = float.MaxValue;
+                foreach (int link in _links[at])
+                {
+                    float cost = HorizontalDistance(_wanderPoints[at], _wanderPoints[link]) + toGoal[link];
+                    if (cost < nextCost)
+                    {
+                        nextCost = cost;
+                        next = link;
+                    }
+                }
+
+                if (next < 0)
+                {
+                    break;
+                }
+
+                _route.Add(next);
+                at = next;
+            }
+
+            _wanderTarget = _wanderPoints[first];
+            _wanderGoal = _wanderPoints[goal];
+        }
+
+        /// <summary>Walks on to the next spot of the route, if there is one left.</summary>
+        private bool NextHop()
+        {
+            if (_route.Count == 0)
+            {
+                return false;
+            }
+
+            _wanderTarget = _wanderPoints[_route[0]];
+            _route.RemoveAt(0);
+            _progressDeadline = -1f;
+            return true;
+        }
+
+        /// <summary>A destination: any spot but the one it stands at; far ones and ones away from the other giant likelier.</summary>
+        private int PickGoal(Vector3 here)
+        {
+            var weights = new float[_wanderPoints.Length];
+            float total = 0f;
+            for (int i = 0; i < _wanderPoints.Length; i++)
+            {
+                float distance = HorizontalDistance(_wanderPoints[i], here);
+                if (distance <= 3f)
+                {
+                    continue;
+                }
+
+                float weight = distance;
+                foreach (MischiefMaker other in Active)
+                {
+                    if (other != this && (HorizontalDistance(_wanderPoints[i], other.transform.position) < 15f
+                        || HorizontalDistance(_wanderPoints[i], other._wanderGoal) < 15f))
+                    {
+                        weight *= 0.25f; // the other giant is there or heading there
+                    }
+                }
+
+                weights[i] = weight;
+                total += weight;
+            }
+
+            if (total <= 0f)
+            {
+                return Random.Range(0, _wanderPoints.Length);
+            }
+
+            float pick = Random.value * total;
+            for (int i = 0; i < weights.Length; i++)
+            {
+                pick -= weights[i];
+                if (weights[i] > 0f && pick <= 0f)
+                {
+                    return i;
+                }
+            }
+
+            return weights.Length - 1;
+        }
+
+        /// <summary>Which wander spots see each other in a straight line (built once, on the simulating client).</summary>
+        private void EnsureLinks()
+        {
+            if (_links != null && _links.Length == _wanderPoints.Length)
+            {
                 return;
             }
 
-            int pick = Random.Range(0, reachable);
-            foreach (Vector3 point in _wanderPoints)
+            _links = new System.Collections.Generic.List<int>[_wanderPoints.Length];
+            for (int i = 0; i < _wanderPoints.Length; i++)
             {
-                if (HorizontalDistance(point, here) > 3f && HasClearPath(here, point) && pick-- == 0)
+                _links[i] = new System.Collections.Generic.List<int>();
+                for (int j = 0; j < _wanderPoints.Length; j++)
                 {
-                    _wanderTarget = point;
-                    return;
+                    if (i != j && HasClearPath(_wanderPoints[i], _wanderPoints[j]))
+                    {
+                        _links[i].Add(j);
+                    }
                 }
             }
+        }
+
+        /// <summary>Shortest walking distance from every spot to the goal over the links (Dijkstra; infinity = cut off).</summary>
+        private float[] DistancesTo(int goal)
+        {
+            int n = _wanderPoints.Length;
+            var distance = new float[n];
+            var done = new bool[n];
+            for (int i = 0; i < n; i++)
+            {
+                distance[i] = float.PositiveInfinity;
+            }
+
+            distance[goal] = 0f;
+            for (int round = 0; round < n; round++)
+            {
+                int at = -1;
+                for (int i = 0; i < n; i++)
+                {
+                    if (!done[i] && (at < 0 || distance[i] < distance[at]))
+                    {
+                        at = i;
+                    }
+                }
+
+                if (at < 0 || float.IsPositiveInfinity(distance[at]))
+                {
+                    break;
+                }
+
+                done[at] = true;
+                foreach (int link in _links[at])
+                {
+                    float through = distance[at] + HorizontalDistance(_wanderPoints[at], _wanderPoints[link]);
+                    if (through < distance[link])
+                    {
+                        distance[link] = through;
+                    }
+                }
+            }
+
+            return distance;
+        }
+
+        private int Nearest(Vector3 position)
+        {
+            int nearest = 0;
+            for (int i = 1; i < _wanderPoints.Length; i++)
+            {
+                if (HorizontalDistance(position, _wanderPoints[i]) < HorizontalDistance(position, _wanderPoints[nearest]))
+                {
+                    nearest = i;
+                }
+            }
+
+            return nearest;
         }
 
         /// <summary>

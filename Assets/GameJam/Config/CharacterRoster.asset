@@ -30,3 +30,6 @@ MonoBehaviour:
   RoamerSlapLift: 0.7
   RoamerBonkCooldown: 7
   RoamerBumpForce: 4
+  RoamerKnockdownSeconds: 3
+  RoamerKnockdownFling: 4
+  RoamerGetUpSeconds: 0.8

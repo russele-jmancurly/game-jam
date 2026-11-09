@@ -94,7 +94,7 @@ namespace GameJam.Editor
             var root = new GameObject("BurstEffects");
             root.transform.SetParent(parent, false);
 
-            ParticleSystem confetti = OneShot("Confetti", root.transform, 400, PlaceholderPrefabBuilder.ParticleMaterial("EffectConfetti",
+            ParticleSystem confetti = OneShot("Confetti", root.transform, 900, PlaceholderPrefabBuilder.ParticleMaterial("EffectConfetti", // room for the win party
                 GeneratedTextures.ConfettiStrip("T_Confetti")));
             ParticleSystem.MainModule main = confetti.main;
             main.startLifetime = new ParticleSystem.MinMaxCurve(1.4f, 2.2f);

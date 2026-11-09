@@ -65,9 +65,14 @@ namespace GameJam.Editor
         /// <summary>Open lawn spots the roaming mischief maker wanders between: the west strip, the south and the gaps.</summary>
         public static readonly Vector3[] RoamerWanderPoints =
         {
+            // West lawn strip.
             new Vector3(-20f, 0f, -10f), new Vector3(-20f, 0f, 8f), new Vector3(-20f, 0f, 26f), new Vector3(-18f, 0f, 44f),
-            new Vector3(-20f, 0f, 62f), new Vector3(-20f, 0f, 78f), new Vector3(12f, 0f, -10f), new Vector3(10f, 0f, 8f),
-            new Vector3(18f, 0f, 38f), new Vector3(16f, 0f, 52f), new Vector3(0f, 0f, 74f), new Vector3(-10f, 0f, 34f),
+            new Vector3(-20f, 0f, 62f), new Vector3(-20f, 0f, 78f), new Vector3(-10f, 0f, 34f),
+            // Middle and east. The pool walls off most of the east side, so these keep the giants from settling on the
+            // west strip (from there every west spot is in a straight line, and few east ones are).
+            new Vector3(12f, 0f, -10f), new Vector3(10f, 0f, 8f), new Vector3(18f, 0f, 38f), new Vector3(16f, 0f, 52f),
+            new Vector3(0f, 0f, 74f), new Vector3(20f, 0f, -8f), new Vector3(22f, 0f, 10f), new Vector3(21f, 0f, 50f),
+            new Vector3(20f, 0f, 66f), new Vector3(8f, 0f, 70f),
         };
 
         /// <summary>Set pieces the roamer steers around: x, z, radius (computed from the stations).</summary>
@@ -121,6 +126,43 @@ namespace GameJam.Editor
             BuildItemStashes();
             SetPieceModels.Apply(_course); // real-looking models over the gameplay primitives (Art/Set), colliders unchanged
             BuildAmbience();
+            DepthTestCourseText();
+        }
+
+        /// <summary>
+        /// The built-in 3D text shader takes its depth test from a global the on-screen GUI sets (not from the material), so every
+        /// label in the yard showed through whatever stood in front of it ("HOOP 1" and the headline across the lobby's
+        /// how-to-play sign). Course labels use Shaders/WorldText (GameJam/WorldText, depth tested) instead; text meant to float
+        /// on top (the time's-up banner) keeps its own material.
+        /// </summary>
+        private static void DepthTestCourseText()
+        {
+            const string path = PlaceholderAssets.MaterialFolder + "/WorldText.mat";
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Shader shader = Shader.Find("GameJam/WorldText");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Text] GameJam/WorldText shader missing: course labels stay on the built-in text shader.");
+                return;
+            }
+
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            material.shader = shader;
+            material.mainTexture = font.material.mainTexture;
+            EditorUtility.SetDirty(material);
+            foreach (TextMesh text in _course.GetComponentsInChildren<TextMesh>(true))
+            {
+                if (text.TryGetComponent(out MeshRenderer renderer) && renderer.sharedMaterial == font.material)
+                {
+                    renderer.sharedMaterial = material;
+                }
+            }
         }
 
         /// <summary>Ambient life: pollen drifting over the yard and leaves falling from the tree (no colliders).</summary>
@@ -342,7 +384,132 @@ namespace GameJam.Editor
 
             arrow.gameObject.AddComponent<IdleMotion>().Configure(0.06f, 1.2f, 0f, 60f, 0f);
 
-            root.AddComponent<LobbyOnly>().Configure(new[] { fence, sign });
+            GameObject howTo = BuildItemHowTo(root.transform, stageCenter, stageSize);
+            GameObject howToPlay = BuildHowToPlay(root.transform, stageCenter, stageSize);
+
+            root.AddComponent<LobbyOnly>().Configure(new[] { fence, sign, howTo, howToPlay });
+        }
+
+        /// <summary>
+        /// "How to play" picture sign on the inside of the lobby's north wall, straight ahead of the spawn: slap the balloon,
+        /// knock it through a hoop, clear all six, fly it to the finish (a medal), with the two rules that pop it underneath.
+        /// Lobby only, like the walls (the balloon is hidden in the lobby, so it never blocks a shot at hoop 1).
+        /// </summary>
+        private static GameObject BuildHowToPlay(Transform parent, Vector3 stageCenter, Vector3 stageSize)
+        {
+            float wallInside = stageCenter.z + stageSize.z * 0.5f - 0.08f;
+            return BuildPictureSign("HowToPlaySign", parent, new Vector3(stageCenter.x, stageSize.y + 1.95f, wallInside), Quaternion.identity,
+                "HOW TO PLAY", "DON'T LET IT TOUCH THE GROUND!      TAKE TURNS: NOBODY HITS IT TWICE IN A ROW!", 0.0115f,
+                new[]
+                {
+                    ("Icon_Slap", "1. SLAP THE BALLOON"),
+                    ("Icon_Hoop", "2. HIT IT THROUGH A HOOP"),
+                    ("Icon_AllHoops", "3. CLEAR ALL 6 HOOPS"),
+                    ("Icon_Win", "4. FLY IT TO THE FINISH!"),
+                });
+        }
+
+        /// <summary>
+        /// Picture sign on the inside of the lobby's east wall: grab an item, throw it, knock the giant down. Off the line of
+        /// sight to hoop 1.
+        /// </summary>
+        private static GameObject BuildItemHowTo(Transform parent, Vector3 stageCenter, Vector3 stageSize)
+        {
+            float wallInside = stageCenter.x + stageSize.x * 0.5f - 0.08f;
+            return BuildPictureSign("ItemHowToSign", parent, new Vector3(wallInside, stageSize.y + 1.75f, stageCenter.z - 1f), Quaternion.Euler(0f, 90f, 0f),
+                "ITEMS KNOCK OUT THE GIANTS!", null, 0.0135f,
+                new[]
+                {
+                    ("Icon_Item", "1. GRAB AN ITEM"),
+                    ("Icon_Throw", "2. THROW IT"),
+                    ("Icon_Knockdown", "3. BONK THE GIANT!"),
+                });
+        }
+
+        /// <summary>
+        /// A dark board with a title, an optional rules line, and picture steps left to right (light panels, icons from
+        /// Art/UI rendered by tools/blender/scripts/build_lobby_icons.py, a caption under each, red chevrons between).
+        /// Collider-free like the other set dressing. The root's local -Z faces the viewers and +X reads left to right.
+        /// </summary>
+        private static GameObject BuildPictureSign(string name, Transform parent, Vector3 position, Quaternion rotation, string titleText,
+            string rulesText, float captionSize, (string icon, string caption)[] steps)
+        {
+            const float spacing = 1.15f;
+            var root = new GameObject(name);
+            root.transform.SetParent(parent, false);
+            root.transform.SetPositionAndRotation(position, rotation);
+
+            bool hasRules = !string.IsNullOrEmpty(rulesText);
+            float width = steps.Length * spacing + 0.05f;
+            float top = hasRules ? 0.88f : 0.725f;
+            float bottom = hasRules ? -0.78f : -0.725f;
+            float panelY = hasRules ? -0.03f : 0.02f;
+            float captionY = panelY - 0.55f;
+
+            Material board = PlaceholderAssets.Material("SignBoard", ArtPalette.TextDark, 0.3f);
+            Box($"{name}Board", root.transform, new Vector3(0f, (top + bottom) * 0.5f, 0.03f), new Vector3(width, top - bottom, 0.05f), board, false);
+            Box($"{name}Trim", root.transform, new Vector3(0f, top + 0.015f, 0.03f), new Vector3(width + 0.1f, 0.06f, 0.07f), _palette.Gold, false);
+            TextMesh title = PlaceholderShapes.Text($"{name}Title", root.transform, new Vector3(0f, top - 0.17f, -0.01f), hasRules ? 0.026f : 0.02f,
+                titleText, ArtPalette.Accent);
+            title.fontStyle = FontStyle.Bold;
+            if (hasRules)
+            {
+                PlaceholderShapes.Text($"{name}Rules", root.transform, new Vector3(0f, top - 0.33f, -0.01f), 0.0125f, rulesText, ArtPalette.Hazard)
+                    .fontStyle = FontStyle.Bold;
+            }
+
+            Material panel = PlaceholderAssets.TransparentUnlit("HowToPanel", GeneratedTextures.RoundedPanel("T_RoundedPanel"));
+            panel.SetColor("_BaseColor", ArtPalette.Picket);
+            EditorUtility.SetDirty(panel);
+            Material arrow = PlaceholderAssets.Emissive("StartArrowGlow", ArtPalette.Hazard, 1.6f);
+            for (int i = 0; i < steps.Length; i++)
+            {
+                float x = (i - (steps.Length - 1) * 0.5f) * spacing;
+                GameObject back = PlaceholderShapes.Primitive(PrimitiveType.Quad, $"{name}Panel{i}", root.transform, new Vector3(x, panelY, -0.006f),
+                    new Vector3(0.95f, 0.85f, 1f), panel, false);
+                back.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                Texture2D texture = ImportIcon($"{PlaceholderAssets.Root}/Art/UI/{steps[i].icon}.png");
+                if (texture != null)
+                {
+                    GameObject icon = PlaceholderShapes.Primitive(PrimitiveType.Quad, $"{name}Icon{i}", root.transform, new Vector3(x, panelY, -0.012f),
+                        new Vector3(0.8f, 0.8f, 1f), PlaceholderAssets.TransparentUnlit($"HowTo{steps[i].icon}", texture), false);
+                    icon.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+
+                PlaceholderShapes.Text($"{name}Caption{i}", root.transform, new Vector3(x, captionY, -0.01f), captionSize, steps[i].caption, ArtPalette.Picket);
+                if (i < steps.Length - 1)
+                {
+                    // A chevron pointing right, between this step and the next.
+                    Transform chevron = new GameObject($"{name}Arrow{i}").transform;
+                    chevron.SetParent(root.transform, false);
+                    chevron.localPosition = new Vector3(x + spacing * 0.5f, panelY, -0.015f);
+                    Box("ChevronTop", chevron, new Vector3(0f, 0.035f, 0f), new Vector3(0.11f, 0.035f, 0.02f), arrow, false).transform.localRotation = Quaternion.Euler(0f, 0f, -40f);
+                    Box("ChevronBottom", chevron, new Vector3(0f, -0.035f, 0f), new Vector3(0.11f, 0.035f, 0.02f), arrow, false).transform.localRotation = Quaternion.Euler(0f, 0f, 40f);
+                }
+            }
+
+            return root;
+        }
+
+        /// <summary>A UI icon PNG imported for the world: alpha as transparency, mipmapped (seen from metres away), clamped.</summary>
+        private static Texture2D ImportIcon(string path)
+        {
+            if (AssetImporter.GetAtPath(path) is not TextureImporter importer)
+            {
+                Debug.LogWarning($"[HowTo] Missing icon {path}: run tools/blender/scripts/build_lobby_icons.py.");
+                return null;
+            }
+
+            if (!importer.alphaIsTransparency || !importer.mipmapEnabled || importer.wrapMode != TextureWrapMode.Clamp)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = true;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         private const float LobbyWallHeight = 5f;     // above the stage: no gorilla jump (~2.9 m) clears it

@@ -154,7 +154,12 @@ namespace GameJam.Editor
             Transform slapHand = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "SlapHand", visualRoot, new Vector3(0.3f * height, 0.42f * height, 0f),
                 Vector3.one * (0.17f * height), mitt, false).transform;
 
-            roamer.Configure(configs.Roster, visual, visualRoot, alert, slapHand, slapArm, wanderPoints, avoidCircles, bounds);
+            // Dizzy stars for when a thrown item knocks it down (generated star meshes, warm yellow, unlit so they read in any light).
+            var stars = new GameObject("DizzyStars").AddComponent<DizzyStars>();
+            stars.transform.SetParent(root.transform, false);
+            stars.Configure(PlaceholderAssets.Unlit("DizzyStar", ArtPalette.Accent));
+
+            roamer.Configure(configs.Roster, visual, visualRoot, alert, slapHand, slapArm, stars, wanderPoints, avoidCircles, bounds);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             return PlaceholderAssets.SavePrefab(root, "MischiefMaker");
         }
@@ -211,10 +216,102 @@ namespace GameJam.Editor
 
             balloon.Configure(configs.Balloon, configs.Slap, visual.GetComponent<Renderer>(), rallyText, rubber, hitAudio, slaps);
             balloon.ConfigurePopSound(GeneratedAudio.BalloonPop("Balloon_Pop"));
+            AddBalloonOutline(visual);
+            AddBalloonLocator(root, balloon, view, configs.Balloon.Radius);
             AddGroundShadow(root);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             PlaceholderShapes.SetLayerRecursively(root, GameLayers.Balloon);
             return PlaceholderAssets.SavePrefab(root, "Balloon");
+        }
+
+        /// <summary>
+        /// A dark ink outline round the balloon (GameJam/Outline, inverted hull) so it stands out against sky and lawn. A child
+        /// of the visual, so it squashes with it; NetworkBalloon hides it with the rest of the balloon.
+        /// </summary>
+        private static void AddBalloonOutline(GameObject visual)
+        {
+            const string path = PlaceholderAssets.MaterialFolder + "/BalloonOutline.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Shader shader = Shader.Find("GameJam/Outline");
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            material.shader = shader;
+            material.SetColor("_OutlineColor", ArtPalette.TextDark);
+            material.SetFloat("_Width", 0.03f);
+            material.enableInstancing = true;
+            EditorUtility.SetDirty(material);
+
+            GameObject outline = PlaceholderShapes.Primitive(PrimitiveType.Sphere, "Outline", visual.transform, Vector3.zero, Vector3.one, material, false);
+            var renderer = outline.GetComponent<MeshRenderer>();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        /// <summary>
+        /// BalloonLocator's parts: a bobbing arrow over the balloon pointing down at it (shown while it waits to be hit; the
+        /// tall beam it used to have was removed at the user's request), and the edge-of-view pointer (an arrow drawn on top of
+        /// everything, with a distance label).
+        /// </summary>
+        private static void AddBalloonLocator(GameObject root, NetworkBalloon balloon, Transform view, float radius)
+        {
+            Texture2D white = GeneratedTextures.Checker("T_White", Color.white, Color.white, 2, 4);
+
+            var beacon = new GameObject("Beacon");
+            beacon.transform.SetParent(view, false);
+
+            var marker = new GameObject("DownArrow").transform;
+            marker.SetParent(beacon.transform, false);
+            marker.localPosition = new Vector3(0f, radius + 0.8f, 0f);
+            marker.localRotation = Quaternion.Euler(0f, 0f, 180f);
+            Material glow = PlaceholderAssets.Emissive("BalloonMarkerGlow", ArtPalette.Accent, 1.6f);
+            BuildChevronArrow(marker, glow, 3f);
+            marker.gameObject.AddComponent<IdleMotion>().Configure(0.08f, 1.6f, 0f, 90f, 0f);
+
+            // Edge-of-view pointer. Built pointing along +Z; drawn over everything so walls never hide it.
+            var pointer = new GameObject("BalloonPointer").transform;
+            pointer.SetParent(root.transform, false);
+            var arrow = new GameObject("Arrow").transform;
+            arrow.SetParent(pointer, false);
+            var shape = new GameObject("Shape").transform;
+            shape.SetParent(arrow, false);
+            shape.localRotation = Quaternion.Euler(90f, 0f, 0f); // the chevron points up (+Y): turn it to +Z
+            Material onTop = PlaceholderAssets.TransparentUnlit("BalloonPointer", white);
+            onTop.SetColor("_BaseColor", ArtPalette.Accent);
+            onTop.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);
+            onTop.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay;
+            EditorUtility.SetDirty(onTop);
+            BuildChevronArrow(shape, onTop, 0.36f);
+            TextMesh label = PlaceholderShapes.Text("Distance", pointer, new Vector3(0f, -0.075f, 0f), 0.004f, string.Empty, ArtPalette.Accent);
+            label.fontStyle = FontStyle.Bold;
+
+            root.AddComponent<BalloonLocator>().Configure(balloon, view, beacon, pointer, arrow, label);
+        }
+
+        /// <summary>An arrow pointing up (+Y) from two crossed flat chevrons, so it reads from any side. Visual only.</summary>
+        private static void BuildChevronArrow(Transform parent, Material material, float scale)
+        {
+            foreach (float yaw in new[] { 0f, 90f })
+            {
+                var fin = new GameObject("ArrowFin").transform;
+                fin.SetParent(parent, false);
+                fin.localRotation = Quaternion.Euler(0f, yaw, 0f);
+                fin.localScale = Vector3.one * scale;
+                PlaceholderShapes.Box("ArrowShaft", fin, new Vector3(0f, -0.07f, 0f), new Vector3(0.06f, 0.22f, 0.03f), material, false);
+                PlaceholderShapes.Box("ArrowHeadLeft", fin, new Vector3(-0.055f, 0.06f, 0f), new Vector3(0.06f, 0.17f, 0.03f), material, false)
+                    .transform.localRotation = Quaternion.Euler(0f, 0f, -45f);
+                PlaceholderShapes.Box("ArrowHeadRight", fin, new Vector3(0.055f, 0.06f, 0f), new Vector3(0.06f, 0.17f, 0.03f), material, false)
+                    .transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            }
+
+            foreach (MeshRenderer renderer in parent.GetComponentsInChildren<MeshRenderer>())
+            {
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
         }
 
         private static PhysicsMaterial BalloonPhysicsMaterial(float bounciness)
@@ -247,7 +344,10 @@ namespace GameJam.Editor
             var whistle = new GameObject("TimeUpWhistle");
             whistle.transform.SetParent(root.transform, false);
             AudioSource timeUpAudio = Sound(whistle, GeneratedAudio.RefereeWhistle("Whistle_TimeUp"), false, 0f, 0.85f); // 2D
-            gameState.ConfigureSounds(winAudio, timeUpAudio);
+            var cheer = new GameObject("WinCheer");
+            cheer.transform.SetParent(root.transform, false);
+            AudioSource cheerAudio = Sound(cheer, GeneratedAudio.CrowdCheer("Crowd_Cheer"), false, 0f, 0.75f); // 2D, with the fanfare
+            gameState.ConfigureSounds(winAudio, cheerAudio, timeUpAudio);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             return PlaceholderAssets.SavePrefab(root, "GameState");
         }

@@ -22,6 +22,12 @@ namespace GameJam.Core
         /// </summary>
         public const int Item = 9;
 
+        /// <summary>
+        /// A knocked-down giant's ragdoll bones (named "Ragdoll" by the scene builder). They only land on the world (Default)
+        /// and each other: never on players, the balloon or items, so a falling giant can't shove anyone or bat the balloon.
+        /// </summary>
+        public const int Ragdoll = 10;
+
         public const int DefaultMask = 1 << Default;
     }
 }

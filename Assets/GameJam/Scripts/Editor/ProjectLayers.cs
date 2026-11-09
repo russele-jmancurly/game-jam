@@ -11,6 +11,7 @@ namespace GameJam.Editor
         {
             EnsureLayer(GameLayers.Balloon, "Balloon");
             EnsureLayer(GameLayers.Item, "Item");
+            EnsureLayer(GameLayers.Ragdoll, "Ragdoll");
         }
 
         private static void EnsureLayer(int index, string name)

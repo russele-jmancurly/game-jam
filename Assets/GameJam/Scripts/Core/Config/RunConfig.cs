@@ -16,7 +16,7 @@ namespace GameJam.Core
         [Min(0f)] public float CountdownSeconds = 3f;
         [Tooltip("After a run ends (medal or time up) the result shows this long, then everyone, the balloon and the hoops " +
                  "go back to the start lobby.")]
-        [Min(1f)] public float ResultSeconds = 8f;
+        [Min(1f)] public float ResultSeconds = 10f;
 
         [Header("Score")]
         public int BasePoints = 1000;

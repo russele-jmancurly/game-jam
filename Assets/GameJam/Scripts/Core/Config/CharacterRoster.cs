@@ -36,6 +36,14 @@ namespace GameJam.Core
         [Tooltip("Knockback when it walks into a player.")]
         [Min(0f)] public float RoamerBumpForce = 4f;
 
+        [Header("Knocked down by a thrown item")]
+        [Tooltip("Seconds a giant stays down (ragdoll and dizzy stars) after a thrown item hits it.")]
+        [Min(0.5f)] public float RoamerKnockdownSeconds = 3f;
+        [Tooltip("How hard the hit throws the ragdoll (m/s along the throw, plus a little up).")]
+        [Min(0f)] public float RoamerKnockdownFling = 4f;
+        [Tooltip("Seconds it takes to get back up once the knockdown is over.")]
+        [Min(0.1f)] public float RoamerGetUpSeconds = 0.8f;
+
         public int Count => Characters?.Length ?? 0;
 
         public CharacterDefinition Get(int index) =>

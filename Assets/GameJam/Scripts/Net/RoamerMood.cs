@@ -9,5 +9,6 @@ namespace GameJam.Net
         Cooldown,
         Slap,
         Idle,
+        KnockedDown,
     }
 }

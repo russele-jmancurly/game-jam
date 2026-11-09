@@ -35,6 +35,8 @@ namespace GameJam.Net
 
         /// <summary>Bit i set = hoop i cleared this run.</summary>
         [SerializeField] private AudioSource _winAudio;
+        [Tooltip("Crowd cheering, with the fanfare, on a medal finish.")]
+        [SerializeField] private AudioSource _cheerAudio;
         [SerializeField] private AudioSource _timeUpAudio;
         private bool _playedWin;
         private bool _playedTimeUp;
@@ -93,15 +95,26 @@ namespace GameJam.Net
         public float SecondsToLobby => State == RunState.Finished ? Timer.RemainingTime(Runner) ?? 0f : 0f;
 
         /// <summary>
-        /// Everyone hears the fanfare once when a run ends with a medal, or the referee whistle once when time runs out;
-        /// both re-arm for the next run.
+        /// Everyone hears the fanfare and the crowd cheering once when a run ends with a medal (and confetti bursts round
+        /// each player's own view), or the referee whistle once when time runs out; both re-arm for the next run.
         /// </summary>
         private void PlayResultOnce()
         {
             bool won = State == RunState.Finished && LastScore > 0;
-            if (won && !_playedWin && _winAudio != null)
+            if (won && !_playedWin)
             {
-                _winAudio.Play();
+                if (_winAudio != null)
+                {
+                    _winAudio.Play();
+                }
+
+                if (_cheerAudio != null)
+                {
+                    _cheerAudio.Play();
+                }
+
+                Camera view = Camera.main;
+                WinCelebration.Play(view != null ? view.transform : null);
             }
 
             _playedWin = won;
@@ -118,11 +131,13 @@ namespace GameJam.Net
         public void Configure(RunConfig config) => _config = config;
 
         /// <summary>
-        /// Builder wiring: 2D sources everyone hears, the win fanfare (a medal finish) and the referee whistle (time up).
+        /// Builder wiring: 2D sources everyone hears, the win fanfare and crowd cheer (a medal finish) and the referee whistle
+        /// (time up).
         /// </summary>
-        public void ConfigureSounds(AudioSource winAudio, AudioSource timeUpAudio)
+        public void ConfigureSounds(AudioSource winAudio, AudioSource cheerAudio, AudioSource timeUpAudio)
         {
             _winAudio = winAudio;
+            _cheerAudio = cheerAudio;
             _timeUpAudio = timeUpAudio;
         }
 

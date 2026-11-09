@@ -165,6 +165,93 @@ namespace GameJam.Editor
             });
 
         /// <summary>
+        /// Run won: a crowd cheering, about 4 s. Twenty voices each shout a sung "ahh!" (a glottal buzz at its own pitch,
+        /// shaped by the formants of an open vowel, scooping up as it starts and wobbling as it holds), coming in over the
+        /// first half second, under a bed of applause (dense random claps). Swells, holds, fades.
+        /// </summary>
+        public static AudioClip CrowdCheer(string name)
+        {
+            string path = $"{Folder}/{name}.wav";
+            if (IsCurrent(path, out AudioClip existing))
+            {
+                return existing;
+            }
+
+            const float seconds = 4.2f;
+            int count = Mathf.RoundToInt(seconds * SampleRate);
+            var samples = new float[count];
+            var random = new System.Random(28);
+            float Rand(float a, float b) => a + (float)random.NextDouble() * (b - a);
+
+            // Voices: each a band of harmonics weighted by the "ah" formants (F1 ~750 Hz, F2 ~1200 Hz, a little F3 ~2600 Hz).
+            const int voices = 20;
+            const int harmonics = 14;
+            for (int v = 0; v < voices; v++)
+            {
+                bool high = v % 3 != 0;                     // a mixed crowd: two thirds higher voices
+                float f0 = high ? Rand(230f, 420f) : Rand(120f, 210f);
+                float onset = Rand(0f, 0.55f);
+                float hold = Rand(1.6f, 2.9f);
+                float wobbleRate = Rand(4.5f, 7f);
+                float level = Rand(0.6f, 1f) / voices;
+                var amplitudes = new float[harmonics];
+                for (int n = 1; n <= harmonics; n++)
+                {
+                    float hz = n * f0;
+                    amplitudes[n - 1] = Mathf.Exp(-Mathf.Pow((hz - 750f) / 260f, 2f)) + 0.7f * Mathf.Exp(-Mathf.Pow((hz - 1200f) / 320f, 2f))
+                                        + 0.25f * Mathf.Exp(-Mathf.Pow((hz - 2600f) / 500f, 2f)) + 0.12f / n;
+                }
+
+                double phase = Rand(0f, 6.28f);
+                int start = Mathf.RoundToInt(onset * SampleRate);
+                int end = Mathf.Min(count, start + Mathf.RoundToInt((hold + 0.7f) * SampleRate));
+                for (int i = start; i < end; i++)
+                {
+                    float t = (float)(i - start) / SampleRate;
+                    float scoop = 1f - 0.18f * Mathf.Exp(-t * 9f);            // "ah!" bends up into the note
+                    float wobble = 1f + 0.025f * Mathf.Sin(2f * Mathf.PI * wobbleRate * t);
+                    phase += 2.0 * Math.PI * f0 * scoop * wobble / SampleRate;
+                    float env = Mathf.Clamp01(t / 0.12f) * (t < hold ? 1f : Mathf.Exp(-(t - hold) * 6f));
+                    float voice = 0f;
+                    for (int n = 1; n <= harmonics; n++)
+                    {
+                        voice += amplitudes[n - 1] * (float)Math.Sin(phase * n);
+                    }
+
+                    samples[i] += voice * env * level;
+                }
+            }
+
+            // Applause: short noisy claps at random, about 70 a second, each a 12 ms crack.
+            int claps = Mathf.RoundToInt(seconds * 70f);
+            for (int c = 0; c < claps; c++)
+            {
+                float at = Rand(0.05f, seconds - 0.3f);
+                int start = Mathf.RoundToInt(at * SampleRate);
+                float gain = Rand(0.25f, 0.55f);
+                float low = 0f;
+                for (int k = 0; k < SampleRate / 80 && start + k < count; k++)
+                {
+                    float white = Rand(-1f, 1f);
+                    low += (white - low) * 0.35f;
+                    float crack = (white - low) * Mathf.Exp(-k / (SampleRate * 0.004f));
+                    samples[start + k] += crack * gain * 0.12f;
+                }
+
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                float t = (float)i / SampleRate;
+                float shape = Mathf.Clamp01(t / 0.35f) * Mathf.Clamp01((seconds - t) / 1.3f); // swell in, hold, fade
+                samples[i] *= shape;
+            }
+
+            Normalize(samples, PeakEffect * 0.9f);
+            return Save(path, samples, 1, false);
+        }
+
+        /// <summary>
         /// Time up: a referee's pea whistle, tweet, tweet, tweeeet. A shrill ~2.9 kHz tone frequency-modulated by the
         /// rattling pea (~34 Hz, written in closed form so the pitch never drifts), a little amplitude flutter, a touch of
         /// breath noise, soft edges on every blast.
