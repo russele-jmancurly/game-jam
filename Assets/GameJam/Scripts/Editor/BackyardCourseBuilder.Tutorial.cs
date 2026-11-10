@@ -169,7 +169,7 @@ namespace GameJam.Editor
             welcome.fontStyle = FontStyle.Bold;
             Billboard(welcome);
             Billboard(PlaceholderShapes.Text("WelcomeHint", _course, new Vector3(0f, 5.45f, 6f), 0.032f, "ONE LESSON PER ROOM: FINISH IT TO OPEN THE GATE", ArtPalette.Picket));
-            BuildMoleHole(_course, new Vector3(6.5f, 0f, 1.5f), SceneTravel.GameScene, "BACK TO THE YARD", "JUMP IN TO LEAVE", 0f, out TextMesh exitHint);
+            BuildMoleHole(_course, new Vector3(6.5f, 0f, 1.5f), SceneTravel.GameScene, "TO THE YARD", "JUMP IN TO SKIP THE TUTORIAL", 0f, out TextMesh exitHint);
             exitHints.Add(exitHint);
 
             // Section 2: the balloon and the hoop.

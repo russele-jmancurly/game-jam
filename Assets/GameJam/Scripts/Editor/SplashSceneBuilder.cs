@@ -86,7 +86,8 @@ namespace GameJam.Editor
             AudioConfig audio = PlaceholderAssets.LoadOrCreateConfig<AudioConfig>(PlaceholderPrefabBuilder.AudioConfigPath);
 
             var splash = new GameObject("Splash").AddComponent<StudioSplash>();
-            splash.Configure(head.transform, quad.transform, renderer, music, audio, "Prototype");
+            // The game opens in the tutorial (one player, offline); leaving or finishing it leads to the lobby (Prototype).
+            splash.Configure(head.transform, quad.transform, renderer, music, audio, SceneTravel.TutorialScene);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = Color.black;
@@ -96,7 +97,7 @@ namespace GameJam.Editor
             EditorSceneManager.SaveScene(scene, ScenePath);
             KeepFirstInBuildSettings(ScenePath);
             AssetDatabase.SaveAssets();
-            return $"Splash built: {ScenePath} (first in build settings, then Prototype).";
+            return $"Splash built: {ScenePath} (first in build settings; it loads the Tutorial, which leads to Prototype).";
         }
 
         private static Texture2D ImportLogo()

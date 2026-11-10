@@ -5,7 +5,7 @@ namespace GameJam.Net
 {
     /// <summary>
     /// A spiky part of a player (head or body). The balloon pops or leaks when it touches one, and a hard
-    /// slap or a thrown item shoves that player (or knocks them over with KnockbackConfig.PlayerHitsKnockDown).
+    /// slap or a thrown item gives that player a light shove (players never knock each other down).
     /// </summary>
     public sealed class AvatarHitbox : MonoBehaviour, ISlappable, ISpikeSurface
     {
@@ -36,16 +36,7 @@ namespace GameJam.Net
                 return false;
             }
 
-            KnockbackConfig knockback = GameJam.Player.LocalRig.Instance != null ? GameJam.Player.LocalRig.Instance.KnockbackConfig : null;
-            if (knockback != null && !knockback.PlayerHitsKnockDown)
-            {
-                _avatar.SendKnockback(slap.HandVelocity.normalized, knockback.PlayerPushForce, 0f); // a shove, not a knockdown
-            }
-            else
-            {
-                float force = Mathf.Min(speed * _slapConfig.FriendForceScale, _slapConfig.FriendMaxForce);
-                _avatar.SendKnockback(slap.HandVelocity.normalized, force, _slapConfig.FriendKnockdownSeconds);
-            }
+            _avatar.SendShove(slap.HandVelocity.normalized);
 
             feedback = SlapFeedback;
             return true;

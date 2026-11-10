@@ -57,6 +57,7 @@ The game is one short course, played as a single timed run. A clean crew can fin
 
 **One run:**
 
+0. A new player starts alone in the tutorial burrow (after the splash). Leaving it by a mole hole, or finishing its five lessons, takes them down the tunnel to the lobby, where the crew meets.
 1. The MC introduces the crew at the start line, with the balloon floating in front of them.
 2. The timer starts. The crew roams the open backyard, slapping, throwing and bonking the balloon through six hoops in any order.
 3. If the balloon touches the ground or pops, a fresh balloon appears beside the last hoop cleared, and the timer keeps running. The crew stays where it is and runs over.
@@ -233,7 +234,7 @@ Friendly fire is always on. Every slap and every throw can hit a friend, and hea
 - Kicked by a roaming giant
 - Hit by a moving hazard
 
-A popping balloon never pushes anyone (the old pop blast is gone). In easy mode (the default) the giant's kick is the only knockdown: everything else above is a light shove.
+**Current build:** only a giant's kick knocks a player down. Players can't knock each other down: a friend's slap or thrown item is a light shove, and so are moving obstacles, flames and walking into a giant. A popping balloon never pushes anyone. The list above is the original design.
 
 Soft items and light slaps cause a mini-stun instead: a wobble, a noise and a tiny shove.
 

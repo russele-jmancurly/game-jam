@@ -55,8 +55,7 @@ namespace GameJam.Player
 
             if (keyboard.kKey.wasPressedThisFrame)
             {
-                KnockbackConfig knockback = _rig.KnockbackConfig;
-                _rig.Knock(-_rig.Head.forward, knockback.SelfTestForce, knockback.SelfTestSeconds);
+                _rig.Shove(-_rig.Head.forward); // test key: the shove every hazard gives
             }
 
             if (keyboard.enterKey.wasPressedThisFrame)

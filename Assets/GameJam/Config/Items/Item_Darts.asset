@@ -15,7 +15,6 @@ MonoBehaviour:
   DisplayName: Darts
   Kind: 2
   BalloonPower: 0
-  FriendForce: 4
   MinHitSpeed: 0.8
   KillHeight: -2
   Mass: 0.05

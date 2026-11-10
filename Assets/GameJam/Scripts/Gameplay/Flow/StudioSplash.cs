@@ -24,7 +24,7 @@ namespace GameJam.Gameplay
         [SerializeField] private Renderer _logoRenderer;
         [SerializeField] private AudioSource _music;
         [SerializeField] private AudioConfig _audio;
-        [SerializeField] private string _nextScene = "Prototype";
+        [SerializeField] private string _nextScene = SceneTravel.TutorialScene;
 
         [Header("Timing (seconds)")]
         [SerializeField] private float _startDelay = 0.6f;

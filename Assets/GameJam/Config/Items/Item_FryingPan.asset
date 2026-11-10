@@ -15,7 +15,6 @@ MonoBehaviour:
   DisplayName: Frying Pan
   Kind: 1
   BalloonPower: 1.4
-  FriendForce: 4
   MinHitSpeed: 0.8
   KillHeight: -2
   Mass: 1.5

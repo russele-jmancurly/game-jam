@@ -396,7 +396,7 @@ namespace GameJam.Editor
                 body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
                 PlaceholderShapes.SetLayerRecursively(item, GameLayers.Item); // before the effect zone, which has its own layer
                 var networkItem = item.AddComponent<NetworkItem>();
-                networkItem.Configure(definition, configs.Knockback);
+                networkItem.Configure(definition);
                 if (definition.Effect != ItemEffect.None)
                 {
                     networkItem.ConfigureEffect(EffectZone(item.transform, definition.Effect));

@@ -15,7 +15,6 @@ MonoBehaviour:
   DisplayName: Burger
   Kind: 0
   BalloonPower: 1
-  FriendForce: 4
   MinHitSpeed: 0.8
   KillHeight: -2
   Mass: 0.35

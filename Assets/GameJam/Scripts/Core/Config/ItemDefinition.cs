@@ -10,8 +10,6 @@ namespace GameJam.Core
         public ItemKind Kind = ItemKind.Soft;
         [Tooltip("Balloon speed = item speed x this, capped by BalloonConfig.MaxHitSpeed.")]
         [Min(0f)] public float BalloonPower = 1f;
-        [Tooltip("Knockback force on a friend (heavy items; soft items use KnockbackConfig.SoftItemForce).")]
-        [Min(0f)] public float FriendForce = 4f;
         [Tooltip("Slower than this, a contact does not count as a hit.")]
         [Min(0f)] public float MinHitSpeed = 0.8f;
         [Tooltip("Below this height the item respawns at its spot.")]

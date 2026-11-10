@@ -15,7 +15,6 @@ MonoBehaviour:
   DisplayName: Pillow
   Kind: 0
   BalloonPower: 0.9
-  FriendForce: 4
   MinHitSpeed: 0.8
   KillHeight: -2
   Mass: 0.3

@@ -12,7 +12,6 @@ namespace GameJam.Core
         public static IRunStatus Run { get; set; }
 
         /// <summary>The local player's networked avatar, or null while offline.</summary>
-        public static IKnockbackRelay LocalKnockback { get; set; }
 
         /// <summary>The local player's network id, or -1 while offline. Used for spawn slots and colours.</summary>
         public static int LocalPlayerId { get; set; } = -1;
@@ -29,7 +28,6 @@ namespace GameJam.Core
         private static void ResetStatics()
         {
             Run = null;
-            LocalKnockback = null;
             LocalPlayerId = -1;
             LeaveSession = null;
         }

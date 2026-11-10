@@ -20,7 +20,6 @@ namespace GameJam.Net
         private const float GustOvershoot = 1.5f; // a leaf-blower gust reaches this far past the hoop it aims at
 
         [SerializeField] private ItemDefinition _definition;
-        [SerializeField] private KnockbackConfig _knockbackConfig;
         [Tooltip("Wind zone this item sets off where it lands (bubble wand, leaf blower); null for plain items.")]
         [SerializeField] private ItemEffectZone _effectZone;
 
@@ -82,11 +81,7 @@ namespace GameJam.Net
 
         public void ConfigureEffect(ItemEffectZone effectZone) => _effectZone = effectZone;
 
-        public void Configure(ItemDefinition definition, KnockbackConfig knockbackConfig)
-        {
-            _definition = definition;
-            _knockbackConfig = knockbackConfig;
-        }
+        public void Configure(ItemDefinition definition) => _definition = definition;
 
         public bool IsHeldBy(Transform hand) => _hand != null && _hand == hand;
 
@@ -529,16 +524,7 @@ namespace GameJam.Net
             }
 
             _nextHitTime = Time.time + FriendHitCooldown;
-            if (!_knockbackConfig.PlayerHitsKnockDown)
-            {
-                hitbox.Avatar.SendKnockback(velocity.normalized, _knockbackConfig.PlayerPushForce, 0f); // a shove, not a knockdown
-                return;
-            }
-
-            bool isHeavy = _definition.Kind == ItemKind.Heavy;
-            float force = isHeavy ? _definition.FriendForce : _knockbackConfig.SoftItemForce;
-            float seconds = isHeavy ? _knockbackConfig.HeavyItemKnockdownSeconds : _knockbackConfig.SoftItemStunSeconds;
-            hitbox.Avatar.SendKnockback(velocity.normalized, force, seconds);
+            hitbox.Avatar.SendShove(velocity.normalized); // a light shove whatever the item: only a giant's kick knocks players down
         }
 
         /// <summary>

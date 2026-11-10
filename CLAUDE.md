@@ -80,11 +80,14 @@ Assets/GameJam/
   (menu: Game Jam > Build Prototype Scene). It keeps existing config assets.
 - Splash: `Scenes/Splash.unity` (build index 0) shows the Curly Blue logo (`Art/UI/CurlyBlueLogo.png`) on a dark backdrop
   while `Music_Backyard` plays (at `AudioConfig.SplashMusic`, louder than in game; the user didn't want a separate jingle),
-  then loads Prototype after 8 s (`StudioSplash` in Gameplay/Flow; it loads the game in the background; the logo is placed once, 5 m
+  then loads the Tutorial after 8 s (`StudioSplash` in Gameplay/Flow; it loads the next scene in the background; the logo is placed once, 5 m
   in front of the player's view, and stays there (the user doesn't want it to follow the head); it waits for the headset to
   report a pose first, since placing it on a fixed timer left it out of sight in the headset). Rebuild with `GameJam.Editor.SplashSceneBuilder.BuildFromCli()` (menu: Game Jam > Build Splash
   Scene). The prototype builder keeps the splash first in the build settings.
-- Tutorial (lobby only): a mole hole in the start stage's south-east corner (`BackyardCourseBuilder.BuildMoleHole`, a part of
+- Startup flow (the user's): Splash -> Tutorial (one player, offline) -> lobby. A new player learns alone first, and both
+  leaving the tutorial (either of its holes; the first room's says "jump in to skip the tutorial") and finishing it
+  (`TutorialGuide` sends them down the tunnel 5 s after the last lesson) end in the lobby (Prototype), where the crew meets.
+- Tutorial (also reachable again from the lobby): a mole hole in the start stage's south-east corner (`BackyardCourseBuilder.BuildMoleHole`, a part of
   `LobbyOnly`, so it is gone during a run) takes the one player who gets into it (`MoleHole`, found by `RigHazardSensor`)
   Lobby -> `Scenes/Tunnel.unity` -> `Scenes/Tutorial.unity`, and the tutorial's holes take them back the same way.
   `SceneTravel.Go` (Gameplay/Flow) fades the view (`ScreenFade`: a black quad on the head camera, no post-processing), leaves
@@ -293,13 +296,13 @@ Assets/GameJam/
   scales from the same view.
 - Bounce pads (trampoline, diving-board spring, tree mushroom) launch players only (`BouncePad._balloonFactor` 0): a
   balloon relaunched by a pad hovered over it forever.
-- Easy mode: players never die, and the only knockdown is a giant's kick (see `MischiefMaker`; the view dims by
-  `KnockbackConfig.KnockdownDim` while you're down). A balloon pop never pushes anyone (the pop blast is gone, by request).
-  Water only pops the balloon (players can wade in the pool), and with
-  `KnockbackConfig.KnockdownsEnabled` off (default) walking into a giant, moving obstacles, flames and other players only
-  give a light shove (`PlayerPushForce`, `LocalRig.Push`): no ragdoll, you keep your hands and items. `LocalRig.Knock` and
-  `NetworkAvatar.RpcKnockback` turn every knockdown into that shove; `knockdown_check.cs` tests it. Only falling below
-  `KillHeight` (through the map) respawns you.
+- Knockdown rule (the user's, with no switch): players never die, and nothing knocks a player down except a giant's
+  kick (see `MischiefMaker`; `NetworkAvatar.SendGiantKick`, the view dims by `KnockbackConfig.KnockdownDim` while you're
+  down). Never add another knockdown, and never let players knock each other down. Everything else is a light shove
+  (`KnockbackConfig.PlayerPushForce`): walking into a giant, moving obstacles and flames (`RigHazardSensor` ->
+  `LocalRig.Shove`), and another player's slap or thrown or swung item (`NetworkAvatar.SendShove`); you keep your hands and
+  items. A balloon pop never pushes anyone (the pop blast is gone, by request). Water only pops the balloon (players can
+  wade in the pool). `knockdown_check.cs` tests it. Only falling below `KillHeight` (through the map) respawns you.
 - Sound and ambience: every sound is synthesized by `GeneratedAudio` into `Audio/Generated` (balloon slaps and pop, hoop
   chime, win fanfare, trampoline boing, bubble and wind loops, background music) at 44.1 kHz, normalised per kind; loops
   are rendered long and crossfaded into their start (seamless), effects PCM, music Vorbis (loops gaplessly). Clips carry a
@@ -352,7 +355,7 @@ Assets/GameJam/
 - Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
 - Layer 9 is `Item`: loose items are off the Default layer so gorilla hands never grip them, and each item ignores
   collisions with the local rig's solid colliders (`NetworkItem.IgnoreLocalRig`), so items never push you. Only an item
-  another player threw or swung shoves you (simple mode); loose ones never do.
+  another player threw or swung shoves you (lightly; never a knockdown); loose ones never do.
 - Layer 10 is `Ragdoll` (a knocked-down giant's bones): `PhysicsLayerRules` lets it touch only Default and itself, so a
   falling giant never hits players (Ignore Raycast), the balloon or items.
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with

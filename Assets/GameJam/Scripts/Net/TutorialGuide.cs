@@ -20,6 +20,7 @@ namespace GameJam.Net
         private const int SlapGoal = 3;
         private const float ItemScanSeconds = 1f;
         private const float NextSectionDelay = 1.6f; // the gate is opening: let the player look before the balloon moves on
+        private const float LeaveDelay = 5f;         // after the last lesson: the fanfare and confetti, then off to the lobby
         private static readonly Color DoneColor = ArtPalette.Moss;
 
         [SerializeField] private TextMesh[] _goals = System.Array.Empty<TextMesh>();
@@ -46,6 +47,7 @@ namespace GameJam.Net
         private bool _hoopCleared;
         private bool _grabbed;
         private bool _used;
+        private float _leaveAt = -1f; // when a finished tutorial sends the player down the tunnel to the lobby
 
         /// <summary>The section the player is in: 0..4, or 5 when the tutorial is finished.</summary>
         public int Section => _section;
@@ -66,7 +68,25 @@ namespace GameJam.Net
 
         private void Update()
         {
-            if (_section >= LessonCount || Time.time < _readyAt)
+            if (_section >= LessonCount)
+            {
+                // Finished: the player goes to the lobby by themself, to meet the others (the user's flow: the game opens in
+                // the tutorial, and leaving or finishing it both end in the lobby). Diving into a hole first is fine too.
+                if (_leaveAt > 0f && Time.time >= _leaveAt)
+                {
+                    _leaveAt = -1f;
+                    if (LocalRig.Instance != null && !SceneTravel.IsTravelling)
+                    {
+                        LocalRig.Instance.DropHeldItems();
+                    }
+
+                    SceneTravel.Go(SceneTravel.GameScene);
+                }
+
+                return;
+            }
+
+            if (Time.time < _readyAt)
             {
                 return;
             }
@@ -257,10 +277,12 @@ namespace GameJam.Net
             {
                 if (hint != null)
                 {
-                    hint.text = "ALL DONE! JUMP IN TO PLAY";
+                    hint.text = "ALL DONE! OFF TO THE YARD...";
                     hint.color = DoneColor;
                 }
             }
+
+            _leaveAt = Time.time + LeaveDelay;
 
             LocalRig rig = LocalRig.Instance;
             if (rig != null)

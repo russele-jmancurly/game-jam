@@ -32,10 +32,7 @@ namespace GameJam.Core
         [Min(0f)] public float NudgeGraceSeconds = 0.5f;
 
         [Header("Friends")]
-        [Tooltip("Hand speed needed to knock a friend over.")]
+        [Tooltip("Hand speed needed to shove a friend (a light push; players never knock each other down).")]
         [Min(0f)] public float FriendSlapSpeed = 2.5f;
-        [Min(0f)] public float FriendForceScale = 1.2f;
-        [Min(0f)] public float FriendMaxForce = 7f;
-        [Range(0f, 2f)] public float FriendKnockdownSeconds = 1.5f;
     }
 }

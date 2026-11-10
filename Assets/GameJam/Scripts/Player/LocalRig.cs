@@ -186,31 +186,14 @@ namespace GameJam.Player
         }
 
         /// <summary>
-        /// Knocks the local player over through the network, so friends see the ragdoll.
-        /// Falls back to a local shove while offline.
+        /// A hazard touched you (a giant's body, a moving obstacle, flames): a light shove, never a knockdown. Your body's
+        /// move syncs to the others as usual.
         /// </summary>
-        public void Knock(Vector3 direction, float force, float seconds)
-        {
-            if (!_knockbackConfig.KnockdownsEnabled)
-            {
-                // Easy mode: no knockdowns, no ragdolls; just a light shove (your body's move syncs as usual).
-                Push(direction, _knockbackConfig.PlayerPushForce);
-                return;
-            }
-
-            if (GameServices.LocalKnockback != null)
-            {
-                GameServices.LocalKnockback.SendKnockback(direction, force, seconds);
-            }
-            else
-            {
-                ApplyKnockback(direction, force, seconds);
-            }
-        }
+        public void Shove(Vector3 direction) => Push(direction, _knockbackConfig.PlayerPushForce);
 
         /// <summary>
-        /// Your own view of a ragdoll: a straight-line shove (never a camera spin) and noodle hands that
-        /// can't push off or slap until it wears off.
+        /// A giant's kick, the only knockdown in the game. Your own view of it: a straight-line launch (never a camera spin)
+        /// and noodle hands that can't push off or slap until it wears off.
         /// </summary>
         public void ApplyKnockback(Vector3 direction, float force, float seconds)
         {

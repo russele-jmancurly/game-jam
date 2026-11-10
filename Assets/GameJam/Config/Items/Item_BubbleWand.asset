@@ -15,7 +15,6 @@ MonoBehaviour:
   DisplayName: Bubble Wand
   Kind: 0
   BalloonPower: 0.6
-  FriendForce: 4
   MinHitSpeed: 0.8
   KillHeight: -2
   Mass: 0.15

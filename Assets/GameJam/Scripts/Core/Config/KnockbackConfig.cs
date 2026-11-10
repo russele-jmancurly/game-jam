@@ -3,57 +3,28 @@ using UnityEngine;
 namespace GameJam.Core
 {
     /// <summary>
-    /// Knockback and ragdoll tuning (GDD: Ragdoll and friendly fire). A knocked player must be back
-    /// in action within 2 seconds, so keep every duration under that.
+    /// Shove tuning (GDD: Ragdoll and friendly fire). Nothing knocks a player down except a giant's kick (CharacterRoster
+    /// Roamer Kick*): walking into a giant, moving obstacles, flames, other players' slaps and thrown or swung items only
+    /// give a light shove, and you keep your hands and what you hold. The user's rule; there is no switch for it.
     /// </summary>
     [CreateAssetMenu(menuName = "Game Jam/Config/Knockback Config", fileName = "KnockbackConfig")]
     public sealed class KnockbackConfig : ScriptableObject
     {
-        [Header("Knockdowns")]
-        [Tooltip("Off (easy mode, the default): nothing knocks a player down or ragdolls them except a giant's kick " +
-                 "(CharacterRoster Roamer Kick*). Walking into a giant, moving obstacles, flames and other players only give " +
-                 "a light shove (PlayerPushForce); you keep your hands and what you hold. On: the old knockdowns with ragdolls.")]
-        public bool KnockdownsEnabled;
-
-        [Header("Players hitting players (friend slaps, thrown and swung items)")]
-        [Tooltip("Off (simple mode): a player's slap or item only shoves the other player a little; nobody gets " +
-                 "ragdolled or loses their hands. On: the old knockdowns (FriendKnockdownSeconds, item stun/knockdown).")]
-        public bool PlayerHitsKnockDown;
-        [Tooltip("Speed of the shove a player's slap or item gives another player while PlayerHitsKnockDown is off, and of " +
-                 "every hazard's shove while KnockdownsEnabled is off.")]
+        [Header("Shoves (obstacles, flames, a giant's body, other players' slaps and items)")]
+        [Tooltip("Speed of every shove (m/s).")]
         [Min(0f)] public float PlayerPushForce = 2.5f;
         [Tooltip("How long the shoved player's hands let go of the ground so the shove can move them (seconds).")]
         [Range(0.05f, 0.5f)] public float PlayerPushReleaseSeconds = 0.15f;
+        [Tooltip("A moving obstacle shoves only when its surface moves faster than this (m/s).")]
+        [Min(0f)] public float ObstacleMinSpeed = 0.8f;
 
         [Header("Your own view (a straight shove, never a camera spin)")]
-        [Tooltip("Minimum upward share of a knockback, so you never get pushed into the floor.")]
+        [Tooltip("Minimum upward share of a shove or a kick, so you never get pushed into the floor.")]
         [Range(0f, 1f)] public float MinUpward = 0.15f;
         [Range(0f, 1f)] public float HapticAmplitude = 0.8f;
         [Min(0f)] public float HapticSeconds = 0.2f;
         [Tooltip("While you're knocked down (a giant's kick) the view dims this much (0 clear .. 1 black), then clears as " +
                  "you get up: a VR comfort cue for a flight you aren't steering.")]
         [Range(0f, 0.8f)] public float KnockdownDim = 0.35f;
-
-        [Header("Moving obstacles")]
-        [Tooltip("Obstacle surface speed below this does nothing.")]
-        [Min(0f)] public float ObstacleMinSpeed = 0.8f;
-        [Min(0f)] public float ObstacleForceScale = 1.2f;
-        [Min(0f)] public float ObstacleMinForce = 3f;
-        [Min(0f)] public float ObstacleMaxForce = 7f;
-        [Range(0f, 2f)] public float ObstacleKnockdownSeconds = 1.2f;
-
-        [Header("Flames and pulsing hazards")]
-        [Min(0f)] public float FlameForce = 3f;
-        [Range(0f, 2f)] public float FlameKnockdownSeconds = 0.8f;
-
-        [Header("Thrown items")]
-        [Tooltip("Soft items cause a mini-stun: a tiny shove.")]
-        [Min(0f)] public float SoftItemForce = 1.5f;
-        [Range(0f, 2f)] public float SoftItemStunSeconds = 0.4f;
-        [Range(0f, 2f)] public float HeavyItemKnockdownSeconds = 1.5f;
-
-        [Header("Debug")]
-        [Min(0f)] public float SelfTestForce = 4f;
-        [Range(0f, 2f)] public float SelfTestSeconds = 1.5f;
     }
 }

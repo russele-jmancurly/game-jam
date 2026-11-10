@@ -15,7 +15,7 @@ namespace GameJam.Net
     /// Runs after gorilla locomotion (LateUpdate, order 0) so the arms meet the hands where they were drawn this frame.
     /// </summary>
     [DefaultExecutionOrder(100)]
-    public sealed class NetworkAvatar : NetworkBehaviour, IKnockbackRelay
+    public sealed class NetworkAvatar : NetworkBehaviour
     {
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
@@ -78,12 +78,12 @@ namespace GameJam.Net
             _nameTag = nameTag;
         }
 
-        /// <summary>Knocks this player over. Anyone can call it: slaps, thrown items, hazards, pop blasts.</summary>
-        public void SendKnockback(Vector3 direction, float force, float seconds) => RpcKnockback(direction, force, seconds);
+        /// <summary>Another player's slap or item hit this player: a light shove, never a knockdown.</summary>
+        public void SendShove(Vector3 direction) => RpcShove(direction);
 
         /// <summary>
-        /// A giant kicked this player: a real knockdown (ragdoll for everyone else, flung with hands off and items dropped
-        /// for the player), even in easy mode, where every other knock is only a shove.
+        /// A giant kicked this player: the only knockdown in the game (ragdoll for everyone else, flung with hands off and
+        /// items dropped for the player). Everything else is a shove.
         /// </summary>
         public void SendGiantKick(Vector3 direction, float force, float seconds) => RpcGiantKick(direction, force, seconds);
 
@@ -105,7 +105,6 @@ namespace GameJam.Net
             if (HasStateAuthority)
             {
                 Local = this;
-                GameServices.LocalKnockback = this;
                 SetVisible(false); // you never see your own body; ShowOwnArms brings back just the arms
                 if (_bodyRig != null)
                 {
@@ -122,10 +121,6 @@ namespace GameJam.Net
                 Local = null;
             }
 
-            if (ReferenceEquals(GameServices.LocalKnockback, this))
-            {
-                GameServices.LocalKnockback = null;
-            }
         }
 
         public override void FixedUpdateNetwork()
@@ -187,35 +182,21 @@ namespace GameJam.Net
         }
 
         /// <summary>
-        /// Not tick-aligned (Fusion RpcAttribute.TickAligned = false): a knockback is a one-off reaction, so it plays as
-        /// soon as it arrives instead of waiting for the local simulation to reach the sender's tick.
+        /// Not tick-aligned (Fusion RpcAttribute.TickAligned = false): a shove is a one-off reaction, so it plays as soon as
+        /// it arrives instead of waiting for the local simulation to reach the sender's tick. Only the shoved player
+        /// moves (a little); nobody sees a ragdoll.
         /// </summary>
-        [Rpc(RpcSources.All, RpcTargets.All, TickAligned = false)]
-        private void RpcKnockback(Vector3 direction, float force, float seconds)
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, TickAligned = false)]
+        private void RpcShove(Vector3 direction)
         {
-            // Knockdowns off (easy mode, KnockbackConfig.KnockdownsEnabled): any knockback is just a shove, no ragdoll.
-            KnockbackConfig knockback = LocalRig.Instance != null ? LocalRig.Instance.KnockbackConfig : null;
-            if (knockback != null && !knockback.KnockdownsEnabled)
+            LocalRig rig = LocalRig.Instance;
+            if (rig != null)
             {
-                seconds = 0f;
-                force = Mathf.Min(force, knockback.PlayerPushForce);
+                rig.Push(direction, rig.KnockbackConfig.PlayerPushForce);
             }
-
-            if (seconds <= 0f)
-            {
-                // A shove from another player (simple mode): the hit player slides a little; no ragdoll for anyone.
-                if (HasStateAuthority && LocalRig.Instance != null)
-                {
-                    LocalRig.Instance.Push(direction, force);
-                }
-
-                return;
-            }
-
-            Knockdown(direction, force, seconds);
         }
 
-        /// <summary>Not tick-aligned, like RpcKnockback. Skips the easy-mode cap: a giant's kick always ragdolls.</summary>
+        /// <summary>Not tick-aligned, like RpcShove. A giant's kick: the one thing that ragdolls a player.</summary>
         [Rpc(RpcSources.All, RpcTargets.All, TickAligned = false)]
         private void RpcGiantKick(Vector3 direction, float force, float seconds)
         {

@@ -84,7 +84,7 @@ namespace GameJam.Player
             }
 
             KnockbackConfig knockback = _rig.KnockbackConfig;
-            // Moving obstacles, passing objects and the roaming character all bowl players over the same way.
+            // Moving obstacles, passing objects and a giant's body all shove players the same way (never a knockdown).
             var obstacle = other.GetComponentInParent<IKnockbackSource>();
             if (obstacle != null && obstacle.KnocksPlayers)
             {
@@ -92,24 +92,24 @@ namespace GameJam.Player
                 float speed = surfaceVelocity.magnitude;
                 if (speed > knockback.ObstacleMinSpeed)
                 {
-                    float force = Mathf.Clamp(speed * knockback.ObstacleForceScale, knockback.ObstacleMinForce, knockback.ObstacleMaxForce);
-                    KnockOver(surfaceVelocity.normalized, force, knockback.ObstacleKnockdownSeconds);
+                    Shove(surfaceVelocity.normalized);
                 }
             }
 
             var flame = other.GetComponentInParent<PulsingHazard>();
             if (flame != null && flame.IsActive)
             {
-                KnockOver((center - other.bounds.center).normalized, knockback.FlameForce, knockback.FlameKnockdownSeconds);
+                Shove((center - other.bounds.center).normalized);
             }
 
             return true;
         }
 
-        private void KnockOver(Vector3 direction, float force, float seconds)
+        /// <summary>A light shove away from the hazard, then a short immunity so it doesn't shove every frame.</summary>
+        private void Shove(Vector3 direction)
         {
             _immuneUntil = Time.time + _rig.Config.HazardCooldown;
-            _rig.Knock(direction, force, seconds);
+            _rig.Shove(direction);
         }
     }
 }
