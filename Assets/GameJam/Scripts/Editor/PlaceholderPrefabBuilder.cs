@@ -160,6 +160,7 @@ namespace GameJam.Editor
             stars.Configure(PlaceholderAssets.Unlit("DizzyStar", ArtPalette.Accent));
 
             roamer.Configure(configs.Roster, visual, visualRoot, alert, slapHand, slapArm, stars, wanderPoints, avoidCircles, bounds);
+            roamer.ConfigureSounds(Sound(root, GeneratedAudio.GiantKick("Giant_Kick"), false, 25f, 1f));
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             return PlaceholderAssets.SavePrefab(root, "MischiefMaker");
         }
@@ -221,7 +222,7 @@ namespace GameJam.Editor
             // Save pop-up and rally drama (BalloonCallouts): 2D cues, so the whole crew hears them wherever they stand.
             AudioSource cueAudio = Sound(root, GeneratedAudio.SaveChime("Balloon_Save"), false, 0f, 0.8f);
             root.AddComponent<BalloonCallouts>().Configure(configs.Balloon, view, rallyText, saveText, cueAudio,
-                GeneratedAudio.SaveChime("Balloon_Save"), GeneratedAudio.CrowdOoh("Crowd_Ooh"), GeneratedAudio.SadTrombone("Rally_Break"));
+                GeneratedAudio.SaveChime("Balloon_Save"), GeneratedAudio.CritterOoh("Critter_Ooh"), GeneratedAudio.SadTrombone("Rally_Break"));
             balloon.ConfigurePopSound(GeneratedAudio.BalloonPop("Balloon_Pop"));
             AddBalloonOutline(visual);
             AddBalloonLocator(root, balloon, view, configs.Balloon.Radius);
@@ -353,7 +354,7 @@ namespace GameJam.Editor
             AudioSource timeUpAudio = Sound(whistle, GeneratedAudio.RefereeWhistle("Whistle_TimeUp"), false, 0f, 0.85f); // 2D
             var cheer = new GameObject("WinCheer");
             cheer.transform.SetParent(root.transform, false);
-            AudioSource cheerAudio = Sound(cheer, GeneratedAudio.CrowdCheer("Crowd_Cheer"), false, 0f, 0.75f); // 2D, with the fanfare
+            AudioSource cheerAudio = Sound(cheer, GeneratedAudio.CritterCheer("Critter_Cheer"), false, 0f, 0.75f); // 2D, with the fanfare
             gameState.ConfigureSounds(winAudio, cheerAudio, timeUpAudio);
             PlaceholderAssets.SetNetworkFlags(networkObject, SharedObjectFlags, NeverDestroyOnLeave | NetworkObjectFlags.AllowStateAuthorityOverride);
             return PlaceholderAssets.SavePrefab(root, "GameState");

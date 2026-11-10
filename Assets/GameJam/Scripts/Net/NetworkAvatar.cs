@@ -44,6 +44,20 @@ namespace GameJam.Net
 
         public static NetworkAvatar Local { get; private set; }
 
+        /// <summary>Every player's avatar in the session (the giants look for players to kick here).</summary>
+        public static readonly System.Collections.Generic.List<NetworkAvatar> All = new System.Collections.Generic.List<NetworkAvatar>();
+
+        /// <summary>The player's body (on other clients, where their synced body is now).</summary>
+        public Vector3 BodyPosition => _body.position;
+
+        /// <summary>
+        /// Lying in a ragdoll right now: the local player while knocked down, anyone else while their ragdoll is shown here.
+        /// </summary>
+        public bool IsDown => IsLocal ? LocalRig.Instance != null && LocalRig.Instance.IsKnockedDown : _hiddenUntil > 0f;
+
+        /// <summary>The player who owns this avatar.</summary>
+        public PlayerRef Owner => Object != null && Object.IsValid ? Object.StateAuthority : PlayerRef.None;
+
         public bool IsLocal => Object != null && Object.IsValid && HasStateAuthority;
 
         public Color PlayerColor => Object.StateAuthority.ToPaletteColor();
@@ -67,8 +81,19 @@ namespace GameJam.Net
         /// <summary>Knocks this player over. Anyone can call it: slaps, thrown items, hazards, pop blasts.</summary>
         public void SendKnockback(Vector3 direction, float force, float seconds) => RpcKnockback(direction, force, seconds);
 
+        /// <summary>
+        /// A giant kicked this player: a real knockdown (ragdoll for everyone else, flung with hands off and items dropped
+        /// for the player), even in easy mode, where every other knock is only a shove.
+        /// </summary>
+        public void SendGiantKick(Vector3 direction, float force, float seconds) => RpcGiantKick(direction, force, seconds);
+
         public override void Spawned()
         {
+            if (!All.Contains(this))
+            {
+                All.Add(this);
+            }
+
             Tint(PlayerColor);
             _lastBodyPosition = _body.position;
             if (_nameTag != null)
@@ -91,6 +116,7 @@ namespace GameJam.Net
 
         public override void Despawned(NetworkRunner runner, bool hasState)
         {
+            All.Remove(this);
             if (Local == this)
             {
                 Local = null;
@@ -186,6 +212,19 @@ namespace GameJam.Net
                 return;
             }
 
+            Knockdown(direction, force, seconds);
+        }
+
+        /// <summary>Not tick-aligned, like RpcKnockback. Skips the easy-mode cap: a giant's kick always ragdolls.</summary>
+        [Rpc(RpcSources.All, RpcTargets.All, TickAligned = false)]
+        private void RpcGiantKick(Vector3 direction, float force, float seconds)
+        {
+            Knockdown(direction, force, seconds);
+        }
+
+        /// <summary>The kicked player is flung (ApplyKnockback); everyone else sees a floppy ragdoll in their place.</summary>
+        private void Knockdown(Vector3 direction, float force, float seconds)
+        {
             if (HasStateAuthority)
             {
                 if (LocalRig.Instance != null)

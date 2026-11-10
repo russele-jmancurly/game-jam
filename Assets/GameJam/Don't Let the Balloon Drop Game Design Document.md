@@ -15,14 +15,14 @@ On a TV game show, a crew of 2 to 4 porcupine-suited Jmans work together to park
 | Players | 2 to 4 online co-op |
 | Movement | Gorilla locomotion (arm-swing) |
 | Networking | Photon Fusion 2 (Shared Mode) and Photon Voice 2, Unity 6000.3.8f1 |
-| Session | One timed run of a single obstacle course, built to replay for a better medal |
+| Session | One timed run of a single obstacle course, built to replay for a better score |
 | Jam | Curly Blue three-day VR game jam |
 
 **How it answers the brief:**
 
 - **Smooth VR movement:** Gorilla locomotion parkour is the heart of the game: leap, swing and climb through an obstacle course while dodging hazards that move.
 - **A world you can touch:** Hundreds of grabbable, throwable items are scattered everywhere. Slapping, throwing and bonking are the whole game.
-- **Jman personality:** A crew of balloon-popping porcupines, Jmancurly hamming it up as host, Squoof commentating, and ragdolling friends carry the humour.
+- **Jman personality:** A crew of balloon-popping porcupines, the backyard critters cheering them on, Gonzales calling the action as MC, and giants punting friends into ragdolls carry the humour.
 - **One great moment:** Saving the balloon with a perfect throw, only for it to bounce straight into your friend's spiky head.
 
 ## Design pillars
@@ -43,33 +43,33 @@ The players are contestants on **Pop or Glory: The Porcupine Relay**, a cheap bu
 
 **The show's characters (on the map, not playable):** Jmancurly and Squoof.
 
-**The roaming mischief maker:** Jmancurly or Squoof (picked at random each run), giant-sized, is loose in the yard. It wanders between open spots, and when the balloon drifts close and low it waddles over, winds up (it crouches and a "!" appears, so the crew can react) and bonks the balloon away. That bonk counts as nobody's hit. It bowls over players it walks into, the balloon bounces off it, and a brave player can climb it. The commentator calls out every bonk.
+**The roaming giants:** Jmancurly and Squoof, giant-sized, roam the yard (one each). Each wanders between open spots, and when the balloon drifts close and low it waddles over, winds up (it raises a hand and a "!" appears, so the crew can react) and bonks the balloon away. That bonk counts as nobody's hit. The balloon always comes first; when it isn't in reach during a run, a giant goes after a player standing nearby, draws its leg back ("!", time to dodge) and kicks them across the lawn into a ragdoll, the one knockdown left in easy mode. Walking into a giant only shoves you, the balloon bounces off it, and a brave player can climb it. A thrown item knocks a giant down for a few seconds. The MC calls out every bonk and kick.
 
-**The commentator:** Squoof, standing on top of the booth above the headline board, narrates everything over loudspeakers: great saves, near misses, ragdolls and especially pops ("They've slapped it straight into their crewmate's quills!"). The commentator is the main voice of the game's humour.
+**The MC:** Gonzales, a bald baby in a romper with one red boxing glove, stands on top of the headline board behind the finish and calls the action: great saves, near misses, kicks and especially pops. He waves and shadowboxes while he waits and punches the air whenever the critters cheer. For now his lines are text on the board.
 
-**The host:** Jmancurly, the show's over-the-top host, stands on a podium on the start stage to greet the crew, then at the finish awards their medal in front of the audience, or eliminates them if the clock runs out.
+**The audience:** the backyard's own critters (frogs, snails, squirrels, ladybugs, songbirds and mice) watch from logs along both fences and from a cheering section behind the start. They follow the balloon with their eyes and hop and chirp at saves, rally milestones and cleared hoops, and the whole yard jumps when the crew reaches the finish. (The user replaced the human crowd stands, the medals and the host and commentator with this.)
 
 **Tone:** Cartoon slapstick. Nobody gets hurt; Jmans bounce, flop and get back up.
 
 ## Core loop and time limit
 
-The game is one short course, played as a single timed run. A clean crew can finish in about two minutes, but the course is packed with traps and hard enough that most crews will not get gold on their first try. The fun is in trying again.
+The game is one short course, played as a single timed run. A clean crew can finish in about two minutes, but the course is packed with traps and hard enough that most crews will not get a top score on their first try. The fun is in trying again.
 
 **One run:**
 
-1. The host introduces the crew at the start line, with the balloon floating in front of them.
+1. The MC introduces the crew at the start line, with the balloon floating in front of them.
 2. The timer starts. The crew roams the open backyard, slapping, throwing and bonking the balloon through six hoops in any order.
 3. If the balloon touches the ground or pops, a fresh balloon appears beside the last hoop cleared, and the timer keeps running. The crew stays where it is and runs over.
 4. Once every hoop is cleared, the finish pad on the porch unlocks. The run succeeds when the balloon reaches it, and fails only when the timer hits zero.
-5. The host awards a medal, and the crew is back at the start line for another go.
+5. The MC announces the score, the critters cheer, and the crew is back at the start line for another go.
 
-A pop sends the balloon back to the last hoop cleared with the clock still running; only running out of time ends a run without a medal.
+A pop sends the balloon back to the last hoop cleared with the clock still running; only running out of time ends a run without a score.
 
 **Time limit:** 3:00 for the whole course (starting value, tune in playtest). A clean crew finishes in about 2:15, leaving slack for a pop or two and plenty of chaos.
 
-**Score and medals:** Base points for finishing, plus points per hoop, a bonus for time left, a multiplier for balloon condition (full, leaking, nearly flat) and a rally bonus for long chains of passes between players. The score earns bronze, silver or gold. A timeout scores nothing. Every pop costs the time it takes to get the balloon going again from the last hoop, which shrinks the time-left bonus.
+**Score:** Base points for finishing, plus points per hoop, a bonus for time left, a multiplier for balloon condition (full, leaking, nearly flat) and a rally bonus for long chains of passes between players. There are no grades: any finish is a win and shows its score. A timeout scores nothing. Every pop costs the time it takes to get the balloon going again from the last hoop, which shrinks the time-left bonus.
 
-**Why play again:** Gold needs a clean run with few pops and a smart hoop order, and some hoops (the treetop, the fence top) reward a risky hero climb. The crew's best score and medal stay on the scoreboard at the start line.
+**Why play again:** A top score needs a clean run with few pops and a smart hoop order, and some hoops (the treetop, the fence top) reward a risky hero climb. The crew's best score stays on the scoreboard at the start line.
 
 ## Movement and controls
 
@@ -230,8 +230,10 @@ Friendly fire is always on. Every slap and every throw can hit a friend, and hea
 - Hit by a heavy item (frying pan, watermelon, bowling ball, fish)
 - A hard slap from a friend
 - Launched by a bounce pad into a wall or another player
-- Caught in the blast of a popping balloon
+- Kicked by a roaming giant
 - Hit by a moving hazard
+
+A popping balloon never pushes anyone (the old pop blast is gone). In easy mode (the default) the giant's kick is the only knockdown: everything else above is a light shove.
 
 Soft items and light slaps cause a mini-stun instead: a wobble, a noise and a tiny shove.
 
@@ -244,7 +246,7 @@ Soft items and light slaps cause a mini-stun instead: a wobble, a noise and a ti
 - **The save that wasn't:** A perfect throw saves the balloon, which bounces straight into a friend's spiky head.
 - **Domino crew:** One bowling ball takes out two friends on a ledge, who tumble onto the balloon.
 - **Revenge slap:** A friend gets ragdolled, recovers and immediately hits the culprit with a fish.
-- **Pop blast:** The balloon pops and knocks everyone nearby onto their backs while the commentator groans.
+- **Giant punt:** A giant boots a friend across the lawn mid-rally while the critters gasp.
 - **Leaf blower friend launch:** A player aims the leaf blower at the balloon and blows their friend off the roof instead.
 - **Traffic cone hat:** A thrown cone lands perfectly on a friend's head and stays there for the rest of the run.
 - **Squeaky panic:** A friend accidentally helium-blasts themselves and spends the run yelling in a chipmunk voice.
@@ -253,7 +255,7 @@ Soft items and light slaps cause a mini-stun instead: a wobble, a noise and a ti
 
 ## Levels
 
-The game has one big play space: **The Giant Backyard**, a studio set built at toy scale, where everyday garden things are blown up so the Jmans are tiny. It is an **open yard you can roam anywhere**, not a linear course: walkable lawn ringed by a giant picket fence (climbable) and the house, with zones full of things that move. Studio lights, the commentator's board and audience stands look in over the fence.
+The game has one big play space: **The Giant Backyard**, a studio set built at toy scale, where everyday garden things are blown up so the Jmans are tiny. It is an **open yard you can roam anywhere**, not a linear course: walkable lawn ringed by a giant picket fence (climbable) and the house, with zones full of things that move. Studio lights look in over the fence, the MC stands on his board behind the finish, and the critter audience sits on logs along the fences.
 
 **The ground is the enemy, not the floor.** Players run, climb and leap anywhere on the lawn. Only the balloon must never touch the ground (the title rule): lawn, flower beds and the sandbox pop it, and the paddling pool pops it and sends players who fall in back to their checkpoint.
 
@@ -288,7 +290,7 @@ Everything that moves runs on the shared clock, so every headset sees it in the 
 - **Hoops at different heights:** low hoops anyone can make, high ones (tree, fence top) reward climbing and teamwork.
 - **Build traps as prefabs:** every trap is one reusable piece with its own rhythm settings.
 
-**Start line:** the stage with the host's scoreboard, a cheering Jman audience and a pile of items to mess around with while the crew gets ready. It doubles as a safe place to learn slapping and throwing before the timer starts.
+**Start line:** the stage with the scoreboard, a cheering section of critters behind it and a pile of items to mess around with while the crew gets ready. It doubles as a safe place to learn slapping and throwing before the timer starts.
 
 ## UI, audio and feedback
 
@@ -300,14 +302,14 @@ All UI lives in the world, not on a flat screen overlay, so players never look a
 - **Balloon shadow:** A clear shadow on the ground below the balloon, so players can track it without looking straight up.
 - **Rally counter:** A floating number above the balloon that counts consecutive passes between players without the balloon touching anything.
 - **Spike warning:** Your suit spikes rattle and the controllers buzz when the balloon gets close to your body.
-- **Scoreboard:** At the start line, showing the crew's best score and medal.
+- **Scoreboard:** At the start line, showing the crew's last and best score.
 
 **Audio:**
 
 - A meaty, satisfying slap sound, pitched up for harder slaps
 - Rubbery squeaks when the balloon bounces
 - A sad wheeze when it starts leaking
-- A huge pop followed by the commentator's anguished groan, audible from anywhere on the route
+- A huge pop, audible from anywhere on the route (it never pushes anyone)
 - Bonk, splat and squeak sounds for each item type hitting a friend
 - Jman voice barks for ragdolls, saves and near misses
 
@@ -323,7 +325,7 @@ The game is built in Unity 6000.3.8f1 with Photon Fusion 2 in Shared Mode for 2 
 | Balloon | Whoever slapped or hit it last | Position, velocity, condition, last hitter |
 | Items | Whoever grabbed or threw it last | Position, rotation, velocity |
 | Ragdoll | The hit player | An RPC with knockback direction and force |
-| Game state (timer, points, medal, run result, section reset) | Shared Mode master client | Networked properties |
+| Game state (timer, points, run result, section reset) | Shared Mode master client | Networked properties |
 | Voice | Each player | A Photon Voice stream from their avatar |
 
 **Balloon authority:** On each hit, the slapping player requests state authority over the balloon, so slaps feel instant for whoever made them. Keep the balloon slow so the small corrections when authority changes hands are barely visible. Occasional jank is acceptable in this genre. The balloon stores its last hitter as a networked property, and every new hit is checked against it; if two hits land at the same moment, the first one received wins.
@@ -354,7 +356,7 @@ The make-or-break goal is a slap that feels great with friends online by the end
 **Scope:**
 
 - **Must have:** 2 to 4 players online with voice chat, gorilla locomotion, slap-only balloon with spike pops, about 10 items, ragdoll on heavy hits, sections 1 and 2 of the course with their traps, a timer and a result screen.
-- **Should have:** Section 3, medals, slow leaks, rally counter, commentator lines.
+- **Should have:** Section 3, slow leaks, rally counter, MC lines.
 - **Stretch:** Balloon types, the full item list, host banter.
 
 **Three-day plan:**
@@ -363,7 +365,7 @@ The make-or-break goal is a slap that feels great with friends online by the end
 | --- | --- | --- |
 | Day 1: Discover | Slap a balloon together online | Gorilla locomotion in Unity; Fusion Shared Mode session with synced Jmans and working voice; balloon physics and slap feel; spike pop on body contact; grab and throw one item |
 | Day 2: Build | A playable run through sections 1 and 2 | Trap prefabs; sections 1 and 2 with checkpoints and moving obstacles; timer and result screen; 10 items; ragdoll and friendly fire; first group playtests and tuning |
-| Day 3: Refine | Polish and demo | Section 3 built from the trap prefabs; medals; hero leaps; audio and haptics; comfort pass; performance on Quest; record gameplay capture; prepare the pitch |
+| Day 3: Refine | Polish and demo | Section 3 built from the trap prefabs; hero leaps; audio and haptics; comfort pass; performance on Quest; record gameplay capture; prepare the pitch |
 
 **Risks:**
 
@@ -376,7 +378,7 @@ The make-or-break goal is a slap that feels great with friends online by the end
 | Held items colliding with your own body | Gorilla locomotion uses hand colliders | Held items ignore your own body and climbing surfaces |
 | Testing needs several headsets | Every multiplayer test needs 2 to 4 people | Book a daily group playtest slot; use an editor test mode for solo work |
 
-**Cut order if time runs short:** Section 3 (end the course at the top of the fence), then medals (keep a simple time score), then extra items. Build the sections in order so the course is always playable from start to finish.
+**Cut order if time runs short:** Section 3 (end the course at the top of the fence), then extra items. Build the sections in order so the course is always playable from start to finish.
 
 ## Showcase plan
 
@@ -386,8 +388,8 @@ The showcase needs a playable build, a short pitch and a 3 to 5 minute gameplay 
 
 1. **0:00 to 0:30:** The pitch in one line, then the crew at the start line slapping items at each other.
 2. **0:30 to 1:30:** The Flooded Lawn and the Fence: first slaps and passes, a mousetrap snap, a frying pan ragdoll and a washing-line swing.
-3. **1:30 to 3:00:** The Patio to the Roof: passing over the grill between flame bursts, a trampoline friend launch, a pop right before the finish with the crew snapping back to the section start, then the run that makes it, with the commentator cheering.
-4. **3:00 to 4:00:** The medal, the host's verdict, and a short note on what the team learned.
+3. **1:30 to 3:00:** The Patio to the Roof: passing over the grill between flame bursts, a trampoline friend launch, a pop right before the finish with the crew snapping back to the section start, then the run that makes it, with the critters cheering.
+4. **3:00 to 4:00:** The score, the critter audience going wild, and a short note on what the team learned.
 
 **Capture tips:** Record from a spectator camera as well as a headset, so viewers can see the ragdolls and spikes. Prepare a highlight of the best accidental friend hit from playtests.
 

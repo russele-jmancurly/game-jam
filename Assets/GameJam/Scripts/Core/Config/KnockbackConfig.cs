@@ -10,9 +10,9 @@ namespace GameJam.Core
     public sealed class KnockbackConfig : ScriptableObject
     {
         [Header("Knockdowns")]
-        [Tooltip("Off (easy mode, the default): nothing ever knocks a player down or ragdolls them. The giant, moving " +
-                 "obstacles, flames, pop blasts and other players only give a light shove (PlayerPushForce); you keep your " +
-                 "hands and what you hold. On: the old knockdowns with ragdolls.")]
+        [Tooltip("Off (easy mode, the default): nothing knocks a player down or ragdolls them except a giant's kick " +
+                 "(CharacterRoster Roamer Kick*). Walking into a giant, moving obstacles, flames and other players only give " +
+                 "a light shove (PlayerPushForce); you keep your hands and what you hold. On: the old knockdowns with ragdolls.")]
         public bool KnockdownsEnabled;
 
         [Header("Players hitting players (friend slaps, thrown and swung items)")]
@@ -30,6 +30,9 @@ namespace GameJam.Core
         [Range(0f, 1f)] public float MinUpward = 0.15f;
         [Range(0f, 1f)] public float HapticAmplitude = 0.8f;
         [Min(0f)] public float HapticSeconds = 0.2f;
+        [Tooltip("While you're knocked down (a giant's kick) the view dims this much (0 clear .. 1 black), then clears as " +
+                 "you get up: a VR comfort cue for a flight you aren't steering.")]
+        [Range(0f, 0.8f)] public float KnockdownDim = 0.35f;
 
         [Header("Moving obstacles")]
         [Tooltip("Obstacle surface speed below this does nothing.")]

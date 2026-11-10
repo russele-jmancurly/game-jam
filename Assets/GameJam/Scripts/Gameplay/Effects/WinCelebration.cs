@@ -4,7 +4,7 @@ using UnityEngine;
 namespace GameJam.Gameplay
 {
     /// <summary>
-    /// The win party for one player's own view (local, nothing networked: every client runs its own on a medal finish).
+    /// The win party for one player's own view (local, nothing networked: every client runs its own on a finish).
     /// Confetti bursts pop all around and above the viewer over a few seconds, using the pooled BurstEffects confetti, so
     /// the whole crew sees it wherever they are standing when the balloon lands on the finish.
     /// </summary>

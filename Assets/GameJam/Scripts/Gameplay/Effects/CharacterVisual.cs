@@ -13,10 +13,10 @@ namespace GameJam.Gameplay
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         [SerializeField] private Material _placeholderMaterial;
-        [Tooltip("Optional: a fixed character shown when the scene starts (map figures like the host and commentator).")]
+        [Tooltip("Optional: a fixed character shown when the scene starts (map figures like the MC).")]
         [SerializeField] private CharacterDefinition _showOnStart;
         [SerializeField] private float _showOnStartHeight = 1.6f;
-        [Tooltip("Rigged characters wave at the crowd now and then while standing (the host and commentator).")]
+        [Tooltip("Rigged characters wave now and then while standing (the MC).")]
         [SerializeField] private bool _ambientGestures;
 
         private GameObject _instance;

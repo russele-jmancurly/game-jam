@@ -18,6 +18,7 @@ namespace GameJam.Gameplay
         private readonly BalloonConfig _config;
         private readonly Transform _self;
         private readonly Collider[] _overlaps = new Collider[MaxOverlaps];
+        private bool _wasTouchingSpikes; // last step: a held contact leaks once, not every LeakCooldown
 
         public BalloonPhysics(BalloonConfig config, Transform self)
         {
@@ -62,6 +63,9 @@ namespace GameJam.Gameplay
         private bool ApplyContacts(in BalloonStepInput input, ref Vector3 velocity, ref BalloonStepResult result)
         {
             Vector3 position = input.Position;
+            bool touchingSpikes = false;
+            bool newSpikeContact = !_wasTouchingSpikes;
+            _wasTouchingSpikes = false; // stays false if it pops (it goes back on station)
             int count = Physics.OverlapSphereNonAlloc(position, _config.Radius * ContactSkin, _overlaps, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < count; i++)
             {
@@ -111,13 +115,15 @@ namespace GameJam.Gameplay
 
                 if (input.AreSpikesArmed && other.GetComponentInParent<ISpikeSurface>() != null)
                 {
-                    if (!TouchSpikes(input, other, position, ref velocity, ref result))
+                    touchingSpikes = true;
+                    if (!TouchSpikes(input, other, position, newSpikeContact, ref velocity, ref result))
                     {
                         return false;
                     }
                 }
             }
 
+            _wasTouchingSpikes = touchingSpikes;
             return true;
         }
 
@@ -149,16 +155,25 @@ namespace GameJam.Gameplay
             return reason != null;
         }
 
-        /// <summary>A hard touch pops it; a graze leaks air and pushes it away. Returns false if it popped.</summary>
-        private bool TouchSpikes(in BalloonStepInput input, Collider spikes, Vector3 position, ref Vector3 velocity, ref BalloonStepResult result)
+        /// <summary>
+        /// Flying into the spikes pops it; a graze leaks a little air (once per touch, not per step or per second while
+        /// it rests there) and bounces it off. Returns false if it popped.
+        /// </summary>
+        private bool TouchSpikes(in BalloonStepInput input, Collider spikes, Vector3 position, bool newContact,
+            ref Vector3 velocity, ref BalloonStepResult result)
         {
-            if (velocity.magnitude > _config.BodyPopSpeed)
+            Vector3 push = position - spikes.bounds.center;
+            Vector3 away = push.sqrMagnitude > 0.0001f ? push.normalized : Vector3.up;
+
+            // Only speed toward the spikes counts: a balloon skimming past, or already bouncing off, isn't a hard hit.
+            float closing = -Vector3.Dot(velocity, away);
+            if (closing > _config.BodyPopSpeed)
             {
                 result.PopReason = "Right into the spikes!";
                 return false;
             }
 
-            if (input.CanLeak && !result.Leaked)
+            if (newContact && input.CanLeak && !result.Leaked)
             {
                 if (input.Condition >= BalloonCondition.NearlyFlat)
                 {
@@ -169,8 +184,14 @@ namespace GameJam.Gameplay
                 result.Leaked = true;
             }
 
-            Vector3 push = position - spikes.bounds.center;
-            velocity += (push.sqrMagnitude > 0.0001f ? push.normalized : Vector3.up) * _config.SpikePushSpeed;
+            // Bounce off at SpikePushSpeed: set the outward part, never add it every step (that used to stack past
+            // BodyPopSpeed within three steps of a slow, held touch and pop it).
+            float outward = Vector3.Dot(velocity, away);
+            if (outward < _config.SpikePushSpeed)
+            {
+                velocity += away * (_config.SpikePushSpeed - outward);
+            }
+
             return true;
         }
     }

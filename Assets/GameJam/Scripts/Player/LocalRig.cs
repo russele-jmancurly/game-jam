@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using GameJam.Core;
+using GameJam.Gameplay;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
@@ -50,6 +51,7 @@ namespace GameJam.Player
         private HandGrip _leftGrip;
         private HandGrip _rightGrip;
         private float _knockedDownUntil = -1f;
+        private bool _isDimmed; // the knockdown dimmed the view (ScreenFade); cleared on getting up
         private bool _isSnapReady = true;
         private bool _controllersTracked;
         private bool _leftTriggerDown;
@@ -221,6 +223,13 @@ namespace GameJam.Player
             _leftGrip.Drop();
             _rightGrip.Drop();
 
+            ScreenFade fade = ScreenFade.Instance;
+            if (fade != null && fade.Alpha < _knockbackConfig.KnockdownDim)
+            {
+                fade.FadeTo(_knockbackConfig.KnockdownDim, 0.15f);
+                _isDimmed = true;
+            }
+
             var pulse = new HapticPulse(_knockbackConfig.HapticAmplitude, _knockbackConfig.HapticSeconds);
             XRHaptics.Send(XRNode.LeftHand, pulse);
             XRHaptics.Send(XRNode.RightHand, pulse);
@@ -382,6 +391,15 @@ namespace GameJam.Player
             {
                 _knockedDownUntil = -1f;
                 ResetHands();
+                if (_isDimmed)
+                {
+                    _isDimmed = false;
+                    ScreenFade fade = ScreenFade.Instance;
+                    if (fade != null && fade.Alpha <= _knockbackConfig.KnockdownDim + 0.01f)
+                    {
+                        fade.FadeTo(0f, 0.4f); // not if a tunnel fade to black started meanwhile
+                    }
+                }
             }
 
             // Hands only touch the world when they're real (tracked) and not ragdolled.

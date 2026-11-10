@@ -1,5 +1,5 @@
-// Play mode: points a review camera at a named map figure (Host_Jman, Commentator_Squoof) and reports the roster.
-var figureName = "Host_Jman";
+// Play mode: points a review camera at a named map figure (MC_Gonzales) and reports the roster.
+var figureName = "MC_Gonzales";
 var figure = UnityEngine.GameObject.Find(figureName);
 if (figure == null) { return "missing " + figureName; }
 var vis = figure.GetComponent<GameJam.Gameplay.CharacterVisual>();

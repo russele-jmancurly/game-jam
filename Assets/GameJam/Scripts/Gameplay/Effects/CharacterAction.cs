@@ -7,5 +7,8 @@ namespace GameJam.Gameplay
         WindUp,
         Slap,
         Wave,
+        Kick,
+        Cheer,
+        Shadowbox,
     }
 }

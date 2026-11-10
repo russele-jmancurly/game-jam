@@ -122,6 +122,8 @@ namespace GameJam.Gameplay
                     _clearAudio.Play();
                 }
 
+                CritterCrowd.Cheer(transform.position, 2);
+
                 // A confetti burst (pooled); without BurstEffects in the scene, bits in the ring's two colours.
                 if (!BurstEffects.Confetti(transform.position))
                 {

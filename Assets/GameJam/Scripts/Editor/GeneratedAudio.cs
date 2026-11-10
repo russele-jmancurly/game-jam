@@ -165,11 +165,11 @@ namespace GameJam.Editor
             });
 
         /// <summary>
-        /// Run won: a crowd cheering, about 4 s. Twenty voices each shout a sung "ahh!" (a glottal buzz at its own pitch,
-        /// shaped by the formants of an open vowel, scooping up as it starts and wobbling as it holds), coming in over the
-        /// first half second, under a bed of applause (dense random claps). Swells, holds, fades.
+        /// Run won: the backyard critters cheering, about 3.6 s. Birds chirp and trill (quick upward sweeps, 2-4 kHz), frogs
+        /// ribbit (a low buzz chopped into pulses), mice and squirrels squeak (short high downward sweeps), over a patter of
+        /// tiny paws clapping. Swells in, holds, fades.
         /// </summary>
-        public static AudioClip CrowdCheer(string name)
+        public static AudioClip CritterCheer(string name)
         {
             string path = $"{Folder}/{name}.wav";
             if (IsCurrent(path, out AudioClip existing))
@@ -177,78 +177,94 @@ namespace GameJam.Editor
                 return existing;
             }
 
-            const float seconds = 4.2f;
-            int count = Mathf.RoundToInt(seconds * SampleRate);
-            var samples = new float[count];
-            var random = new System.Random(28);
+            const float seconds = 3.6f;
+            var samples = new float[Mathf.RoundToInt(seconds * SampleRate)];
+            var random = new System.Random(48);
             float Rand(float a, float b) => a + (float)random.NextDouble() * (b - a);
 
-            // Voices: each a band of harmonics weighted by the "ah" formants (F1 ~750 Hz, F2 ~1200 Hz, a little F3 ~2600 Hz).
-            const int voices = 20;
-            const int harmonics = 14;
-            for (int v = 0; v < voices; v++)
+            for (int i = 0; i < 70; i++) // bird chirps, some in little trills
             {
-                bool high = v % 3 != 0;                     // a mixed crowd: two thirds higher voices
-                float f0 = high ? Rand(230f, 420f) : Rand(120f, 210f);
-                float onset = Rand(0f, 0.55f);
-                float hold = Rand(1.6f, 2.9f);
-                float wobbleRate = Rand(4.5f, 7f);
-                float level = Rand(0.6f, 1f) / voices;
-                var amplitudes = new float[harmonics];
-                for (int n = 1; n <= harmonics; n++)
+                float at = Rand(0f, seconds - 0.8f);
+                float hz = Rand(2000f, 3800f);
+                int notes = random.NextDouble() < 0.35 ? random.Next(3, 6) : 1;
+                for (int n = 0; n < notes; n++)
                 {
-                    float hz = n * f0;
-                    amplitudes[n - 1] = Mathf.Exp(-Mathf.Pow((hz - 750f) / 260f, 2f)) + 0.7f * Mathf.Exp(-Mathf.Pow((hz - 1200f) / 320f, 2f))
-                                        + 0.25f * Mathf.Exp(-Mathf.Pow((hz - 2600f) / 500f, 2f)) + 0.12f / n;
-                }
-
-                double phase = Rand(0f, 6.28f);
-                int start = Mathf.RoundToInt(onset * SampleRate);
-                int end = Mathf.Min(count, start + Mathf.RoundToInt((hold + 0.7f) * SampleRate));
-                for (int i = start; i < end; i++)
-                {
-                    float t = (float)(i - start) / SampleRate;
-                    float scoop = 1f - 0.18f * Mathf.Exp(-t * 9f);            // "ah!" bends up into the note
-                    float wobble = 1f + 0.025f * Mathf.Sin(2f * Mathf.PI * wobbleRate * t);
-                    phase += 2.0 * Math.PI * f0 * scoop * wobble / SampleRate;
-                    float env = Mathf.Clamp01(t / 0.12f) * (t < hold ? 1f : Mathf.Exp(-(t - hold) * 6f));
-                    float voice = 0f;
-                    for (int n = 1; n <= harmonics; n++)
-                    {
-                        voice += amplitudes[n - 1] * (float)Math.Sin(phase * n);
-                    }
-
-                    samples[i] += voice * env * level;
+                    Chirp(samples, at + n * 0.055f, Rand(0.05f, 0.1f), hz, hz * Rand(1.25f, 1.7f), Rand(0.25f, 0.45f));
                 }
             }
 
-            // Applause: short noisy claps at random, about 70 a second, each a 12 ms crack.
-            int claps = Mathf.RoundToInt(seconds * 70f);
-            for (int c = 0; c < claps; c++)
+            for (int i = 0; i < 9; i++) // frog ribbits
             {
-                float at = Rand(0.05f, seconds - 0.3f);
-                int start = Mathf.RoundToInt(at * SampleRate);
-                float gain = Rand(0.25f, 0.55f);
-                float low = 0f;
-                for (int k = 0; k < SampleRate / 80 && start + k < count; k++)
-                {
-                    float white = Rand(-1f, 1f);
-                    low += (white - low) * 0.35f;
-                    float crack = (white - low) * Mathf.Exp(-k / (SampleRate * 0.004f));
-                    samples[start + k] += crack * gain * 0.12f;
-                }
-
+                Croak(samples, Rand(0f, seconds - 1f), Rand(0.22f, 0.32f), Rand(105f, 160f), Rand(24f, 34f), Rand(0.5f, 0.8f));
             }
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < 22; i++) // squeaks
+            {
+                float hz = Rand(4200f, 6000f);
+                Chirp(samples, Rand(0f, seconds - 0.8f), Rand(0.03f, 0.05f), hz, hz * 0.7f, Rand(0.15f, 0.3f));
+            }
+
+            Patter(samples, random, 0.05f, seconds - 0.5f, 55f, 0.08f); // tiny paws clapping
+
+            for (int i = 0; i < samples.Length; i++)
             {
                 float t = (float)i / SampleRate;
-                float shape = Mathf.Clamp01(t / 0.35f) * Mathf.Clamp01((seconds - t) / 1.3f); // swell in, hold, fade
-                samples[i] *= shape;
+                samples[i] *= Mathf.Clamp01(t / 0.3f) * Mathf.Clamp01((seconds - t) / 1.2f); // swell in, hold, fade
             }
 
             Normalize(samples, PeakEffect * 0.9f);
             return Save(path, samples, 1, false);
+        }
+
+        /// <summary>One chirp or squeak: a sine gliding from one pitch to another with a quick attack and a soft tail.</summary>
+        private static void Chirp(float[] samples, float at, float length, float fromHz, float toHz, float gain)
+        {
+            int start = Mathf.RoundToInt(at * SampleRate);
+            int count = Mathf.RoundToInt(length * SampleRate);
+            double phase = 0.0;
+            for (int k = 0; k < count && start + k < samples.Length; k++)
+            {
+                float p = (float)k / count;
+                phase += 2.0 * Math.PI * Mathf.Lerp(fromHz, toHz, Mathf.Sqrt(p)) / SampleRate;
+                float env = Mathf.Clamp01(p * 12f) * (1f - p) * (1f - p);
+                samples[start + k] += (float)Math.Sin(phase) * env * gain;
+            }
+        }
+
+        /// <summary>A frog's ribbit: a buzzy low tone (a few harmonics) chopped into quick pulses, sagging in pitch.</summary>
+        private static void Croak(float[] samples, float at, float length, float hz, float pulsesPerSecond, float gain)
+        {
+            int start = Mathf.RoundToInt(at * SampleRate);
+            int count = Mathf.RoundToInt(length * SampleRate);
+            double phase = 0.0;
+            for (int k = 0; k < count && start + k < samples.Length; k++)
+            {
+                float t = (float)k / SampleRate;
+                float p = (float)k / count;
+                phase += 2.0 * Math.PI * hz * (1f - 0.15f * p) / SampleRate;
+                float tone = (float)(Math.Sin(phase) + 0.6 * Math.Sin(phase * 2) + 0.35 * Math.Sin(phase * 3) + 0.2 * Math.Sin(phase * 5));
+                float pulse = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * pulsesPerSecond * t)), 3f);
+                float env = Mathf.Clamp01(p * 20f) * Mathf.Clamp01((1f - p) * 6f);
+                samples[start + k] += tone * pulse * env * gain * 0.35f;
+            }
+        }
+
+        /// <summary>A patter of tiny claps: short noisy ticks at random, perSecond of them between two times.</summary>
+        private static void Patter(float[] samples, System.Random random, float from, float to, float perSecond, float gain)
+        {
+            int ticks = Mathf.RoundToInt((to - from) * perSecond);
+            for (int c = 0; c < ticks; c++)
+            {
+                int start = Mathf.RoundToInt((from + (float)random.NextDouble() * (to - from)) * SampleRate);
+                float level = gain * (0.5f + 0.5f * (float)random.NextDouble());
+                float low = 0f;
+                for (int k = 0; k < SampleRate / 150 && start + k < samples.Length; k++)
+                {
+                    float white = (float)random.NextDouble() * 2f - 1f;
+                    low += (white - low) * 0.5f;
+                    samples[start + k] += (white - low) * Mathf.Exp(-k / (SampleRate * 0.002f)) * level;
+                }
+            }
         }
 
         /// <summary>
@@ -265,11 +281,11 @@ namespace GameJam.Editor
             });
 
         /// <summary>
-        /// A rally milestone: a small crowd going "ooooh!", about 1.7 s. Fourteen voices on an "oo" vowel (formants near
-        /// 330 Hz and 850 Hz) that slide up together as they are impressed, then sag, with a scatter of claps at the end.
+        /// A rally milestone: the critters going "ooooh!", about 1.7 s. A flock of birds whistles a long glide up and back
+        /// (each at its own pitch, with vibrato), a couple of frogs croak a rising "ooo", and squeaks and paw-pats follow.
         /// The balloon raises its pitch a little for each higher milestone.
         /// </summary>
-        public static AudioClip CrowdOoh(string name)
+        public static AudioClip CritterOoh(string name)
         {
             string path = $"{Folder}/{name}.wav";
             if (IsCurrent(path, out AudioClip existing))
@@ -278,62 +294,40 @@ namespace GameJam.Editor
             }
 
             const float seconds = 1.7f;
-            int count = Mathf.RoundToInt(seconds * SampleRate);
-            var samples = new float[count];
-            var random = new System.Random(32);
+            var samples = new float[Mathf.RoundToInt(seconds * SampleRate)];
+            var random = new System.Random(49);
             float Rand(float a, float b) => a + (float)random.NextDouble() * (b - a);
 
-            const int voices = 14;
-            const int harmonics = 10;
-            for (int v = 0; v < voices; v++)
+            for (int v = 0; v < 9; v++) // whistles: up about a fifth over 0.6 s, then sagging
             {
-                bool high = v % 3 != 0;
-                float f0 = high ? Rand(220f, 360f) : Rand(110f, 190f);
+                float f0 = Rand(1300f, 2400f);
                 float onset = Rand(0f, 0.12f);
-                float level = Rand(0.6f, 1f) / voices;
-                float wobbleRate = Rand(4.5f, 6.5f);
-                var amplitudes = new float[harmonics];
-                for (int n = 1; n <= harmonics; n++)
-                {
-                    float hz = n * f0;
-                    amplitudes[n - 1] = Mathf.Exp(-Mathf.Pow((hz - 330f) / 140f, 2f)) + 0.45f * Mathf.Exp(-Mathf.Pow((hz - 850f) / 220f, 2f))
-                                        + 0.1f / n;
-                }
-
-                double phase = Rand(0f, 6.28f);
+                float level = Rand(0.5f, 0.9f) / 9f;
+                float vibrato = Rand(5f, 8f);
+                double phase = 0.0;
                 int start = Mathf.RoundToInt(onset * SampleRate);
-                for (int i = start; i < count; i++)
+                for (int i = start; i < samples.Length; i++)
                 {
                     float t = (float)(i - start) / SampleRate;
-                    // "oooOOOooh": the pitch climbs about a fifth over the first 0.6 s, then sags back a little.
-                    float slide = 1f + 0.42f * Mathf.Clamp01(t / 0.6f) - 0.14f * Mathf.Clamp01((t - 0.75f) / 0.7f);
-                    float wobble = 1f + 0.02f * Mathf.Sin(2f * Mathf.PI * wobbleRate * t);
-                    phase += 2.0 * Math.PI * f0 * slide * wobble / SampleRate;
-                    float env = Mathf.Clamp01(t / 0.18f) * Mathf.Clamp01((seconds - onset - t) / 0.55f);
-                    float voice = 0f;
-                    for (int n = 1; n <= harmonics; n++)
-                    {
-                        voice += amplitudes[n - 1] * (float)Math.Sin(phase * n);
-                    }
-
-                    samples[i] += voice * env * level;
+                    float slide = 1f + 0.5f * Mathf.Clamp01(t / 0.6f) - 0.18f * Mathf.Clamp01((t - 0.75f) / 0.6f);
+                    phase += 2.0 * Math.PI * f0 * slide * (1f + 0.012f * Mathf.Sin(2f * Mathf.PI * vibrato * t)) / SampleRate;
+                    float env = Mathf.Clamp01(t / 0.12f) * Mathf.Clamp01((seconds - onset - t) / 0.5f);
+                    samples[i] += (float)Math.Sin(phase) * env * level;
                 }
             }
 
-            // A few claps as the "ooh" fades.
-            for (int c = 0; c < 30; c++)
+            for (int f = 0; f < 2; f++) // frogs: a slow croak under the whistles
             {
-                int start = Mathf.RoundToInt(Rand(0.9f, seconds - 0.1f) * SampleRate);
-                float gain = Rand(0.2f, 0.45f);
-                float low = 0f;
-                for (int k = 0; k < SampleRate / 80 && start + k < count; k++)
-                {
-                    float white = Rand(-1f, 1f);
-                    low += (white - low) * 0.35f;
-                    samples[start + k] += (white - low) * Mathf.Exp(-k / (SampleRate * 0.004f)) * gain * 0.1f;
-                }
+                Croak(samples, Rand(0.05f, 0.2f), 0.9f, Rand(95f, 130f), Rand(14f, 20f), 0.35f);
             }
 
+            for (int i = 0; i < 8; i++)
+            {
+                float hz = Rand(4200f, 5800f);
+                Chirp(samples, Rand(0.9f, seconds - 0.15f), 0.04f, hz, hz * 0.7f, Rand(0.08f, 0.15f));
+            }
+
+            Patter(samples, random, 0.95f, seconds - 0.1f, 30f, 0.06f);
             Normalize(samples, PeakEffect * 0.85f);
             return Save(path, samples, 1, false);
         }
@@ -479,6 +473,21 @@ namespace GameJam.Editor
         public static AudioClip LessonDone(string name) =>
             Create(name, 0.9f, false, 44, PeakEffect * 0.9f, (t, soft, deep) =>
                 Bell(1568f, t, 7f) + Bell(2093f, t - 0.11f, 5f));
+
+        /// <summary>
+        /// A giant's kick: a swish of air as the leg swings through, then a heavy, padded thump 0.2 s in (the swing ends and
+        /// the foot lands there, MischiefMaker plays it as the Kick swing starts).
+        /// </summary>
+        public static AudioClip GiantKick(string name) =>
+            Create(name, 0.7f, false, 46, PeakEffect, (t, soft, deep) =>
+            {
+                float swish = soft * Mathf.Exp(-(t - 0.12f) * (t - 0.12f) * 90f) * 0.7f;
+                float hit = t - 0.2f;
+                float thump = hit > 0f
+                    ? (Sine(70f * (1f - hit * 0.6f), hit) * Mathf.Exp(-hit * 11f) + deep * 0.5f * Mathf.Exp(-hit * 18f)) * Mathf.Clamp01(hit * 1500f)
+                    : 0f;
+                return swish + thump * 1.2f;
+            });
 
         /// <summary>Trampoline: a springy boing (a pitch that drops and wobbles).</summary>
         public static AudioClip TrampolineBoing(string name) =>

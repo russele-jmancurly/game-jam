@@ -95,6 +95,8 @@ GameObject:
   - component: {fileID: 7151433222443983620}
   - component: {fileID: 949774081726036650}
   - component: {fileID: 5942525207325635896}
+  - component: {fileID: 6504711821834715776}
+  - component: {fileID: 2400120449397689798}
   m_Layer: 0
   m_Name: MischiefMaker
   m_TagString: Untagged
@@ -201,6 +203,7 @@ MonoBehaviour:
   _slapHand: {fileID: 7648760879783926123}
   _slapArm: {fileID: 8107188757075125517}
   _stars: {fileID: 2441418655448453982}
+  _kickAudio: {fileID: 6504711821834715776}
   _wanderPoints:
   - {x: -20, y: 0, z: -10}
   - {x: -20, y: 0, z: 8}
@@ -262,6 +265,118 @@ CapsuleCollider:
   m_Height: 3.8400002
   m_Direction: 1
   m_Center: {x: 0, y: 1.9200001, z: 0}
+--- !u!82 &6504711821834715776
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4335006855251571437}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 8300000, guid: f4dd1c08e1d9cf44f9dddcb834e8c39e, type: 3}
+  m_PlayOnAwake: 0
+  m_Volume: 0.85
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 2
+  MaxDistance: 25
+  Pan2D: 0
+  rolloffMode: 1
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &2400120449397689798
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4335006855251571437}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e134c049654f2b45b4f010d09a1330a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameJam.Gameplay::GameJam.Gameplay.SoundLevel
+  _config: {fileID: 11400000, guid: 22ff86e8884faaa4ebdb4e14b37f12ed, type: 2}
+  _category: 0
+  _volume: 1
 --- !u!1 &4505361930042044662
 GameObject:
   m_ObjectHideFlags: 0

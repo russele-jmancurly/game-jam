@@ -60,7 +60,7 @@ namespace GameJam.Gameplay
         /// <summary>Ground speed in m/s this frame; blends Idle into Walk and sets the walk's playback rate.</summary>
         public void SetSpeed(float metresPerSecond) => _speed = Mathf.Max(metresPerSecond, 0f);
 
-        /// <summary>The host and commentator wave at the crowd every so often while idle.</summary>
+        /// <summary>The MC waves at the yard (or shadowboxes, with that clip) every so often while idle.</summary>
         public void SetAmbientWave(bool enabled)
         {
             _ambientWave = enabled;
@@ -87,7 +87,12 @@ namespace GameJam.Gameplay
 
             _action = AnimationClipPlayable.Create(_graph, clip);
             _action.SetApplyFootIK(false);
-            float natural = action == CharacterAction.Slap ? _character.SlapHitTime : clip.length;
+            float natural = action switch
+            {
+                CharacterAction.Slap => _character.SlapHitTime,
+                CharacterAction.Kick => _character.KickHitTime,
+                _ => clip.length,
+            };
             _action.SetSpeed(duration > 0.01f ? Mathf.Clamp(natural / duration, 0.25f, 4f) : 1f);
             _graph.Connect(_action, 0, _mixer, 2);
             _actionKind = action;
@@ -142,7 +147,9 @@ namespace GameJam.Gameplay
 
             if (_ambientWave && !_action.IsValid() && _walkWeight < 0.05f && Time.time >= _nextWave)
             {
-                Play(CharacterAction.Wave);
+                // A character with a Shadowbox clip (the MC) mixes it in with the waves.
+                bool box = _character.Shadowbox != null && Random.value < 0.5f;
+                Play(box ? CharacterAction.Shadowbox : CharacterAction.Wave);
                 _nextWave = Time.time + Random.Range(7f, 14f);
             }
         }
@@ -155,11 +162,17 @@ namespace GameJam.Gameplay
             _mixer.SetInputWeight(2, _action.IsValid() ? _actionWeight : 0f);
         }
 
+        /// <summary>True when the character has a clip for this gesture (the giant falls back to WindUp + Slap without Kick).</summary>
+        public bool HasClip(CharacterAction action) => _character != null && ClipFor(action) != null;
+
         private AnimationClip ClipFor(CharacterAction action) => action switch
         {
             CharacterAction.WindUp => _character.WindUp,
             CharacterAction.Slap => _character.Slap,
             CharacterAction.Wave => _character.Wave,
+            CharacterAction.Kick => _character.Kick,
+            CharacterAction.Cheer => _character.Cheer,
+            CharacterAction.Shadowbox => _character.Shadowbox,
             _ => null,
         };
 

@@ -18,10 +18,14 @@ MonoBehaviour:
   YawOffset: 0
   Tint: {r: 0.43529412, g: 0.8901961, b: 0.75686276, a: 1}
   MaterialOverride: {fileID: 0}
-  Idle: {fileID: 9003578906191587930, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  Walk: {fileID: -8009762979154779912, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  WindUp: {fileID: 6705597155012824914, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  Slap: {fileID: -7688018542199487317, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
-  Wave: {fileID: -3975253962399551617, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Idle: {fileID: -8317118206486585002, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Walk: {fileID: 4796936861470670586, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  WindUp: {fileID: -4329671876202344994, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Slap: {fileID: 1463031654695575374, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Wave: {fileID: -8835867636239412595, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Kick: {fileID: -5713290374386358479, guid: d2455217c5239e049b8c11aa04ebdff4, type: 3}
+  Cheer: {fileID: 0}
+  Shadowbox: {fileID: 0}
   SlapHitTime: 0.23333333
+  KickHitTime: 0.6666667
   WalkStrideHeights: 1.007

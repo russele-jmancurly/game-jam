@@ -2,13 +2,13 @@ using UnityEngine;
 
 namespace GameJam.Gameplay
 {
-    /// <summary>Placeholder commentator and start-line scoreboard: two big 3D texts in the world.</summary>
-    public sealed class CommentatorBoard : MonoBehaviour
+    /// <summary>The MC's headline board (Gonzales stands on it) and the start-line scoreboard: two big 3D texts in the world.</summary>
+    public sealed class McBoard : MonoBehaviour
     {
         [SerializeField] private TextMesh _headline;
         [SerializeField] private TextMesh _scoreboard;
 
-        public static CommentatorBoard Instance { get; private set; }
+        public static McBoard Instance { get; private set; }
 
         public void Configure(TextMesh headline, TextMesh scoreboard)
         {

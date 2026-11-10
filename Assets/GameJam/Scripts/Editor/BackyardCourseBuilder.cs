@@ -40,6 +40,8 @@ namespace GameJam.Editor
 
         /// <summary>Centre of the headline board (Squoof's booth sits on it), behind the finish pad.</summary>
         public static readonly Vector3 HeadlineScreen = new Vector3(-8f, 9f, 78f);
+        private const float McPerchHeight = 1.5f; // the MC's perch top, above the headline board's centre (just over its trim)
+        private const float McScale = 1.5f;        // the MC is drawn this many times their height, to read from across the yard
 
         private sealed class Palette
         {
@@ -290,7 +292,7 @@ namespace GameJam.Editor
             button.layer = GameLayers.IgnoreRaycast;
             BuildLobbyOnly(stage, new Vector3(12f, 0.4f, 9f), stage + new Vector3(4f, 0.4f, 2.5f));
 
-            // Commentator: a big board on stilts behind the finish pad, facing down the trail.
+            // The MC's board: a big board on stilts behind the finish pad, facing down the trail; Gonzales stands on top.
             Material board = PlaceholderAssets.Material("Backboard", ArtPalette.TextDark, 0.3f);
             Vector3 screen = HeadlineScreen;
             Box("HeadlineBoard", screen + new Vector3(0f, 0f, 0.35f), new Vector3(13f, 2.4f, 0.3f), board, false);
@@ -300,14 +302,14 @@ namespace GameJam.Editor
                 Box("HeadlineStilt", new Vector3(screen.x + x, 4f, screen.z + 0.5f), new Vector3(0.4f, 8f, 0.4f), _palette.Wood);
             }
 
-            Box("CommentatorBooth", screen + new Vector3(0f, 2.4f, 0.6f), new Vector3(5f, 1.6f, 1.6f), _palette.Wood, false);
-            PlaceholderShapes.Primitive(PrimitiveType.Sphere, "LiveLight", _course, screen + new Vector3(2.8f, 3.6f, 0.4f), Vector3.one * 0.6f,
+            Box("McPerch", screen + new Vector3(0f, McPerchHeight - 0.15f, 0.6f), new Vector3(3.2f, 0.3f, 1.6f), _palette.Wood, false);
+            PlaceholderShapes.Primitive(PrimitiveType.Sphere, "LiveLight", _course, screen + new Vector3(2.2f, McPerchHeight + 0.3f, 0.4f), Vector3.one * 0.5f,
                 PlaceholderAssets.Emissive("LiveLight", ArtPalette.Hazard, 2.5f), false);
 
             Box("ScoreboardBoard", new Vector3(-4.2f, 2.3f, -2.4f), new Vector3(3.4f, 1.7f, 0.12f), board, false);
             Box("ScoreboardTrim", new Vector3(-4.2f, 3.2f, -2.4f), new Vector3(3.5f, 0.12f, 0.16f), _palette.Gold, false);
 
-            var boardComponent = new GameObject("CommentatorBoard").AddComponent<CommentatorBoard>();
+            var boardComponent = new GameObject("McBoard").AddComponent<McBoard>();
             boardComponent.transform.SetParent(_course, false);
             TextMesh headline = PlaceholderShapes.Text("Headline", _course, screen, 0.12f, "Connecting...", ArtPalette.Accent);
             TextMesh scoreboard = PlaceholderShapes.Text("Scoreboard", _course, new Vector3(-4.2f, 2.3f, -2.5f), 0.019f, string.Empty, ArtPalette.Picket);
@@ -397,7 +399,7 @@ namespace GameJam.Editor
 
         /// <summary>
         /// "How to play" picture sign on the inside of the lobby's north wall, straight ahead of the spawn: slap the balloon,
-        /// knock it through a hoop, clear all six, fly it to the finish (a medal), with the two rules that pop it underneath.
+        /// knock it through a hoop, clear all six, fly it to the finish, with the two rules that pop it underneath.
         /// Lobby only, like the walls (the balloon is hidden in the lobby, so it never blocks a shot at hoop 1).
         /// </summary>
         private static GameObject BuildHowToPlay(Transform parent, Vector3 stageCenter, Vector3 stageSize)
@@ -542,58 +544,33 @@ namespace GameJam.Editor
         }
 
         /// <summary>
-        /// The show's crew as map entities (players are all the porcupine): Jman, the host, greets the crew on the start
-        /// stage; Squoof commentates from the top of the booth above the headline board. Purely visual; rigged ones idle and wave.
+        /// The show's MC as a map entity: Gonzales stands on a perch on top of the headline board, where the lines he
+        /// "says" appear. Purely visual; a rigged model idles and waves. Jman and Squoof are only the roaming giants now (the
+        /// user cut the host podium and the commentator booth). Without Gonzales's model a placeholder figure stands there.
         /// </summary>
         private static void BuildShowCrew(Vector3 stage, Vector3 screen)
         {
-            if (_roster == null)
+            CharacterDefinition mc = _roster != null ? _roster.Mc : null;
+            if (mc == null)
             {
                 return;
             }
 
             Material fallback = PlaceholderAssets.Material("CharacterPlaceholder", Color.white, 0.3f);
-            CharacterDefinition host = FindCharacter("Jmancurly");
-            if (host != null)
-            {
-                Vector3 spot = stage + new Vector3(-3.5f, 0.4f, 2.8f);
-                Box("HostPodium", spot + new Vector3(0f, 0.15f, 0f), new Vector3(1.1f, 0.3f, 1.1f), _palette.Gold);
-                // Faces the spawn (south); a solid capsule so players bump into the host instead of walking through.
-                CrewFigure("Host_Jman", host, spot + new Vector3(0f, 0.3f, 0f), 180f, host.Height, fallback, true);
-                Billboard(PlaceholderShapes.Text("HostName", _course, spot + new Vector3(0f, host.Height + 0.65f, 0f), 0.022f, $"{host.DisplayName}  ·  HOST", ArtPalette.Accent));
-            }
-
-            CharacterDefinition commentator = FindCharacter("Squoof");
-            if (commentator != null)
-            {
-                // Booth: centre screen + (0, 2.4, 0.6), 1.6 m tall, so its roof is 3.2 m above the screen centre.
-                Vector3 roof = screen + new Vector3(0f, 3.2f, 0.6f);
-                float height = commentator.Height * 1.5f; // readable from across the yard
-                CrewFigure("Commentator_Squoof", commentator, roof, 180f, height, fallback, false);
-                Billboard(PlaceholderShapes.Text("CommentatorName", _course, roof + new Vector3(0f, height + 0.5f, 0f), 0.05f, $"{commentator.DisplayName}  ·  COMMENTATOR", ArtPalette.Accent));
-            }
+            Vector3 perch = screen + new Vector3(0f, McPerchHeight, 0.6f);
+            float height = mc.Height * McScale; // readable from across the yard
+            CharacterVisual figure = CrewFigure("MC_Gonzales", mc, perch, 180f, height, fallback, false);
+            figure.gameObject.AddComponent<McReactions>().Configure(figure); // cheers with the critters
+            Billboard(PlaceholderShapes.Text("McName", _course, perch + new Vector3(0f, height + 0.5f, 0f), 0.05f, $"{mc.DisplayName}  ·  MC", ArtPalette.Accent));
         }
 
-        private static CharacterDefinition FindCharacter(string displayName)
-        {
-            for (int i = 0; i < _roster.Count; i++)
-            {
-                if (_roster.Get(i).DisplayName == displayName)
-                {
-                    return _roster.Get(i);
-                }
-            }
-
-            return null;
-        }
-
-        private static void CrewFigure(string name, CharacterDefinition character, Vector3 feet, float yaw, float height, Material fallback, bool solid)
+        private static CharacterVisual CrewFigure(string name, CharacterDefinition character, Vector3 feet, float yaw, float height, Material fallback, bool solid)
         {
             var figure = new GameObject(name).AddComponent<CharacterVisual>();
             figure.transform.SetParent(_course, false);
             figure.transform.SetPositionAndRotation(feet, Quaternion.Euler(0f, yaw, 0f));
             figure.Configure(fallback);
-            figure.ShowOnLoad(character, height, true); // rigged crew idle and wave at the crowd now and then
+            figure.ShowOnLoad(character, height, true); // a rigged MC idles and waves now and then
             if (solid)
             {
                 var body = figure.gameObject.AddComponent<CapsuleCollider>();
@@ -601,6 +578,8 @@ namespace GameJam.Editor
                 body.radius = height * 0.18f;
                 body.center = new Vector3(0f, height * 0.5f, 0f);
             }
+
+            return figure;
         }
 
         private static void BuildPool()

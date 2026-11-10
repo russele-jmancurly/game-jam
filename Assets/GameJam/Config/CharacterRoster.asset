@@ -15,6 +15,7 @@ MonoBehaviour:
   Characters:
   - {fileID: 11400000, guid: 39562f1a8d374834089811de403b8e21, type: 2}
   - {fileID: 11400000, guid: 9dc99aba37d5f1c4a8e37d0d6e19d698, type: 2}
+  Mc: {fileID: 11400000, guid: 6b533853274b5dd419166509d9455bcb, type: 2}
   RoamerScale: 2.4
   RoamerWalkSpeed: 2
   RoamerChaseSpeed: 3.6
@@ -29,7 +30,15 @@ MonoBehaviour:
   RoamerBonkSpeed: 5.5
   RoamerSlapLift: 0.7
   RoamerBonkCooldown: 7
-  RoamerBumpForce: 4
+  RoamerKickNoticeDistance: 6
+  RoamerKickHeight: 1.6
+  RoamerKickReach: 1.8
+  RoamerKickWindUpSeconds: 0.7
+  RoamerKickSwingSeconds: 0.25
+  RoamerKickForce: 7
+  RoamerKickUpward: 0.6
+  RoamerKickKnockdownSeconds: 2
+  RoamerKickCooldown: 6
   RoamerKnockdownSeconds: 3
   RoamerKnockdownFling: 4
   RoamerGetUpSeconds: 0.8

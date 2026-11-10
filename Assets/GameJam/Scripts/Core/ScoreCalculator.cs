@@ -13,20 +13,5 @@ namespace GameJam.Core
                         + Mathf.Max(0, bestRally) * config.PointsPerRallyPass;
             return Mathf.RoundToInt(raw * config.MultiplierFor(condition));
         }
-
-        public static Medal MedalFor(RunConfig config, int score)
-        {
-            if (score <= 0)
-            {
-                return Medal.None;
-            }
-
-            if (score >= config.GoldScore)
-            {
-                return Medal.Gold;
-            }
-
-            return score >= config.SilverScore ? Medal.Silver : Medal.Bronze;
-        }
     }
 }

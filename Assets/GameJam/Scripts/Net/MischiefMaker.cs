@@ -9,7 +9,9 @@ namespace GameJam.Net
     /// A giant version of a random character (re-rolled every run) loose in the yard. It strolls between open spots,
     /// easing in and out of its walk, turning before it sets off and pausing to look around. When the balloon drifts
     /// close and low it hurries over, raises its slap hand (the telegraph, with a "!"), swings and slaps the balloon away
-    /// as nobody's hit, then cools down. It bowls over players it walks into and you can climb it. A thrown item knocks it
+    /// as nobody's hit, then cools down. When the balloon isn't in reach during a run it goes after a player standing near,
+    /// draws its leg back (the telegraph, "!") and kicks them: the one knockdown left in easy mode, a real ragdoll. Walking
+    /// into it only shoves you, and you can climb it. A thrown item knocks it
     /// down for RoamerKnockdownSeconds: it falls as a ragdoll (GiantRagdoll, local on every client) with dizzy stars over its
     /// head, gets up where it landed, then cools down (ignores the balloon) for RoamerBonkCooldown.
     /// The master client simulates it (Master Client Object); everyone else sees it through its NetworkTransform, and
@@ -32,6 +34,8 @@ namespace GameJam.Net
         [SerializeField] private Transform _slapArm;
         [Tooltip("Stars circling its head while it is knocked down.")]
         [SerializeField] private DizzyStars _stars;
+        [Tooltip("Plays the kick (swish, then the thump as the foot lands) when the swing starts.")]
+        [SerializeField] private AudioSource _kickAudio;
 
         [Header("Yard (set by the builder)")]
         [Tooltip("Open lawn spots it wanders between.")]
@@ -60,6 +64,7 @@ namespace GameJam.Net
         private int _shownCharacter = -1;
         private RoamerMood _animatedMood = RoamerMood.Wander;
         private RoamerMood _shownMood = RoamerMood.Wander;
+        private RoamerMood _soundedMood = RoamerMood.Wander;
         private Collider _bodyCollider;
         private GiantRagdoll _ragdoll;
         private float _tipOver;  // 0 standing .. 1 lying (static-model fallback)
@@ -81,6 +86,9 @@ namespace GameJam.Net
         [Networked] public RoamerMood Mood { get; private set; }
 
         [Networked] private TickTimer StateTimer { get; set; }
+
+        /// <summary>The player it is going to kick (ChasePlayer, KickWindUp, Kick).</summary>
+        [Networked] public PlayerRef KickTarget { get; private set; }
 
         /// <summary>The hit that knocked it down (the item's velocity), so every client flings its ragdoll the same way.</summary>
         [Networked] private Vector3 KnockVelocity { get; set; }
@@ -105,6 +113,8 @@ namespace GameJam.Net
             _avoidCircles = avoidCircles;
             _bounds = bounds;
         }
+
+        public void ConfigureSounds(AudioSource kickAudio) => _kickAudio = kickAudio;
 
         public Vector3 PointVelocity(Vector3 worldPoint)
         {
@@ -182,6 +192,10 @@ namespace GameJam.Net
                     {
                         Mood = RoamerMood.Chase;
                     }
+                    else if (TryPickKickTarget())
+                    {
+                        Mood = RoamerMood.ChasePlayer;
+                    }
                     else if (HorizontalDistance(transform.position, _wanderTarget) < TargetReachedDistance && NextHop())
                     {
                         // a hop on the way: keep walking
@@ -203,6 +217,10 @@ namespace GameJam.Net
                     if (canSeeBalloon)
                     {
                         Mood = RoamerMood.Chase;
+                    }
+                    else if (TryPickKickTarget())
+                    {
+                        Mood = RoamerMood.ChasePlayer;
                     }
                     else if (StateTimer.Expired(Runner))
                     {
@@ -258,6 +276,69 @@ namespace GameJam.Net
 
                     break;
 
+                case RoamerMood.ChasePlayer:
+                {
+                    NetworkAvatar target = FindAvatar(KickTarget);
+                    if (canSeeBalloon)
+                    {
+                        Mood = RoamerMood.Chase; // the balloon always comes first
+                        break;
+                    }
+
+                    if (!CanKick(target, _roster.RoamerKickNoticeDistance * 1.3f))
+                    {
+                        StartWandering(); // gone, out of reach, already down, or the run ended
+                        break;
+                    }
+
+                    Vector3 at = target.BodyPosition;
+                    WalkToward(at, _roster.RoamerChaseSpeed, dt, true);
+                    if (HorizontalDistance(transform.position, at) < _roster.RoamerKickReach * 1.25f)
+                    {
+                        Mood = RoamerMood.KickWindUp;
+                        StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerKickWindUpSeconds);
+                    }
+                    else if (IsStalled(at))
+                    {
+                        Mood = RoamerMood.Cooldown; // can't get to them: leave them be for a while
+                        StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerKickCooldown);
+                        PickWanderTarget();
+                    }
+
+                    break;
+                }
+
+                case RoamerMood.KickWindUp:
+                {
+                    NetworkAvatar target = FindAvatar(KickTarget);
+                    if (target != null)
+                    {
+                        TurnToward(target.BodyPosition - transform.position, dt);
+                        if (HorizontalDistance(transform.position, target.BodyPosition) < _roster.RoamerKickReach * 0.9f)
+                        {
+                            _speed = 0f; // plants its foot: never walks into them (that would be the bump's shove)
+                        }
+                    }
+
+                    SlowDown(dt);
+                    if (StateTimer.Expired(Runner))
+                    {
+                        Mood = RoamerMood.Kick;
+                        StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerKickSwingSeconds);
+                    }
+
+                    break;
+                }
+
+                case RoamerMood.Kick:
+                    SlowDown(dt);
+                    if (StateTimer.Expired(Runner))
+                    {
+                        Kick(FindAvatar(KickTarget)); // the foot lands at the end of the swing
+                    }
+
+                    break;
+
                 case RoamerMood.KnockedDown:
                     _speed = 0f;
                     if (StateTimer.Expired(Runner))
@@ -299,6 +380,16 @@ namespace GameJam.Net
             _lastPosition = transform.position;
 
             ShowKnockdown();
+            if (Mood != _soundedMood)
+            {
+                if (Mood == RoamerMood.Kick && _kickAudio != null)
+                {
+                    _kickAudio.Play(); // everyone near hears it (3D), the swing lasts as long as the swish
+                }
+
+                _soundedMood = Mood;
+            }
+
             float rawSpeed = new Vector2(_velocity.x, _velocity.z).magnitude;
             _shownSpeed = Mathf.Lerp(_shownSpeed, rawSpeed, 1f - Mathf.Exp(-8f * dt)); // network interpolation is jittery
             CharacterAnimator rig = _visual != null ? _visual.Animation : null;
@@ -313,8 +404,10 @@ namespace GameJam.Net
 
             if (_alert != null)
             {
-                _alert.gameObject.SetActive(Mood == RoamerMood.WindUp || Mood == RoamerMood.Slap || Mood == RoamerMood.Chase);
-                _alert.text = Mood == RoamerMood.Chase ? "?" : "!";
+                bool chasing = Mood == RoamerMood.Chase || Mood == RoamerMood.ChasePlayer;
+                bool striking = Mood == RoamerMood.WindUp || Mood == RoamerMood.Slap || Mood == RoamerMood.KickWindUp || Mood == RoamerMood.Kick;
+                _alert.gameObject.SetActive(chasing || striking);
+                _alert.text = chasing ? "?" : "!";
                 Camera view = Camera.main;
                 if (view != null)
                 {
@@ -352,10 +445,29 @@ namespace GameJam.Net
                 case RoamerMood.Slap:
                     rig.Play(CharacterAction.Slap, _roster != null ? _roster.RoamerSlapSwingSeconds : 0.22f);
                     break;
+                case RoamerMood.KickWindUp:
+                    if (rig.HasClip(CharacterAction.Kick))
+                    {
+                        // One clip for both: leg drawn back over the wind-up, swung through so the foot lands on the hit.
+                        rig.Play(CharacterAction.Kick, _roster != null ? _roster.RoamerKickWindUpSeconds + _roster.RoamerKickSwingSeconds : 0.95f);
+                    }
+                    else
+                    {
+                        rig.Play(CharacterAction.WindUp, _roster != null ? _roster.RoamerKickWindUpSeconds : 0.7f, true);
+                    }
+
+                    break;
+                case RoamerMood.Kick:
+                    if (!rig.HasClip(CharacterAction.Kick))
+                    {
+                        rig.Play(CharacterAction.Slap, _roster != null ? _roster.RoamerKickSwingSeconds : 0.25f); // no Kick clip yet
+                    }
+
+                    break;
                 default:
                     if (rig.CurrentAction == CharacterAction.WindUp)
                     {
-                        rig.Stop(); // called off (new run): lower the hand
+                        rig.Stop(); // called off (new run): lower the hand or the leg
                     }
 
                     break;
@@ -420,11 +532,13 @@ namespace GameJam.Net
             Vector3 hand = rest;
 
             float remaining = StateTimer.RemainingTime(Runner) ?? 0f;
-            switch (Mood)
+            bool kicking = Mood == RoamerMood.KickWindUp || Mood == RoamerMood.Kick; // no leg rig here: the same lunge as the slap
+            RoamerMood pose = Mood == RoamerMood.KickWindUp ? RoamerMood.WindUp : Mood == RoamerMood.Kick ? RoamerMood.Slap : Mood;
+            switch (pose)
             {
                 case RoamerMood.WindUp:
                 {
-                    float windUp = Mathf.Max(_roster != null ? _roster.RoamerWindUpSeconds : 0.8f, 0.01f);
+                    float windUp = Mathf.Max(_roster == null ? 0.8f : kicking ? _roster.RoamerKickWindUpSeconds : _roster.RoamerWindUpSeconds, 0.01f);
                     float p = Smooth(Mathf.Clamp01((1f - remaining / windUp) * 2.5f)); // hand up in the first 40 %, then hold
                     hand = Vector3.Lerp(rest, raised, p) + Vector3.up * (Mathf.Sin(t * 22f) * 0.01f * h * p); // quiver
                     twist = -22f * p;
@@ -434,7 +548,7 @@ namespace GameJam.Net
 
                 case RoamerMood.Slap:
                 {
-                    float swing = Mathf.Max(_roster != null ? _roster.RoamerSlapSwingSeconds : 0.22f, 0.01f);
+                    float swing = Mathf.Max(_roster == null ? 0.22f : kicking ? _roster.RoamerKickSwingSeconds : _roster.RoamerSlapSwingSeconds, 0.01f);
                     float p = Mathf.Clamp01(1f - remaining / swing);
                     p *= p; // accelerates into the hit
                     hand = Arc(raised, strike, p, 0.12f * h);
@@ -637,6 +751,105 @@ namespace GameJam.Net
             }
         }
 
+        /// <summary>
+        /// End of the kick swing: if the player is still within 1.4 x reach (a real dodge gets clear), they are launched
+        /// away from the giant and ragdolled for everyone.
+        /// </summary>
+        private void Kick(NetworkAvatar target)
+        {
+            Mood = RoamerMood.Cooldown;
+            StateTimer = TickTimer.CreateFromSeconds(Runner, _roster.RoamerKickCooldown);
+            PickWanderTarget();
+            KickTarget = PlayerRef.None;
+
+            if (!CanKick(target, _roster.RoamerKickReach * 1.4f))
+            {
+                return; // dodged
+            }
+
+            Vector3 away = target.BodyPosition - transform.position;
+            away.y = 0f;
+            away = away.sqrMagnitude > 0.01f ? away.normalized : transform.forward;
+            Vector3 direction = (away + Vector3.up * _roster.RoamerKickUpward).normalized;
+            target.SendGiantKick(direction, _roster.RoamerKickForce, _roster.RoamerKickKnockdownSeconds);
+
+            GameState gameState = GameState.Instance;
+            if (gameState != null)
+            {
+                gameState.Announce($"{DisplayName} punted Player {Mathf.Max(1, target.Owner.PlayerId)}!");
+            }
+        }
+
+        /// <summary>Wander or Idle: the nearest player it could kick, if any (sets KickTarget).</summary>
+        private bool TryPickKickTarget()
+        {
+            NetworkAvatar best = null;
+            float bestDistance = float.MaxValue;
+            foreach (NetworkAvatar avatar in NetworkAvatar.All)
+            {
+                if (!CanKick(avatar, _roster.RoamerKickNoticeDistance))
+                {
+                    continue;
+                }
+
+                float distance = HorizontalDistance(transform.position, avatar.BodyPosition);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = avatar;
+                }
+            }
+
+            if (best == null)
+            {
+                return false;
+            }
+
+            KickTarget = best.Owner;
+            return true;
+        }
+
+        /// <summary>
+        /// A player it may kick: during a run only (never in the lobby, the countdown or the tutorial), on their feet, low
+        /// enough to reach, inside the yard, and not deep inside a no-go circle it can't walk into.
+        /// </summary>
+        private bool CanKick(NetworkAvatar avatar, float horizontalLimit)
+        {
+            if (avatar == null || avatar.Object == null || !avatar.Object.IsValid || avatar.IsDown || horizontalLimit <= 0f)
+            {
+                return false;
+            }
+
+            GameState gameState = GameState.Instance;
+            if (gameState == null || !gameState.IsBalloonLive || GameState.IsPractice)
+            {
+                return false;
+            }
+
+            Vector3 body = avatar.BodyPosition;
+            return body.y - transform.position.y < _roster.RoamerKickHeight
+                   && HorizontalDistance(transform.position, body) < horizontalLimit
+                   && InsideBounds(body, 0f) && CanStandNear(body, _roster.RoamerKickReach);
+        }
+
+        private static NetworkAvatar FindAvatar(PlayerRef player)
+        {
+            if (player == PlayerRef.None)
+            {
+                return null;
+            }
+
+            foreach (NetworkAvatar avatar in NetworkAvatar.All)
+            {
+                if (avatar != null && avatar.Owner == player)
+                {
+                    return avatar;
+                }
+            }
+
+            return null;
+        }
+
         private bool IsBalloonInReach(NetworkBalloon balloon, float? horizontalLimit = null)
         {
             GameState gameState = GameState.Instance;
@@ -648,20 +861,20 @@ namespace GameJam.Net
             Vector3 balloonPosition = balloon.transform.position;
             float limit = horizontalLimit ?? _roster.RoamerNoticeDistance;
             return balloonPosition.y < _roster.RoamerReachHeight && HorizontalDistance(transform.position, balloonPosition) < limit
-                   && InsideBounds(balloonPosition, 0f) && CanStandNear(balloonPosition);
+                   && InsideBounds(balloonPosition, 0f) && CanStandNear(balloonPosition, _roster.RoamerBonkDistance);
         }
 
         /// <summary>
-        /// False when the balloon is so deep inside a no-go circle (start stage, pool, tree...) that the giant could
-        /// never get within slap distance; otherwise it would walk on the spot against the circle's edge.
+        /// False when the target (balloon or player) is so deep inside a no-go circle (start stage, pool, tree...) that the
+        /// giant could never get within reach; otherwise it would walk on the spot against the circle's edge.
         /// </summary>
-        private bool CanStandNear(Vector3 balloonPosition)
+        private bool CanStandNear(Vector3 targetPosition, float reach)
         {
             float bodyRadius = 0.6f * _roster.RoamerScale * 0.5f;
             foreach (Vector3 circle in _avoidCircles)
             {
-                float unreachable = circle.z + bodyRadius - _roster.RoamerBonkDistance * 0.9f;
-                if (unreachable > 0f && HorizontalDistance(balloonPosition, new Vector3(circle.x, 0f, circle.y)) < unreachable)
+                float unreachable = circle.z + bodyRadius - reach * 0.9f;
+                if (unreachable > 0f && HorizontalDistance(targetPosition, new Vector3(circle.x, 0f, circle.y)) < unreachable)
                 {
                     return false;
                 }

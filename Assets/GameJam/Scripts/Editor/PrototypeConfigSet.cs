@@ -40,6 +40,8 @@ namespace GameJam.Editor
                 Character("Jmancurly", ArtPalette.Accent, "Jmancurly/Jmancurly_Game.fbx", null),
                 Character("Squoof", ArtPalette.CandyMint, "Squoof/Squoof_Game.fbx", null),
             };
+            // The MC on the headline board: a placeholder figure until Characters/Gonzales/Gonzales_Game.fbx exists.
+            set.Roster.Mc = Character("Gonzales", ArtPalette.CandyPurple, "Gonzales/Gonzales_Game.fbx", null);
             EditorUtility.SetDirty(set.Roster);
             return set;
         }
@@ -74,7 +76,7 @@ namespace GameJam.Editor
         }
 
         /// <summary>
-        /// Links the clips of a rigged model (tools/blender/scripts/rig_character.py: Idle, Walk, WindUp, Slap, Wave;
+        /// Links the clips of a rigged model (tools/blender/scripts/rig_character.py: Idle, Walk, WindUp, Slap, Wave; add_kick_clip.py: Kick;
         /// named by ShowCharacterImport). A static model leaves them empty and the character stays unanimated.
         /// </summary>
         private static void LinkClips(CharacterDefinition character, string modelPath)
@@ -97,6 +99,9 @@ namespace GameJam.Editor
             character.WindUp = Find("WindUp");
             character.Slap = Find("Slap");
             character.Wave = Find("Wave");
+            character.Kick = Find("Kick"); // tools/blender/scripts/add_kick_clip.py
+            character.Cheer = Find("Cheer"); // tools/blender/scripts/add_mc_clips.py (the MC)
+            character.Shadowbox = Find("Shadowbox");
         }
 
         /// <summary>

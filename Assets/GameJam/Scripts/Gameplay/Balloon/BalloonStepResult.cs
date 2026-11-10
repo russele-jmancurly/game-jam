@@ -10,7 +10,7 @@ namespace GameJam.Gameplay
         public Vector3 Position;
         public Vector3 Velocity;
 
-        /// <summary>Set when the balloon popped; holds the commentator line.</summary>
+        /// <summary>Set when the balloon popped; holds the MC's line.</summary>
         public string PopReason;
 
         /// <summary>The balloon grazed spikes and lost one step of air.</summary>

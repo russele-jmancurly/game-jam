@@ -38,7 +38,7 @@ namespace GameJam.Core
         public static readonly Color Accent = Hex(0xFFD23F);
         public static readonly Color AccentDeep = Hex(0xF2A81D);
 
-        // Candy colours for flowers, bunting and the crowd
+        // Candy colours for flowers, bunting and confetti
         public static readonly Color CandyPink = Hex(0xFF7EB6);
         public static readonly Color CandyPurple = Hex(0xA77BF3);
         public static readonly Color CandyBlue = Hex(0x5AA9FF);

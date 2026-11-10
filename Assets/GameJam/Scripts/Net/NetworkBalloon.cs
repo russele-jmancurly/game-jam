@@ -45,6 +45,7 @@ namespace GameJam.Net
         private BalloonCallouts _callouts;
         private BalloonGroundShadow _ground;
         private int _seenPopCount;
+        private float _lastPlayerHitTime = -10f; // owner only: when the last player hit was applied
 
         public static NetworkBalloon Instance { get; private set; }
 
@@ -114,8 +115,14 @@ namespace GameJam.Net
         {
             feedback = HapticPulse.None;
             float speed = slap.Speed;
-            if (speed < _slapConfig.MinBalloonSlapSpeed || !IsReady || !IsShown)
+            if (!IsReady || !IsShown)
             {
+                return false;
+            }
+
+            if (speed < _slapConfig.MinBalloonSlapSpeed)
+            {
+                Nudge(slap); // too slow for a hit: it drifts off the hand instead of the hand passing through it
                 return false;
             }
 
@@ -130,6 +137,55 @@ namespace GameJam.Net
             RequestHit(Runner.LocalPlayer, velocity);
             feedback = new HapticPulse(Mathf.Lerp(0.45f, 1f, strength), Mathf.Lerp(0.05f, 0.12f, strength)); // a hard slap kicks
             return true;
+        }
+
+        // ---- Nudges: touches too slow to be a hit ------------------------------------------------------------------
+        // A slow hand used to pass straight through the balloon until the player's own quills reached it (leak, then
+        // pop). Now it drifts off the hand like a real balloon, and the quills stay disarmed for a moment, since the body
+        // is right behind the hand. A nudge is nobody's hit: no turn used, no sound, no rally.
+        private float _nextNudgeTime;
+
+        private void Nudge(in SlapContext slap)
+        {
+            if (Time.time < _nextNudgeTime || !IsLive || IsStationed)
+            {
+                return;
+            }
+
+            _nextNudgeTime = Time.time + _slapConfig.NudgeInterval;
+            Vector3 away = transform.position - slap.HandPosition;
+            away = away.sqrMagnitude > 0.0001f ? away.normalized : Vector3.up;
+            Vector3 velocity = Vector3.ClampMagnitude(slap.HandVelocity + away * _slapConfig.NudgeSpeed, _slapConfig.NudgeSpeed);
+            velocity.y = Mathf.Min(velocity.y, 0f); // never lifts it: holding a hand under it must not keep it up for free
+            RpcNudge(velocity);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, TickAligned = false)]
+        private void RpcNudge(Vector3 velocity)
+        {
+            if (!IsLive || IsStationed)
+            {
+                return;
+            }
+
+            float speed = velocity.magnitude;
+            if (speed > 0.0001f)
+            {
+                // Raise the velocity along the nudge to at least the nudge speed; never slow a balloon that is already
+                // moving away faster.
+                Vector3 direction = velocity / speed;
+                Vector3 current = _body.linearVelocity;
+                float along = Vector3.Dot(current, direction);
+                if (along < speed)
+                {
+                    _body.linearVelocity = current + direction * (speed - along);
+                }
+            }
+
+            if (HitGrace.RemainingTime(Runner).GetValueOrDefault() < _slapConfig.NudgeGraceSeconds)
+            {
+                HitGrace = TickTimer.CreateFromSeconds(Runner, _slapConfig.NudgeGraceSeconds);
+            }
         }
 
         /// <summary>The hit velocity the owner will give the balloon (capped, plus the upward assist).</summary>
@@ -468,9 +524,16 @@ namespace GameJam.Net
             {
                 if (!IsPassRuleSuspended && hitter == LastHitter)
                 {
+                    if (Time.time - _lastPlayerHitTime < _slapConfig.RehitSeconds)
+                    {
+                        return; // the same touch arriving twice (both hands, or a resend): not a second hit
+                    }
+
                     Pop("Double hit! Pass it to a friend!");
                     return;
                 }
+
+                _lastPlayerHitTime = Time.time;
 
                 if (LastHitter != PlayerRef.None && hitter != LastHitter)
                 {
@@ -551,18 +614,7 @@ namespace GameJam.Net
                 AudioSource.PlayClipAtPoint(_popClip, position, 1f);
             }
 
-            // Pop blast: knocks over anyone standing right next to it.
-            LocalRig rig = LocalRig.Instance;
-            if (rig == null)
-            {
-                return;
-            }
-
-            Vector3 away = rig.Head.position - position;
-            if (away.magnitude < _config.PopBlastRadius)
-            {
-                rig.Knock(away.normalized, _config.PopBlastForce, _config.PopBlastKnockdownSeconds);
-            }
+            // No blast: a pop never moves a player (shoving the VR player around on a pop felt bad).
         }
 
         private void ApplyStep(in BalloonStepResult result)

@@ -1,6 +1,6 @@
 """Rigs and animates a prepared show character (static T-pose meshes from prepare_character.py) for Unity.
 
-    tools/blender/blender.sh tools/blender/scripts/rig_character.py <in.fbx> <out.fbx>
+    tools/blender/blender.sh tools/blender/scripts/rig_character.py <in.fbx> <out.fbx> [--plan baby | --plan key=value,...]
 
 - Measures the meshes for joint positions (any realistic T-posed human: height, arm line, leg columns, spine centre)
   and builds a 16-bone humanoid: Hips > Spine > Chest > Neck > Head, Shoulder/UpperArm/LowerArm/Hand, UpperLeg/
@@ -14,7 +14,11 @@
   hit at 0.23 s, follow-through, back to idle), Wave (2 s). `walkStrideHeights` in the result = ground speed the Walk
   clip implies (measured from the planted foot), in body heights per second; put it in the CharacterDefinition so Unity
   scales walk playback by speed / (that * height). `<rigged.fbx> --measure` re-measures an already rigged model.
-- Rest pose is the T-pose; every clip brings the arms down itself.
+- Rest pose is the T-pose; every clip brings the arms down itself (aims are absolute, so an A-pose rest works too).
+- --plan sets the body plan: joint heights as fractions of the height, where the arms and legs are looked for, extra
+  head parts, and parts left out when finding an arm (a boxing glove over the hand would pull the joints into it). The default is an adult (Jman, Squoof); "baby" is
+  Gonzales (big head, short legs, arms in an A-pose, a glove on the right hand). key=value pairs override single values.
+  The model is moved so its feet stand at 0 first (a source may have its origin at the middle).
 
 Run it on the *_Game.fbx and write back to the same path (the textures stay in <name>.fbm and the .meta GUID is kept).
 Run it once per prepared model: it expects an unrigged input.
@@ -33,6 +37,17 @@ from blender_common import emit, fail, load, script_args  # noqa: E402
 FPS = 30
 HEAD_PARTS = ("eye", "hair", "glass", "lens")
 WALK_THIGH = 24.0
+
+# Body plans: fractions of the height. "adult" is exactly what Jman and Squoof were rigged with.
+PLANS = {
+    "adult": dict(hips=0.53, spine=0.62, chest=0.72, neck=0.835, head=0.87, clavicle=0.8, shoulder_cap=0.84, shoulder_x=0.1,
+                  arm_x=0.14, arm_lo=0.6, arm_hi=1.0, elbow=0.42, wrist=0.78, hand_end=0.95,
+                  leg_lo=0.1, leg_hi=0.42, hip=0.5, hip_y=0.47, knee=0.28, ankle=0.055, ankle_y=0.07, toe_band=0.045),
+    "baby": dict(hips=0.3, spine=0.38, chest=0.47, neck=0.6, head=0.645, clavicle=0.565, shoulder_cap=0.59, shoulder_x=0.16,
+                 arm_x=0.22, arm_lo=0.24, arm_hi=0.62, elbow=0.42, wrist=0.78, hand_end=0.95,
+                 leg_lo=0.04, leg_hi=0.21, hip=0.28, hip_y=0.26, knee=0.13, ankle=0.05, ankle_y=0.06, toe_band=0.04,
+                 head_parts="head", arm_skip="glove", torso_column=1.15),
+}
 
 
 
@@ -84,6 +99,21 @@ if len(args) == 2 and args[1] == "--measure":
 if len(args) < 2:
     fail("usage: rig_character.py <in.fbx> <out.fbx>   |   rig_character.py <rigged.fbx> --measure")
 source, output = args[0], os.path.abspath(args[1])
+plan = dict(PLANS["adult"])
+if "--plan" in args:
+    for item in args[args.index("--plan") + 1].split(","):
+        if item in PLANS:
+            plan.update(PLANS[item])
+        elif "=" in item:
+            key, value = item.split("=", 1)
+            plan[key] = value if key in ("head_parts", "arm_skip") else float(value)
+# Arms hanging close to the body (an A-pose) are the nearest skin for clothes at the torso's sides: with torso_column > 0,
+# cloth inside |x| < shoulder_x * torso_column (below the collarbone) never copies arm weights, or a belt rides up with
+# raised arms.
+TORSO_X = plan.get("torso_column", 0.0) * plan["shoulder_x"]
+ARM_BONES = ("UpperArm.", "LowerArm.", "Hand.")
+HEAD_PARTS = HEAD_PARTS + tuple(x for x in plan.get("head_parts", "").split("+") if x)
+ARM_SKIP = tuple(x for x in plan.get("arm_skip", "").split("+") if x)
 
 meshes = load(source)
 if not meshes:
@@ -99,6 +129,14 @@ for o in bpy.context.scene.objects:
     o.select_set(o.type == "MESH")
 bpy.context.view_layer.objects.active = meshes[0]
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+# Feet at 0 (every height below is a fraction of the top).
+floor = min(v.co.z for o in meshes for v in o.data.vertices)
+if abs(floor) > 1e-6:
+    from mathutils import Matrix  # noqa: E402
+    for o in meshes:
+        o.data.transform(Matrix.Translation((0.0, 0.0, -floor)))
+        o.data.update()
 
 points = [v.co.copy() for o in meshes for v in o.data.vertices]
 H = max(p.z for p in points)
@@ -127,6 +165,7 @@ SIDES = {"L": LEFT, "R": RIGHT}
 
 body = [o for o in meshes if not is_head_part(o)]
 body_pts = [v.co.copy() for o in body for v in o.data.vertices]
+arm_src_pts = [v.co.copy() for o in body if not any(k in o.name.lower() for k in ARM_SKIP) for v in o.data.vertices]
 
 
 def mid(values, fallback):
@@ -139,45 +178,46 @@ def centre_y(z, half_width=0.1, band=0.012):
 
 
 joints = {}
-for key, frac in (("hips", 0.53), ("spine", 0.62), ("chest", 0.72), ("neck", 0.835), ("head", 0.87)):
+for key in ("hips", "spine", "chest", "neck", "head"):
+    frac = plan[key]
     z = frac * H
     joints[key] = Vector((0.0, centre_y(z), z))
 joints["top"] = Vector((0.0, head_y, H))
 
 for side, vec in SIDES.items():
     s = 1.0 if vec.x > 0 else -1.0
-    arm_pts = [p for p in body_pts if p.x * s > 0.14 * H and p.z > 0.6 * H]
+    arm_pts = [p for p in arm_src_pts if p.x * s > plan["arm_x"] * H and plan["arm_lo"] * H < p.z < plan["arm_hi"] * H]
     if not arm_pts:
-        fail(f"No arm found on side {side}; is the model in a T-pose?")
+        fail(f"No arm found on side {side}; is the model in a T-pose (or does --plan fit it)?")
     tip = max(p.x * s for p in arm_pts)
-    sx = 0.1 * H
+    sx = plan["shoulder_x"] * H
     length = tip - sx
 
     def arm_at(fraction, s=s, arm_pts=arm_pts, sx=sx, length=length):
         x = sx + fraction * length
-        band = [p for p in arm_pts if abs(p.x * s - x) < 0.015]
+        band = [p for p in arm_pts if abs(p.x * s - x) < 0.0085 * H]  # was 0.015 m on a ~1.8 m model
         return Vector((x * s, median([p.y for p in band]), median([p.z for p in band], 0.8 * H)))
 
-    elbow, wrist, hand_end = arm_at(0.42), arm_at(0.78), arm_at(0.95)
+    elbow, wrist, hand_end = arm_at(plan["elbow"]), arm_at(plan["wrist"]), arm_at(plan["hand_end"])
     slope = (elbow.z - wrist.z) / max(abs(wrist.x - elbow.x), 1e-4)
-    shoulder_z = min(elbow.z + slope * abs(elbow.x - sx * s), 0.84 * H)
-    joints[f"clavicle.{side}"] = Vector((0.03 * H * s, joints["chest"].y, 0.8 * H))
+    shoulder_z = min(elbow.z + slope * abs(elbow.x - sx * s), plan["shoulder_cap"] * H)
+    joints[f"clavicle.{side}"] = Vector((0.03 * H * s, joints["chest"].y, plan["clavicle"] * H))
     joints[f"shoulder.{side}"] = Vector((sx * s, elbow.y, shoulder_z))
     joints[f"elbow.{side}"] = elbow
     joints[f"wrist.{side}"] = wrist
     joints[f"handend.{side}"] = hand_end
 
-    leg_pts = [p for p in body_pts if p.x * s > 0.008 * H and 0.1 * H < p.z < 0.42 * H]
+    leg_pts = [p for p in body_pts if p.x * s > 0.008 * H and plan["leg_lo"] * H < p.z < plan["leg_hi"] * H]
     leg_x = median([p.x for p in leg_pts], 0.08 * H * s)
 
     def leg_y(z, s=s):
         return mid([p.y for p in body_pts if p.x * s > 0.008 * H and abs(p.z - z) < 0.012 * H], head_y)
 
-    ankle = Vector((leg_x, leg_y(0.07 * H), 0.055 * H))
-    foot_pts = [p for p in body_pts if p.x * s > 0.008 * H and p.z < 0.045 * H]
+    ankle = Vector((leg_x, leg_y(plan["ankle_y"] * H), plan["ankle"] * H))
+    foot_pts = [p for p in body_pts if p.x * s > 0.008 * H and p.z < plan["toe_band"] * H]
     front = max((p.y * fy for p in foot_pts), default=ankle.y * fy + 0.12 * H) * fy
-    joints[f"hip.{side}"] = Vector((leg_x * 0.95, leg_y(0.47 * H), 0.5 * H))
-    joints[f"knee.{side}"] = Vector((leg_x, leg_y(0.28 * H), 0.28 * H))
+    joints[f"hip.{side}"] = Vector((leg_x * 0.95, leg_y(plan["hip_y"] * H), plan["hip"] * H))
+    joints[f"knee.{side}"] = Vector((leg_x, leg_y(plan["knee"] * H), plan["knee"] * H))
     joints[f"ankle.{side}"] = ankle
     joints[f"toe.{side}"] = Vector((leg_x, ankle.y + (front - ankle.y) * 0.8, 0.02 * H))
 
@@ -260,7 +300,7 @@ for o in meshes:
 # Clothes (shirt, shorts, socks, shoes...) copy the skin weights of the body surface under them, so cloth and skin bend
 # together and the body doesn't poke through at the shoulders and hips. Weights are blended from the nearest body face's
 # corners by inverse distance.
-main = max(meshes, key=lambda o: len(o.data.vertices))
+main = max((o for o in meshes if not is_head_part(o)), key=lambda o: len(o.data.vertices))  # the body, never the head
 body_names = {g.index: g.name for g in main.vertex_groups}
 body_weights = [{body_names[g.group]: g.weight for g in v.groups if g.weight > 1e-4} for v in main.data.vertices]
 cloth_vertices = 0
@@ -278,6 +318,10 @@ for o in meshes:
             share = 1.0 / max((main.data.vertices[index].co - location).length, 1e-5)
             for name, weight in body_weights[index].items():
                 mixed[name] = mixed.get(name, 0.0) + weight * share
+        if TORSO_X > 0 and abs(v.co.x) < TORSO_X * H and v.co.z < plan["clavicle"] * H:
+            mixed = {name: w for name, w in mixed.items() if not name.startswith(ARM_BONES)}
+            if not mixed:
+                mixed = {"Chest" if v.co.z > plan["chest"] * H else "Spine" if v.co.z > plan["spine"] * H else "Hips": 1.0}
         total = sum(mixed.values())
         if total <= 0:
             continue

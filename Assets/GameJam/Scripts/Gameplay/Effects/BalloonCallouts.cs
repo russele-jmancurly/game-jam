@@ -6,7 +6,7 @@ namespace GameJam.Gameplay
     /// <summary>
     /// Local-only feedback over the balloon: a "SAVE!" pop-up with a chime and confetti when someone rescues it just above
     /// the ground, and the rally number's drama (it grows and changes colour every <see cref="BalloonConfig.RallyMilestoneStep"/>
-    /// passes with a crowd "ooh", punches on every pass, and droops away grey with a sad trombone when a long rally breaks).
+    /// passes with the critters going "ooh", punches on every pass, and droops away grey with a sad trombone when a long rally breaks).
     /// NetworkBalloon tells it what happened; it never touches the network or the balloon's flight.
     /// </summary>
     public sealed class BalloonCallouts : MonoBehaviour
@@ -72,6 +72,7 @@ namespace GameJam.Gameplay
 
         private void Awake()
         {
+            CritterCrowd.LookTarget = _anchor != null ? _anchor : transform; // the critter audience watches the balloon
             if (_rallyText != null)
             {
                 _rallyBaseScale = _rallyText.transform.localScale;
@@ -125,6 +126,7 @@ namespace GameJam.Gameplay
 
             Play(_saveClip, 1f, 1f);
             BurstEffects.Confetti(position);
+            CritterCrowd.Cheer(position, 2);
         }
 
         /// <summary>
@@ -159,6 +161,7 @@ namespace GameJam.Gameplay
                     if (_anchor != null)
                     {
                         BurstEffects.Confetti(_anchor.position + Vector3.up * RallyHeightAbove);
+                        CritterCrowd.Cheer(_anchor.position, 1);
                     }
                 }
             }

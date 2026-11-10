@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace GameJam.Core
 {
-    /// <summary>Tuning for the balloon's floaty physics, damage and pop blast (GDD: The balloon).</summary>
+    /// <summary>Tuning for the balloon's floaty physics, damage and feedback (a pop never pushes players; GDD: The balloon).</summary>
     [CreateAssetMenu(menuName = "Game Jam/Config/Balloon Config", fileName = "BalloonConfig")]
     public sealed class BalloonConfig : ScriptableObject
     {
@@ -72,15 +72,10 @@ namespace GameJam.Core
         [Tooltip("...and falling at least this fast (m/s), so low dribbling taps don't each count (free fall tops out " +
                  "near 0.82 m/s).")]
         [Min(0f)] public float SaveMinFallSpeed = 0.45f;
-        [Tooltip("Every this many passes in a row is a rally milestone: crowd 'ooh', the number grows and changes colour.")]
+        [Tooltip("Every this many passes in a row is a rally milestone: the critters go 'ooh', the number grows and changes colour.")]
         [Min(2)] public int RallyMilestoneStep = 5;
         [Tooltip("Losing a rally at least this long plays the sad trombone.")]
         [Min(2)] public int RallyBreakMinimum = 5;
-
-        [Header("Pop blast")]
-        [Min(0f)] public float PopBlastRadius = 1.5f;
-        [Min(0f)] public float PopBlastForce = 3f;
-        [Min(0f)] public float PopBlastKnockdownSeconds = 0.8f;
 
         [Header("Visuals")]
         [Tooltip("Visual scale per condition: full, leaking, nearly flat.")]

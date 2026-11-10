@@ -10,5 +10,8 @@ namespace GameJam.Net
         Slap,
         Idle,
         KnockedDown,
+        ChasePlayer,
+        KickWindUp,
+        Kick,
     }
 }

@@ -8,7 +8,7 @@ namespace GameJam.Net
 {
     /// <summary>
     /// The run in the open backyard: lobby, countdown, then 3:00 to guide the balloon through every hoop (any order) and
-    /// down through the finish basket, then a medal. A pop sends the balloon back beside the last hoop cleared; the crew stays put.
+    /// down through the finish basket, then the score (no grades: any finish is a win). A pop sends the balloon back beside the last hoop cleared; the crew stays put.
     /// Owned by the Shared Mode master client (Master Client Object flag), so it moves to a new master if the owner leaves.
     /// Anyone can report events; only the owner decides.
     /// </summary>
@@ -50,7 +50,7 @@ namespace GameJam.Net
 
         /// <summary>Bit i set = hoop i cleared this run.</summary>
         [SerializeField] private AudioSource _winAudio;
-        [Tooltip("Crowd cheering, with the fanfare, on a medal finish.")]
+        [Tooltip("The critters cheering, with the fanfare, on a finish.")]
         [SerializeField] private AudioSource _cheerAudio;
         [SerializeField] private AudioSource _timeUpAudio;
         private bool _playedWin;
@@ -99,18 +99,18 @@ namespace GameJam.Net
         {
             RunState.Running => $"{TimeFormat.MinutesSeconds(TimeLeft)}  {HoopsCleared}/{_hoopCount}",
             RunState.Countdown => "Ready",
-            RunState.Finished => LastScore > 0 ? MedalText(LastScore) : "Time up",
+            RunState.Finished => LastScore > 0 ? $"Finished! {LastScore}" : "Time up",
             _ => "Slap the red\nbutton to start",
         };
 
-        /// <summary>The run ended because the clock ran out (no medal): the referee whistle and the "time's up" banner.</summary>
+        /// <summary>The run ended because the clock ran out (no finish): the referee whistle and the "time's up" banner.</summary>
         public bool IsTimeUp => State == RunState.Finished && LastScore == 0;
 
         /// <summary>Seconds until everyone goes back to the lobby after a run ends (0 outside the result).</summary>
         public float SecondsToLobby => State == RunState.Finished ? Timer.RemainingTime(Runner) ?? 0f : 0f;
 
         /// <summary>
-        /// Everyone hears the fanfare and the crowd cheering once when a run ends with a medal (and confetti bursts round
+        /// Everyone hears the fanfare and the critters cheering once when a run ends at the finish (and confetti bursts round
         /// each player's own view), or the referee whistle once when time runs out; both re-arm for the next run.
         /// </summary>
         private void PlayResultOnce()
@@ -130,6 +130,7 @@ namespace GameJam.Net
 
                 Camera view = Camera.main;
                 WinCelebration.Play(view != null ? view.transform : null);
+                CritterCrowd.CheerAll(5); // the whole yard jumps for joy
             }
 
             _playedWin = won;
@@ -146,7 +147,7 @@ namespace GameJam.Net
         public void Configure(RunConfig config) => _config = config;
 
         /// <summary>
-        /// Builder wiring: 2D sources everyone hears, the win fanfare and crowd cheer (a medal finish) and the referee whistle
+        /// Builder wiring: 2D sources everyone hears, the win fanfare and critter cheer (a finish) and the referee whistle
         /// (time up).
         /// </summary>
         public void ConfigureSounds(AudioSource winAudio, AudioSource cheerAudio, AudioSource timeUpAudio)
@@ -188,7 +189,7 @@ namespace GameJam.Net
 
         public void ReportPop(string line) => RpcReportPop(line);
 
-        /// <summary>A one-off commentator line (the roaming character's antics).</summary>
+        /// <summary>A one-off MC line (the roaming character's antics).</summary>
         public void Announce(string line) => RpcAnnounce(line);
 
         public override void Spawned()
@@ -268,7 +269,7 @@ namespace GameJam.Net
             PlayResultOnce();
             WatchMasterClient();
 
-            CommentatorBoard board = CommentatorBoard.Instance;
+            McBoard board = McBoard.Instance;
             if (board == null)
             {
                 return;
@@ -405,7 +406,7 @@ namespace GameJam.Net
             BestScore = Mathf.Max(BestScore, score);
             State = RunState.Finished;
             Timer = TickTimer.CreateFromSeconds(Runner, _config.ResultSeconds);
-            Headline = $"{MedalText(score)}! {score} points!";
+            Headline = $"You made it! {score} points!";
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -460,8 +461,6 @@ namespace GameJam.Net
                 Runner.RequestMasterClientReassign();
             }
         }
-
-        private string MedalText(int score) => ScoreCalculator.MedalFor(_config, score).ToString().ToUpperInvariant();
 
         private static int CountBits(int mask)
         {

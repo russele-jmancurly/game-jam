@@ -7,7 +7,7 @@ namespace GameJam.Gameplay
     /// The finish basket: a horizontal ring high over the finish pad. The run is won when the balloon drops down through
     /// the ring after every hoop is cleared; flying in from the side, gliding over the rim or rising up through it doesn't
     /// count (playtest: the old box over the pad could be reached from any side). Until every hoop is cleared the rim
-    /// shows locked (red) and the commentator says how many hoops are left.
+    /// shows locked (red) and the MC says how many hoops are left.
     /// The trigger sits on this object, centred on the ring; <see cref="Accepts"/> is the scoring rule.
     /// </summary>
     public sealed class FinishLine : MonoBehaviour

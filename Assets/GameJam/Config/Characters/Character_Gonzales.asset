@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e91e7f05d64a5549a3bd070704c3ec8, type: 3}
+  m_Name: Character_Gonzales
+  m_EditorClassIdentifier: GameJam.Core::GameJam.Core.CharacterDefinition
+  DisplayName: Gonzales
+  Model: {fileID: 919132149155446097, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  Height: 1.6
+  YawOffset: 0
+  Tint: {r: 0.654902, g: 0.48235294, b: 0.9529412, a: 1}
+  MaterialOverride: {fileID: 0}
+  Idle: {fileID: -8317118206486585002, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  Walk: {fileID: 4796936861470670586, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  WindUp: {fileID: -4329671876202344994, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  Slap: {fileID: 1463031654695575374, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  Wave: {fileID: -8835867636239412595, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  Kick: {fileID: 0}
+  Cheer: {fileID: -4604427584181738385, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  Shadowbox: {fileID: -6291696663468613280, guid: 3e8c149631ecadf43a02c54ef5bf34a2, type: 3}
+  SlapHitTime: 0.23333333
+  KickHitTime: 0.6666667
+  WalkStrideHeights: 1

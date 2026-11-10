@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GameJam.Core;
 using GameJam.Gameplay;
 using UnityEditor;
@@ -7,8 +8,8 @@ using UnityEngine.Rendering;
 namespace GameJam.Editor
 {
     /// <summary>
-    /// Set dressing for the open Giant Backyard (GDD: Levels): lawn beyond the fence, house windows, TV-studio light rigs
-    /// and stands with a bobbing crowd peeking over the fence, clouds, giant flowers and grass, pool floats, the studio's own
+    /// Set dressing for the open Giant Backyard (GDD: Levels): lawn beyond the fence, house windows, TV-studio light rigs,
+    /// the backyard critter audience on logs along the fences (CritterCrowd), clouds, giant flowers and grass, pool floats, the studio's own
     /// food props (Drive: Shiesty Assets/Props/Food) on the picnic table and as ice-cream landmarks, and the START arch.
     /// Purely visual: no colliders, so it never changes how the yard plays. Static where it doesn't move, so URP can batch it
     /// on Quest. Seeded randomness keeps every rebuild identical. Layout constants come from BackyardCourseBuilder.
@@ -17,6 +18,9 @@ namespace GameJam.Editor
     {
         private const string FoodFolder = "Assets/GameJam/Art/Props/Food";
         private const string AtlasPath = "Assets/GameJam/Art/Textures/T_ColorAtlas_v1.png";
+        private const string CritterFolder = "Assets/GameJam/Art/Critters";
+        private static readonly string[] CritterModels = { "Frog", "Snail", "Squirrel", "Ladybug", "Songbird", "Mouse" };
+        private const float CritterSpacing = 1.15f;
 
         private static System.Random _random;
         private static Material _atlas;
@@ -181,7 +185,7 @@ namespace GameJam.Editor
 
         private static void BuildStudio(Transform staticParent, Transform movingParent)
         {
-            // TV-studio set around the yard: light towers above the fence and stands of bobbing fans looking in.
+            // TV-studio light towers above the fence; the audience is the yard's own critters (BuildCritterAudience).
             Material truss = PlaceholderAssets.Material("Truss", ArtPalette.Charcoal, 0.5f);
             Material lampBody = PlaceholderAssets.Material("LampBody", ArtPalette.Charcoal, 0.6f);
             Material lampGlow = PlaceholderAssets.Emissive("LampGlow", ArtPalette.SunLight, 2f);
@@ -209,42 +213,117 @@ namespace GameJam.Editor
                 }
             }
 
-            Stand(staticParent, movingParent, new Vector3(-(w + 16f), 0f, (south + north) / 2f - 8f), 90f);
-            Stand(staticParent, movingParent, new Vector3(w + 16f, 0f, (south + north) / 2f + 8f), -90f);
-            Stand(staticParent, movingParent, new Vector3(0f, 0f, BackyardCourseBuilder.SouthEdge - 14f), 0f);
+            BuildCritterAudience(staticParent, movingParent);
         }
 
-        private static void Stand(Transform staticParent, Transform movingParent, Vector3 front, float yaw)
+        /// <summary>
+        /// The audience is the backyard's own critters (tools/blender/scripts/build_critters.py: frog, snail, squirrel,
+        /// ladybug, songbird, mouse): little groups on logs along both fences, one beside every station, and a cheering
+        /// section behind the start. They sit outside the giants' bounds (RoamerBounds) so nobody walks through them, have no
+        /// colliders, and share one palette material (one batch). CritterCrowd animates them: they watch the balloon and hop
+        /// on saves, rally milestones, cleared hoops and the finish. Without the models (script not run) there is no audience.
+        /// </summary>
+        private static void BuildCritterAudience(Transform staticParent, Transform movingParent)
         {
-            // Tall stands so the crowd sees over the 7 m fence: a game-show striped skirt and candy tiers, not black boxes.
-            Material seats = PlaceholderAssets.Material("StandSeats", ArtPalette.CandyBlue, 0.4f);
-            Material frame = PlaceholderAssets.Material("StandFrame", ArtPalette.Picket, 0.3f);
-            Material skirt = PlaceholderAssets.Material("StandSkirt", Color.white, 0.3f,
-                GeneratedTextures.Stripes("T_StandSkirt", ArtPalette.CandyPink, ArtPalette.Picket, 4), new Vector2(6f, 1.5f));
-            Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
-            const int tiers = 4;
-
-            Decor(PrimitiveType.Cube, "StandBase", staticParent, front + rotation * new Vector3(0f, 3f, -3.6f), new Vector3(22f, 6f, 9.6f), skirt, rotation);
-            GroundBlob(staticParent, front + rotation * new Vector3(0f, 0f, -3.6f), 15f, 8f, rotation);
-            for (int tier = 0; tier < tiers; tier++)
+            var models = new List<GameObject>();
+            foreach (string name in CritterModels)
             {
-                Vector3 tierCenter = front + rotation * new Vector3(0f, 7f + tier * 2f, -tier * 2.4f);
-                Decor(PrimitiveType.Cube, "StandTier", staticParent, tierCenter, new Vector3(22f, 2f, 2.4f), tier % 2 == 0 ? seats : frame, rotation);
-
-                for (int fan = 0; fan < 8; fan++)
+                string path = $"{CritterFolder}/{name}.fbx";
+                if (AssetImporter.GetAtPath(path) is ModelImporter importer
+                    && (importer.materialImportMode != ModelImporterMaterialImportMode.None || importer.bakeAxisConversion))
                 {
-                    Vector3 seat = tierCenter + rotation * new Vector3(-9.5f + fan * 2.7f + Range(-0.3f, 0.3f), 1.9f, 0f);
-                    Color shirt = ArtPalette.Candy[_random.Next(ArtPalette.Candy.Length)];
-                    var fanRoot = new GameObject("Fan");
-                    fanRoot.transform.SetParent(movingParent, false);
-                    fanRoot.transform.SetPositionAndRotation(seat, rotation);
-                    Decor(PrimitiveType.Capsule, "FanBody", fanRoot.transform, seat, new Vector3(1.1f, 0.9f, 1f),
-                        PlaceholderAssets.Material($"Shirt_{ColorUtility.ToHtmlStringRGB(shirt)}", shirt), rotation);
-                    Decor(PrimitiveType.Sphere, "FanHead", fanRoot.transform, seat + Vector3.up * 1.5f, Vector3.one * 0.95f,
-                        PlaceholderAssets.Material("FanSkin", ArtPalette.HouseWall), rotation);
-                    fanRoot.AddComponent<IdleMotion>().Configure(Range(0.08f, 0.25f), Range(0.8f, 1.6f), 3f, 0f, Range(0f, 6.3f));
+                    importer.materialImportMode = ModelImporterMaterialImportMode.None; // they all get the palette material
+                    importer.bakeAxisConversion = false; // like the item props: the root keeps the FBX axis rotation
+                    importer.SaveAndReimport();
+                }
+
+                var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (model != null)
+                {
+                    models.Add(model);
                 }
             }
+
+            if (models.Count == 0)
+            {
+                return;
+            }
+
+            Material skin = CritterMaterial();
+            Material bark = PlaceholderAssets.Material("CritterLog", ArtPalette.TimberDark, 0.15f);
+            Transform root = new GameObject("CritterAudience").transform;
+            root.SetParent(movingParent, false);
+            var critters = new List<Transform>();
+
+            float w = BackyardCourseBuilder.HalfWidth;
+            foreach (float z in new[] { -4f, 12f, 28f, 44f, 60f, 74f })
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var spot = new Vector3(side * (w - 1.7f), 0f, z + Range(-2f, 2f));
+                    CritterLog(staticParent, root, critters, models, skin, bark, spot, Quaternion.Euler(0f, side < 0 ? 90f : -90f, 0f), 2);
+                }
+            }
+
+            float south = BackyardCourseBuilder.SouthEdge + 1.9f; // behind the start stage, facing up the yard
+            foreach (float x in new[] { -7f, 7f })
+            {
+                CritterLog(staticParent, root, critters, models, skin, bark, new Vector3(x, 0f, south), Quaternion.identity, 4);
+            }
+
+            root.gameObject.AddComponent<CritterCrowd>().Configure(critters.ToArray());
+        }
+
+        /// <summary>A log lying across the critters' view, `count` critters on it and one on the grass in front.</summary>
+        private static void CritterLog(Transform staticParent, Transform root, List<Transform> critters, List<GameObject> models, Material skin,
+            Material bark, Vector3 spot, Quaternion facing, int count)
+        {
+            float length = CritterSpacing * count + 0.5f;
+            Decor(PrimitiveType.Cylinder, "CritterLog", staticParent, spot + Vector3.up * 0.32f, new Vector3(0.64f, length * 0.5f, 0.64f), bark,
+                facing * Quaternion.Euler(0f, 0f, 90f));
+            GroundBlob(staticParent, spot, length * 0.6f, 1.3f, facing);
+            for (int i = 0; i < count; i++)
+            {
+                float along = (i - (count - 1) * 0.5f) * CritterSpacing + Range(-0.1f, 0.1f);
+                Critter(root, critters, models, skin, spot + facing * new Vector3(along, 0.6f, 0f), facing);
+            }
+
+            Critter(root, critters, models, skin, spot + facing * new Vector3(Range(-0.5f, 0.5f), 0f, 1.05f), facing);
+        }
+
+        private static void Critter(Transform root, List<Transform> critters, List<GameObject> models, Material skin, Vector3 position, Quaternion facing)
+        {
+            GameObject model = models[_random.Next(models.Count)];
+            // An upright holder (CritterCrowd turns and hops it) around the model, which keeps its imported axis rotation.
+            var critter = new GameObject(model.name);
+            critter.transform.SetParent(root, false);
+            critter.transform.SetPositionAndRotation(position, facing * Quaternion.Euler(0f, Range(-18f, 18f), 0f));
+            critter.transform.localScale = Vector3.one * Range(1.2f, 1.55f);
+            var body = (GameObject)PrefabUtility.InstantiatePrefab(model, critter.transform);
+            body.transform.localPosition = Vector3.zero;
+            foreach (MeshRenderer renderer in critter.GetComponentsInChildren<MeshRenderer>())
+            {
+                renderer.sharedMaterial = skin;
+                renderer.shadowCastingMode = ShadowCastingMode.Off; // small and many: the ground blob under the log grounds them
+            }
+
+            critters.Add(critter.transform);
+        }
+
+        /// <summary>One material for every critter: the palette texture, each face picks its colour cell (point filtered).</summary>
+        private static Material CritterMaterial()
+        {
+            const string path = CritterFolder + "/T_CritterPalette.png";
+            if (AssetImporter.GetAtPath(path) is TextureImporter importer
+                && (importer.filterMode != FilterMode.Point || importer.mipmapEnabled || importer.textureCompression != TextureImporterCompression.Uncompressed))
+            {
+                importer.filterMode = FilterMode.Point;
+                importer.mipmapEnabled = false;
+                importer.textureCompression = TextureImporterCompression.Uncompressed; // 32 x 32: compression would blend the cells
+                importer.SaveAndReimport();
+            }
+
+            return PlaceholderAssets.Material("CritterPalette", Color.white, 0.35f, AssetDatabase.LoadAssetAtPath<Texture2D>(path));
         }
 
         private static void BuildClouds(Transform parent)

@@ -14,7 +14,7 @@ namespace GameJam.Core
                  "the crew goes back to the lobby after ResultSeconds.")]
         [Min(10f)] public float RunSeconds = 360f;
         [Min(0f)] public float CountdownSeconds = 3f;
-        [Tooltip("After a run ends (medal or time up) the result shows this long, then everyone, the balloon and the hoops " +
+        [Tooltip("After a run ends (finish or time up) the result shows this long, then everyone, the balloon and the hoops " +
                  "go back to the start lobby.")]
         [Min(1f)] public float ResultSeconds = 10f;
 
@@ -25,12 +25,6 @@ namespace GameJam.Core
         public int PointsPerRallyPass = 50;
         [Tooltip("Score multiplier per balloon condition at the finish: full, leaking, nearly flat.")]
         public float[] ConditionMultipliers = { 1f, 0.75f, 0.5f };
-
-        [Header("Medals")]
-        [Tooltip("A clean run (about 2:15 of the 6 minutes, six hoops, a 10-pass rally) lands near 4650; the thresholds " +
-                 "rose by 1800 when the run went from 3 to 6 minutes (180 more seconds left x 10 points).")]
-        public int SilverScore = 3900;
-        public int GoldScore = 4500;
 
         public float MultiplierFor(BalloonCondition condition)
         {
