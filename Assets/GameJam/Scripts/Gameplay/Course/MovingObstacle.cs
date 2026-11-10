@@ -77,13 +77,28 @@ namespace GameJam.Gameplay
             _carriesPlayers = carriesPlayers;
         }
 
-        public void ConfigureSwing(Vector3 axis, float angle, float period, bool knocksPlayers = true)
+        public void ConfigureSwing(Vector3 axis, float angle, float period, bool knocksPlayers = true, float phaseSeconds = 0f)
         {
             _mode = MoveMode.Swing;
             _axis = axis;
             _swingAngle = angle;
             _period = period;
             _knocksPlayers = knocksPlayers;
+            _phase = phaseSeconds;
+        }
+
+        /// <summary>
+        /// Slides back and forth along a straight line from where it stands (eased, pausing at each end for holdFraction
+        /// of the cycle), without turning: the cactus wagon on its rails.
+        /// </summary>
+        public void ConfigurePingPong(Vector3 travel, float period, float holdFraction, bool knocksPlayers = true, float phaseSeconds = 0f)
+        {
+            _mode = MoveMode.PingPong;
+            _travel = travel;
+            _period = period;
+            _holdFraction = Mathf.Clamp(holdFraction, 0f, 0.9f);
+            _knocksPlayers = knocksPlayers;
+            _phase = phaseSeconds;
         }
 
         /// <summary>

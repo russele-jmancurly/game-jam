@@ -261,6 +261,8 @@ The game has one big play space: **The Giant Backyard**, a studio set built at t
 
 **Six hoops, any order.** Glowing hoops are spread across the zones. The crew picks its own route; clearing every hoop unlocks the finish pad on the porch. A cleared hoop turns mint green and becomes the checkpoint where a fresh balloon appears after a pop.
 
+**Current build (the trail):** the yard is 52 x 144 m (long rather than wide: the players are small) and the six hoops zigzag west and east up it, 18 to 25 m apart, each at its set piece: open lawn, the washing line, the paddling pool, the merry-go-round, the grill and the big tree, then the finish basket in front of the house. Every stretch between hoops has its own cactus obstacle (the cactus pops the balloon on touch): a cactus garden to weave through, two cacti on a wagon rolling across the path, a sprinkler whose sweeping gust blows the balloon toward the cacti round it, two cactus pots swinging from frames, a wall of tall cacti to lob the balloon over, and the finish pen: a fenced lane in front of the house whose only way in runs under two swinging donkey pinatas and between two cacti, so the pinatas can't be walked around. A pop puts the balloon back just past the last hoop cleared, so the whole stretch has to be crossed again. A run lasts 8 minutes. The table below is the original zone plan.
+
 | Zone | What's there | What moves | Hoop |
 | --- | --- | --- | --- |
 | Start stage (south) | Stage, START arch, item pile, scoreboard, the red start button | (the passing objects cross nearby) | none |

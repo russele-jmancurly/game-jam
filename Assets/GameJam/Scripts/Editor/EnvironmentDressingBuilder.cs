@@ -58,7 +58,7 @@ namespace GameJam.Editor
         {
             GroundBlob(parent, BackyardCourseBuilder.TreeCenter, 7f, 7f);
             GroundBlob(parent, BackyardCourseBuilder.PlaygroundCenter, 6f, 6f);
-            GroundBlob(parent, BackyardCourseBuilder.BbqCenter, 3.5f, 3.5f);
+            GroundBlob(parent, BackyardCourseBuilder.BbqCenter + new Vector3(0f, 0f, -6f), 3.5f, 3.5f); // under the grill
             GroundBlob(parent, BackyardCourseBuilder.WashingLineCenter, 4f, 4f);
             GroundBlob(parent, new Vector3(BackyardCourseBuilder.TrailFinish.x, 0f, BackyardCourseBuilder.TrailFinish.z), 5.5f, 4.5f);
             GroundBlob(parent, new Vector3(0f, 0f, BackyardCourseBuilder.NorthEdge + 10f), 22f, 14f); // the house
@@ -133,7 +133,7 @@ namespace GameJam.Editor
             for (int i = 0; i < 18; i++)
             {
                 float side = i % 2 == 0 ? -1f : 1f;
-                var basePosition = new Vector3(side * Range(w + 3f, w + 12f), 0f, Range(-20f, 100f));
+                var basePosition = new Vector3(side * Range(w + 3f, w + 12f), 0f, Range(BackyardCourseBuilder.SouthEdge - 4f, BackyardCourseBuilder.NorthEdge + 16f));
                 Flower(parent, basePosition, Range(9f, 15f), ArtPalette.Candy[i % ArtPalette.Candy.Length], stem, facingInward: side);
             }
 
@@ -141,7 +141,7 @@ namespace GameJam.Editor
             for (int i = 0; i < 50; i++)
             {
                 float side = i % 2 == 0 ? -1f : 1f;
-                Tuft(parent, new Vector3(side * Range(w - 2.5f, w - 0.8f), 0f, Range(-20f, 100f)), blades);
+                Tuft(parent, new Vector3(side * Range(w - 2.5f, w - 0.8f), 0f, Range(BackyardCourseBuilder.SouthEdge - 4f, BackyardCourseBuilder.NorthEdge + 16f)), blades);
             }
 
             for (int i = 0; i < 16; i++)
@@ -256,7 +256,7 @@ namespace GameJam.Editor
             var critters = new List<Transform>();
 
             float w = BackyardCourseBuilder.HalfWidth;
-            foreach (float z in new[] { -4f, 12f, 28f, 44f, 60f, 74f })
+            for (float z = BackyardCourseBuilder.SouthEdge + 12f; z < BackyardCourseBuilder.NorthEdge - 8f; z += 16f)
             {
                 for (int side = -1; side <= 1; side += 2)
                 {

@@ -17,6 +17,9 @@ Pieces and anchors (all at ground unless noted):
     MerryGoRound     the Mover (disc centre, 0.25 up) Slide         PlaygroundCenter + (10, 0, 8)
     SwingSet         PlaygroundCenter + (-9, 0, -4)   Trampoline    PlaygroundCenter + (12, 0, -6)
     PicnicTable      BbqCenter + (0, 0, 5)           Cactus        its pot's base centre (BackyardCourseBuilder.CactusPot)
+    Pinata           the swing's pivot (hangs 3.4 m)  SwingFrame    ground centre under the beam (posts at x +-3.2)
+    Wagon            ground centre (rolls along Z)    PotHanger     the swing's pivot (cords to a pot 4.4 m below)
+    SprinklerBase    ground centre                    SprinklerHead the spinning head's hub (0.9 above ground)
 """
 import math
 import os
@@ -51,6 +54,9 @@ COLOURS = {
     "CactusGreen": (0x4E9A3A, 0.75), "CactusRidge": (0x7CC84B, 0.7), "Spine": (0xFFF4D6, 0.5),
     "Terracotta": (0xC2614F, 0.8), "TerracottaRim": (0xD9644A, 0.75), "PotSoil": (0x5A3B22, 0.95),
     "CactusFlower": (0xFF7EB6, 0.5), "FlowerHeart": (0xFFD23F, 0.5),
+    "CandyPink": (0xFF7EB6, 0.6), "CandyYellow": (0xFFD23F, 0.6), "CandyBlue": (0x5AA9FF, 0.6), "CandyMint": (0x6FE3C1, 0.6),
+    "CandyPurple": (0xA77BF3, 0.6), "CandyOrange": (0xFF8A3D, 0.6), "Rope": (0xE8D9B0, 0.85), "Ink": (0x15171C, 0.4),
+    "WagonRed": (0xE8384F, 0.45), "WagonTrim": (0xF6F1E7, 0.5), "Nozzle": (0xFFD23F, 0.45),
 }
 
 
@@ -706,14 +712,152 @@ def build_cactus():
     return p
 
 
+def banded(p, points, radii, mats, sides=10, squash=1.0):
+    """A round column along a polyline whose rings cycle through `mats` (pinata paper stripes); capped at both ends."""
+    pts = [V(q) for q in points]
+    rings, normal = [], None
+    for i, q in enumerate(pts):
+        t = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized()
+        if normal is None:
+            ref = UP if abs(t.y) < 0.9 else V((0, 0, 1))
+            normal = (ref - t * ref.dot(t)).normalized()
+        normal = (normal - t * normal.dot(t)).normalized()
+        binormal = t.cross(normal)
+        rings.append([q + (normal * math.cos(2 * math.pi * k / sides) + binormal * math.sin(2 * math.pi * k / sides) * squash)
+                      * radii[i] for k in range(sides)])
+    p.rings(rings, mats[0], cap_start=True, cap_end=True, mat_fn=lambda i, j: mats[i % len(mats)],
+            cap_mat=mats[0])
+
+
+def build_pinata():
+    """The finish pinata: a paper donkey in candy stripes hanging on a rope. Origin at the swing's pivot; the body's centre
+    is 3.4 m below it (the FinishPinataBody collider, 1.4 x 1.2 x 0.8), its length across the path (X)."""
+    p = Piece("Pinata")
+    stripes = [p.mat(n) for n in ("CandyPink", "CandyYellow", "CandyBlue", "CandyMint", "CandyPurple", "CandyOrange")]
+    rope, ink, white = p.mat("Rope"), p.mat("Ink"), p.mat("PoolWhite")
+    y = -3.4
+    # Rope from the pivot to a loop on the donkey's back.
+    p.tube([V((0, 0, 0)), V((0, y + 0.42, 0))], 0.03, rope, sides=5)
+    p.tube([V((0.12 * math.cos(a), y + 0.36 + 0.07 * math.sin(a), 0)) for a in (2 * math.pi * k / 8 for k in range(8))],
+           0.025, rope, sides=4, loop=True)
+    # Body: a fat barrel in paper stripes.
+    xs = [-0.6, -0.52, -0.38, -0.22, -0.06, 0.1, 0.26, 0.4, 0.5]
+    rs = [0.1, 0.24, 0.31, 0.34, 0.345, 0.34, 0.32, 0.27, 0.16]
+    banded(p, [(x, y, 0) for x in xs], rs, stripes, sides=12)
+    # Neck and head, looking along +X; the muzzle a little down.
+    banded(p, [(0.36, y + 0.08, 0), (0.46, y + 0.24, 0), (0.56, y + 0.4, 0), (0.62, y + 0.5, 0)], [0.2, 0.17, 0.16, 0.13],
+           stripes[2:] + stripes[:2], sides=10)
+    banded(p, [(0.5, y + 0.52, 0), (0.6, y + 0.52, 0), (0.74, y + 0.47, 0), (0.88, y + 0.41, 0), (0.98, y + 0.37, 0)],
+           [0.1, 0.17, 0.165, 0.13, 0.09], stripes[4:] + stripes[:4], sides=10)
+    for sz in (-1, 1):
+        # Ears, eyes, legs.
+        banded(p, [(0.56, y + 0.62, sz * 0.08), (0.53, y + 0.78, sz * 0.12), (0.5, y + 0.9, sz * 0.14)], [0.06, 0.055, 0.015],
+               [stripes[0], stripes[1]], sides=6)
+        p.blob(V((0.74, y + 0.54, sz * 0.135)), (0.05, 0.055, 0.03), lambda f, c, r: white, seed=1.0, amp=0.0, subdivisions=1)
+        p.blob(V((0.765, y + 0.54, sz * 0.155)), (0.025, 0.03, 0.02), lambda f, c, r: ink, seed=2.0, amp=0.0, subdivisions=1)
+        for x in (-0.34, 0.26):
+            banded(p, [(x, y - 0.2, sz * 0.17), (x, y - 0.36, sz * 0.18), (x, y - 0.5, sz * 0.18), (x, y - 0.6, sz * 0.18)],
+                   [0.11, 0.095, 0.09, 0.085], stripes[1:] + stripes[:1], sides=8)
+    # Tail with a tassel, and a row of paper tassels under the belly.
+    p.tube([V((-0.58, y + 0.05, 0)), V((-0.7, y + 0.0, 0)), V((-0.76, y - 0.16, 0))], 0.03, stripes[0], sides=5)
+    banded(p, [(-0.76, y - 0.16, 0), (-0.78, y - 0.26, 0), (-0.79, y - 0.34, 0)], [0.05, 0.07, 0.02], [stripes[1], stripes[2]], sides=6)
+    for k, x in enumerate((-0.3, -0.12, 0.06, 0.24)):
+        banded(p, [(x, y - 0.3, 0), (x, y - 0.4, 0), (x, y - 0.47, 0)], [0.05, 0.06, 0.015], [stripes[(k + 3) % 6], stripes[(k + 4) % 6]], sides=6)
+    return p
+
+
+def build_swing_frame():
+    """The frame a pinata or a hanging cactus swings from: two timber posts 3.2 m either side of the path (the PinataPost
+    colliders, 0.25 square, 5.8 tall) and a beam across their tops (y 5.8, 6.7 long), with braces, feet and a hook ring."""
+    p = Piece("SwingFrame")
+    timber, dark, steel = p.mat("Timber"), p.mat("TimberDark"), p.mat("Steel")
+    beam = 5.8
+    for sx in (-1, 1):
+        x = sx * 3.2
+        p.box((x, beam / 2, 0), (0.26, beam, 0.26), timber, bevel=0.03)
+        p.box((x, 0.12, 0), (0.5, 0.24, 1.3), dark, bevel=0.04)                              # foot
+        for sz in (-1, 1):                                                                 # foot braces
+            p.tube([V((x, 0.2, sz * 0.58)), V((x, 1.0, sz * 0.1))], 0.05, dark, sides=4)
+        p.tube([V((x, beam - 1.1, 0)), V((x - sx * 1.0, beam - 0.08, 0))], 0.06, dark, sides=4)  # knee brace under the beam
+        p.box((x, beam + 0.2, 0), (0.34, 0.14, 0.34), dark, bevel=0.03)                      # post cap
+    p.box((0, beam, 0), (6.9, 0.26, 0.26), timber, bevel=0.03)
+    p.tube([V((0.09 * math.cos(a), beam - 0.2 + 0.09 * math.sin(a), 0)) for a in (2 * math.pi * k / 8 for k in range(8))],
+           0.02, steel, sides=4, loop=True)
+    return p
+
+
+def build_wagon():
+    """A little red garden wagon for the rolling cacti, the same front and back (it rolls both ways). Origin on the
+    ground under its middle; bed 1.3 wide x 2.6 long (Z), top at 0.75 (the WagonBed collider), four wheels."""
+    p = Piece("Wagon")
+    red, trim, tyre, steel, soil = p.mat("WagonRed"), p.mat("WagonTrim"), p.mat("Tyre"), p.mat("Steel"), p.mat("PotSoil")
+    p.box((0, 0.52, 0), (1.3, 0.46, 2.6), red, bevel=0.07, segments=2)
+    p.box((0, 0.745, 0), (1.08, 0.03, 2.38), soil)                                          # the bed's floor
+    p.box((0, 0.6, 0), (1.34, 0.08, 2.64), trim, bevel=0.02)                                 # a white stripe round it
+    for sz in (-1, 1):
+        z = sz * 0.82
+        p.tube([V((-0.74, 0.28, z)), V((0.74, 0.28, z))], 0.04, steel, sides=6)             # axle
+        for sx in (-1, 1):
+            x = sx * 0.76
+            rings = []
+            for r, dx in ((0.1, -0.07), (0.28, -0.07), (0.3, -0.03), (0.3, 0.03), (0.28, 0.07), (0.1, 0.07)):
+                rings.append([V((x + dx, 0.3 + r * math.cos(2 * math.pi * k / 14), z + r * math.sin(2 * math.pi * k / 14)))
+                              for k in range(14)])
+            p.rings(rings, tyre, cap_start=True, cap_end=True, cap_mat=trim, mat_fn=lambda i, j: trim if i in (0, 4) else tyre)
+        # Pull handle at each end, folded up.
+        p.tube([V((-0.2, 0.5, sz * 1.3)), V((-0.2, 0.95, sz * 1.42)), V((0.2, 0.95, sz * 1.42)), V((0.2, 0.5, sz * 1.3))], 0.03, steel, sides=5)
+    return p
+
+
+def build_pot_hanger():
+    """Cords for a hanging cactus pot: a ring at the swing's pivot, a rope down, and three cords to the rim of a pot
+    whose base is 4.4 m below the pivot (a Cactus at scale 1.2: rim radius 0.47, 0.54 above its base)."""
+    p = Piece("PotHanger")
+    rope, steel = p.mat("Rope"), p.mat("Steel")
+    rim_y, rim_r, knot_y = -4.4 + 0.54, 0.475, -1.5
+    p.tube([V((0, 0, 0)), V((0, knot_y, 0))], 0.03, rope, sides=5)
+    p.blob(V((0, knot_y, 0)), (0.07, 0.07, 0.07), lambda f, c, r: steel, seed=3.0, amp=0.0, subdivisions=1)
+    for k in range(3):
+        a = 2 * math.pi * k / 3 + 0.5
+        p.tube([V((0, knot_y, 0)), V((rim_r * math.cos(a), rim_y, rim_r * math.sin(a)))], 0.02, rope, sides=4)
+    p.tube([V((rim_r * math.cos(a), rim_y - 0.03, rim_r * math.sin(a))) for a in (2 * math.pi * k / 16 for k in range(16))],
+           0.025, rope, sides=4, loop=True)
+    return p
+
+
+def build_sprinkler_base():
+    """A lawn sprinkler's stand: a weighted foot, a riser up to the spinning head (hub at 0.9) and a hose stub."""
+    p = Piece("SprinklerBase")
+    steel, cap, hose = p.mat("Steel"), p.mat("Climb"), p.mat("Leaves")
+    p.lathe([(0.0, 0.0), (0.42, 0.0), (0.42, 0.06), (0.2, 0.16), (0.09, 0.2)], 14, cap)
+    p.tube([V((0, 0.18, 0)), V((0, 0.82, 0))], 0.06, steel, sides=8)
+    p.tube([V((0.3, 0.07, 0)), V((0.7, 0.05, 0.1)), V((1.2, 0.05, -0.1)), V((1.7, 0.05, 0.15))], 0.045, hose, sides=6)
+    return p
+
+
+def build_sprinkler_head():
+    """The sprinkler's spinning head: a hub at the origin and a long arm along +Z (the way it blows) ending in a flared
+    nozzle, with a short counterweight arm behind."""
+    p = Piece("SprinklerHead")
+    steel, cap, nozzle = p.mat("Steel"), p.mat("Climb"), p.mat("Nozzle")
+    p.lathe([(0.0, -0.1), (0.13, -0.1), (0.15, 0.0), (0.13, 0.1), (0.0, 0.12)], 12, cap)
+    p.tube([V((0, 0, -0.45)), V((0, 0, 0.75))], 0.045, steel, sides=8)
+    p.tube([V((0, 0, 0.72)), V((0, 0.04, 0.9)), V((0, 0.1, 1.02))], [0.05, 0.09, 0.14], nozzle, sides=10)
+    p.blob(V((0, 0, -0.5)), (0.1, 0.1, 0.1), lambda f, c, r: cap, seed=5.0, amp=0.0, subdivisions=1)
+    return p
+
+
 PIECES = {
     "Tree": build_tree, "PaddlingPool": build_pool, "Grill": build_grill, "MerryGoRound": build_merry_go_round,
     "Slide": build_slide, "SwingSet": build_swing_set, "Trampoline": build_trampoline,
     "PicnicTable": build_picnic_table, "RotaryPole": build_rotary_pole, "RotaryArms": build_rotary_arms,
     "FencePicket": build_fence_picket, "Cactus": build_cactus,
+    "Pinata": build_pinata, "SwingFrame": build_swing_frame, "Wagon": build_wagon, "PotHanger": build_pot_hanger,
+    "SprinklerBase": build_sprinkler_base, "SprinklerHead": build_sprinkler_head,
 }
 BUDGETS = {"Tree": 6000, "PaddlingPool": 3000, "Grill": 2500, "MerryGoRound": 2000, "Slide": 2500, "SwingSet": 1200,
-           "Trampoline": 1500, "PicnicTable": 1500, "RotaryPole": 800, "RotaryArms": 800, "FencePicket": 60, "Cactus": 1800}
+           "Trampoline": 1500, "PicnicTable": 1500, "RotaryPole": 800, "RotaryArms": 800, "FencePicket": 60, "Cactus": 1800,
+           "Pinata": 1600, "SwingFrame": 600, "Wagon": 1200, "PotHanger": 300, "SprinklerBase": 400, "SprinklerHead": 400}
 
 
 def export(obj, path):

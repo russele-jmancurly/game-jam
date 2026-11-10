@@ -7,30 +7,33 @@ using UnityEngine;
 namespace GameJam.Editor
 {
     /// <summary>
-    /// The Giant Backyard as a trail of stations (GDD: Levels): every hoop hangs at a set piece that is its obstacle, ~14 m
-    /// apart and getting harder: open lawn (warm-up), the washing line (sheets swat the ring), the paddling pool (off the
-    /// diving board, over the water), the merry-go-round (ride it or use the trampoline), the BBQ grill (flames on a beat,
-    /// a fan blowing across) and the tree (bounce on the mushroom to the low branch), then the finish pad under a swinging
-    /// pinata. Nothing is there that doesn't shape the way to a hoop (playtest: "what is the purpose of the other part of
-    /// the map?"). Lawn the balloon must never touch, ringed by a climbable giant picket fence. Everything that moves runs
-    /// on the shared CourseClock, so it costs no network traffic.
+    /// The Giant Backyard as a trail of stations (GDD: Levels): every hoop hangs at a set piece that is its obstacle, and
+    /// the trail zigzags up a 52 x 144 m yard with the hoops ~22 m apart and getting harder: open lawn (warm-up), the
+    /// washing line (sheets swat the ring), the paddling pool (off the diving board, over the water), the merry-go-round
+    /// (ride it or use the trampoline), the BBQ grill (flames on a beat, a fan blowing across) and the tree (bounce on the
+    /// mushroom to the low branch), then the finish basket at the end of a fenced pen, past two swinging pinatas. Every gap after the warm-up has its
+    /// own cactus obstacle (BackyardCourseBuilder.Obstacles.cs). Nothing is there that doesn't shape the way to a hoop
+    /// (playtest: "what is the purpose of the other part of the map?"). Lawn the balloon must never touch, ringed by a
+    /// climbable giant picket fence. Everything that moves runs on the shared CourseClock, so it costs no network traffic.
     /// </summary>
     public static partial class BackyardCourseBuilder
     {
-        // The yard: lawn top at y = 0, x -26..26, z -16..84: the station trail plus a strip of lawn west for the giant.
+        // The yard: lawn top at y = 0, x -26..26, z -16..128. The user asked for a bigger map with the hoops further apart
+        // (it was 52 x 100 m), then found 68 m too wide for players this small: the extra room is all length now.
         public const float HalfWidth = 26f;
         public const float SouthEdge = -16f;
-        public const float NorthEdge = 84f;
+        public const float NorthEdge = 128f;
 
         // Station centres (each zone keeps its internal layout; its hoop and checkpoint are offsets from the centre).
-        // Order: washing line, pool, playground, BBQ, tree. Each is approached from its working side: the pool from the
-        // west (the diving board), the tree from the south-east (the mushroom pad), the others from the south.
-        public static readonly Vector3 WashingLineCenter = new Vector3(-4f, 0f, 21f);
-        public static readonly Vector3 PoolCenter = new Vector3(13f, 0f, 24f);
+        // Order: washing line, pool, playground, BBQ, tree, zigzagging west, east, west, east, west up the yard. Each is
+        // approached from its working side: the pool from the west (the diving board), the tree from the south-east (the
+        // mushroom pad), the others from the south.
+        public static readonly Vector3 WashingLineCenter = new Vector3(-10f, 0f, 29f);
+        public static readonly Vector3 PoolCenter = new Vector3(12f, 0f, 38f);
         public const float PoolRadius = 9f;
-        public static readonly Vector3 PlaygroundCenter = new Vector3(0f, 0f, 42f);
-        public static readonly Vector3 BbqCenter = new Vector3(-6f, 0f, 56f);
-        public static readonly Vector3 TreeCenter = new Vector3(2f, 0f, 60f);
+        public static readonly Vector3 PlaygroundCenter = new Vector3(-8f, 0f, 62f);
+        public static readonly Vector3 BbqCenter = new Vector3(8f, 0f, 84f);
+        public static readonly Vector3 TreeCenter = new Vector3(-7f, 0f, 98f);
 
         // Launch surfaces the hoop heights are measured from.
         private const float DiveBoardTop = 1.625f;  // BuildPool: board centre 1.5 m, 0.25 m thick; its tip is 6 m west of the pool centre
@@ -38,8 +41,8 @@ namespace GameJam.Editor
         private const float FlamesTop = 2.15f;      // BuildBbq: flame trigger centre 1.9 m, 0.5 m tall
         private const float BranchLowTop = 4.25f;   // BuildTree: BranchLow centre 4 m, 0.5 m thick, spans x 0.85..4.35 from the trunk
 
-        /// <summary>Centre of the headline board (Squoof's booth sits on it), behind the finish pad.</summary>
-        public static readonly Vector3 HeadlineScreen = new Vector3(-8f, 9f, 78f);
+        /// <summary>Centre of the headline board (the MC stands on it), behind the finish pad.</summary>
+        public static readonly Vector3 HeadlineScreen = new Vector3(5f, 9f, 125.5f);
         private const float McPerchHeight = 1.5f; // the MC's perch top, above the headline board's centre (just over its trim)
         private const float McScale = 1.5f;        // the MC is drawn this many times their height, to read from across the yard
 
@@ -64,26 +67,47 @@ namespace GameJam.Editor
             public Material Wall;
         }
 
-        /// <summary>Open lawn spots the roaming mischief maker wanders between: the west strip, the south and the gaps.</summary>
-        public static readonly Vector3[] RoamerWanderPoints =
+        /// <summary>
+        /// Open lawn spots the roaming giants wander between: a grid over the whole yard (9 x 10 m), minus the spots too close
+        /// to a set piece or a gap obstacle (2 m clear of every avoid circle). Computed, so it follows the layout.
+        /// </summary>
+        public static Vector3[] RoamerWanderPoints
         {
-            // West lawn strip.
-            new Vector3(-20f, 0f, -10f), new Vector3(-20f, 0f, 8f), new Vector3(-20f, 0f, 26f), new Vector3(-18f, 0f, 44f),
-            new Vector3(-20f, 0f, 62f), new Vector3(-20f, 0f, 78f), new Vector3(-10f, 0f, 34f),
-            // Middle and east. The pool walls off most of the east side, so these keep the giants from settling on the
-            // west strip (from there every west spot is in a straight line, and few east ones are).
-            new Vector3(12f, 0f, -10f), new Vector3(10f, 0f, 8f), new Vector3(18f, 0f, 38f), new Vector3(16f, 0f, 52f),
-            new Vector3(0f, 0f, 74f), new Vector3(20f, 0f, -8f), new Vector3(22f, 0f, 10f), new Vector3(21f, 0f, 50f),
-            new Vector3(20f, 0f, 66f), new Vector3(8f, 0f, 70f),
-        };
+            get
+            {
+                Vector3[] circles = RoamerAvoidCircles;
+                var spots = new List<Vector3>();
+                for (float z = SouthEdge + 7f; z <= NorthEdge - 7f; z += 10f)
+                {
+                    for (float x = -HalfWidth + 7f; x <= HalfWidth - 7f; x += 9f)
+                    {
+                        bool isOpen = true;
+                        foreach (Vector3 circle in circles)
+                        {
+                            if (new Vector2(x - circle.x, z - circle.y).magnitude < circle.z + 2f)
+                            {
+                                isOpen = false;
+                                break;
+                            }
+                        }
 
-        /// <summary>Set pieces the roamer steers around: x, z, radius (computed from the stations).</summary>
+                        if (isOpen)
+                        {
+                            spots.Add(new Vector3(x, 0f, z));
+                        }
+                    }
+                }
+
+                return spots.ToArray();
+            }
+        }
+
+        /// <summary>Set pieces and gap obstacles the roamer steers around: x, z, radius (computed from the stations).</summary>
         public static Vector3[] RoamerAvoidCircles
         {
             get
             {
-                Vector3 pinata = GapPoint(TrailHoops[TrailHoops.Length - 1], TrailFinish, PinataAlong, out _, out _, out _);
-                return new[]
+                var circles = new List<Vector3>
                 {
                     new Vector3(PoolCenter.x, PoolCenter.z, PoolRadius + 1.5f),
                     new Vector3(PoolCenter.x - 12f, PoolCenter.z, 1.5f),                                   // diving board stand
@@ -91,20 +115,44 @@ namespace GameJam.Editor
                     new Vector3(WashingLineCenter.x - 8f, WashingLineCenter.z - 7f, 0.8f), new Vector3(WashingLineCenter.x + 8f, WashingLineCenter.z - 7f, 0.8f),
                     new Vector3(TreeCenter.x, TreeCenter.z, 2.5f), new Vector3(TreeCenter.x + 2.6f, TreeCenter.z - 1.9f, 1.2f),
                     new Vector3(PlaygroundCenter.x + 4f, PlaygroundCenter.z - 2f, 3.5f), new Vector3(PlaygroundCenter.x, PlaygroundCenter.z - 6f, 2f),
-                    new Vector3(BbqCenter.x, BbqCenter.z - 6f, 2.5f), new Vector3(BbqCenter.x + 10f, BbqCenter.z - 6f, 2f),
-                    new Vector3(0f, -6f, 7f),                                                              // start stage
-                    new Vector3(TrailFinish.x, TrailFinish.z, 5f),                                          // finish pad
+                    new Vector3(BbqCenter.x, BbqCenter.z - 6f, 2.5f), new Vector3(BbqCenter.x - 10f, BbqCenter.z - 6f, 2f),
+                    new Vector3(0f, -6f, 7.6f),                                                            // start stage (corners 7.5 m out)
                     new Vector3(HeadlineScreen.x - 6f, HeadlineScreen.z + 0.5f, 0.8f), new Vector3(HeadlineScreen.x + 6f, HeadlineScreen.z + 0.5f, 0.8f),
-                    new Vector3(pinata.x, pinata.z, 3f),                                                   // pinata frame
                 };
+                AddObstacleAvoidCircles(circles);
+                return circles.ToArray();
             }
         }
 
         /// <summary>Where the roamer may walk: min x, min z, max x, max z (4 m inside the fence).</summary>
         public static readonly Vector4 RoamerBounds = new Vector4(-HalfWidth + 4f, SouthEdge + 4f, HalfWidth - 4f, NorthEdge - 4f);
 
-        /// <summary>Where the giants start: one per show character (west lawn strip, and east beyond the pool).</summary>
-        public static readonly Vector3[] RoamerSpawns = { new Vector3(-20f, 0f, 30f), new Vector3(18f, 0f, 38f) };
+        /// <summary>Where the giants start: one per show character, at the open spots nearest the west and the east fence.</summary>
+        public static Vector3[] RoamerSpawns
+        {
+            get
+            {
+                Vector3[] spots = RoamerWanderPoints;
+                var wanted = new[] { new Vector3(-HalfWidth + 7f, 0f, 44f), new Vector3(HalfWidth - 7f, 0f, 66f) };
+                var spawns = new Vector3[wanted.Length];
+                for (int i = 0; i < wanted.Length; i++)
+                {
+                    spawns[i] = wanted[i];
+                    float best = float.MaxValue;
+                    foreach (Vector3 spot in spots)
+                    {
+                        float distance = (spot - wanted[i]).sqrMagnitude;
+                        if (distance < best)
+                        {
+                            best = distance;
+                            spawns[i] = spot;
+                        }
+                    }
+                }
+
+                return spawns;
+            }
+        }
 
         private static Palette _palette;
         private static Transform _course;
@@ -125,6 +173,7 @@ namespace GameJam.Editor
             BuildPlayground();
             BuildBbq();
             BuildHoops();
+            BuildGapObstacles(); // the cactus obstacle on the way to each hoop, and the finish pinatas
             BuildItemStashes();
             SetPieceModels.Apply(_course); // real-looking models over the gameplay primitives (Art/Set), colliders unchanged
             BuildAmbience();
@@ -736,11 +785,12 @@ namespace GameJam.Editor
             flameRenderer.sharedMaterial = PlaceholderAssets.Material("Flame", ArtPalette.Flame);
             flames.AddComponent<PulsingHazard>().Configure(flameRenderer);
 
-            // A box fan whose wind pushes the balloon west across the grill and past its hoop.
-            Box("BoxFan", c + new Vector3(10f, 1.8f, -6f), new Vector3(0.6f, 3.4f, 3.4f), PlaceholderAssets.Material("Fan", Color.Lerp(ArtPalette.Steel, ArtPalette.Picket, 0.5f)));
+            // A box fan whose wind pushes the balloon east across the grill and past its hoop. It stands west of the grill, on
+            // the side the trail arrives from (the playground): blowing the other way it was a headwind no medium slap beat.
+            Box("BoxFan", c + new Vector3(-10f, 1.8f, -6f), new Vector3(0.6f, 3.4f, 3.4f), PlaceholderAssets.Material("Fan", Color.Lerp(ArtPalette.Steel, ArtPalette.Picket, 0.5f)));
             // Spinning blades on the fan's face (decoration, no colliders), so it reads as switched on.
-            MovingObstacle blades = Mover("FanBlades", c + new Vector3(9.65f, 1.9f, -6f));
-            blades.transform.rotation = Quaternion.Euler(0f, 0f, 90f); // spin axis (local up) along -X, the way it blows
+            MovingObstacle blades = Mover("FanBlades", c + new Vector3(-9.65f, 1.9f, -6f));
+            blades.transform.rotation = Quaternion.Euler(0f, 0f, -90f); // spin axis (local up) along +X, the way it blows
             blades.ConfigureSpin(540f, knocksPlayers: false);
             Material bladeMaterial = PlaceholderAssets.Material("FanBlade", ArtPalette.Picket, 0.4f);
             Box("FanBladeA", blades.transform, Vector3.zero, new Vector3(2.9f, 0.06f, 0.45f), bladeMaterial, false);
@@ -748,7 +798,7 @@ namespace GameJam.Editor
 
             // The wind itself, made visible: air streaks flowing from the fan across the grill and past its hoop.
             var gustSize = new Vector3(4f, 4f, 11f);
-            GameObject gust = PlaceholderShapes.TriggerBox("FanGust", _course, c + new Vector3(4f, 2.5f, -6f), gustSize, Quaternion.Euler(0f, -90f, 0f));
+            GameObject gust = PlaceholderShapes.TriggerBox("FanGust", _course, c + new Vector3(-4f, 2.5f, -6f), gustSize, Quaternion.Euler(0f, 90f, 0f));
             PlaceholderPrefabBuilder.AirStream(gust.transform, gustSize, 4f);
             gust
                 .AddComponent<WindVolume>().Configure(2.2f);
@@ -763,7 +813,6 @@ namespace GameJam.Editor
         // floats down at ~0.35 m/s. A hoop counts while the balloon (r 0.25) overlaps its trigger, i.e. inside the ring.
         private const float HoopRingRadius = 1f;            // 2 m across: ~2.5x a player, 4 balloons wide
         private const float HoopTriggerRadius = HoopRingRadius - 0.25f;
-        private const float PinataAlong = 0.6f;             // how far along the last gap the finish pinata swings
         // Finish basket: a horizontal ring over the pad, scored only by dropping the balloon down through it. 2.9 m above
         // the pad is out of reach even with a jump (~2.25 m above what you stand on), so it takes a lofted slap that floats
         // down into it; the opening is 1.7 m across (3.4 balloons), a little smaller than a hoop.
@@ -773,36 +822,38 @@ namespace GameJam.Editor
         private const float BasketOpening = BasketRadius - BasketRimTube / 2f - 0.18f; // balloon centre limit: it clears the rim
 
         /// <summary>
-        /// The six hoops in trail order, each at its station (hoop 1 is the warm-up on open lawn after the start). Heights:
-        /// 2.4 (lawn), 2.4 (1 m in front of the laundry line), 4.0 (over the pool, 2.4 above the diving board), 3.1 (2.75 above the merry-go-round),
-        /// 3.25 (ring bottom 0.1 above the grill flames), 6.15 (1.9 above the low tree branch). Any order still counts.
+        /// The six hoops in trail order, each at its station (hoop 1 is the warm-up on open lawn after the start), 18-25 m
+        /// apart. Heights: 2.4 (lawn), 2.4 (1 m in front of the laundry line), 4.0 (over the pool, 2.4 above the diving
+        /// board), 3.1 (2.75 above the merry-go-round), 3.25 (ring bottom 0.1 above the grill flames), 6.15 (1.9 above the
+        /// low tree branch). Any order still counts.
         /// </summary>
         public static readonly Vector3[] TrailHoops =
         {
-            new Vector3(0f, 2.4f, 3f),
+            new Vector3(0f, 2.4f, 6f),
             WashingLineCenter + new Vector3(0f, 2.4f, -8f),   // 1 m in front of the line: the sheets swing into its path
             PoolCenter + new Vector3(-5f, DiveBoardTop + 2.4f, 0f),
             PlaygroundCenter + new Vector3(4f, MerryTop + 2.75f, -2f),
             BbqCenter + new Vector3(0f, FlamesTop + 0.1f + HoopRingRadius, -6f),
-            TreeCenter + new Vector3(2.8f, BranchLowTop + 1.9f, 0f),
+            TreeCenter + new Vector3(2.85f, BranchLowTop + 1.9f, 0f),   // ring 1.25 m clear of the trunk
         };
 
         /// <summary>
-        /// Checkpoint k (k = 1..6, reached by clearing hoop k) stands on open lawn at the start of the approach to the next
-        /// hoop (or the finish), on that station's working side, so nobody respawns in the pool or on the grill.
+        /// Checkpoint k (k = 1..6, reached by clearing hoop k) stands on open lawn a few metres past the hoop just cleared,
+        /// on the way to the next one, so nobody respawns in the pool or on the grill and a popped balloon has the whole gap
+        /// (and its obstacle) to cross again. (They used to sit right in front of the next hoop: a pop cost nothing.)
         /// </summary>
         public static readonly Vector3[] TrailCheckpoints =
         {
-            WashingLineCenter + new Vector3(1f, 0f, -13f),   // toward the laundry hoop, from the south
-            WashingLineCenter + new Vector3(3f, 0f, -3f),    // toward the diving board, from the west
-            PlaygroundCenter + new Vector3(6f, 0f, -9f),     // toward the merry-go-round and trampoline
-            BbqCenter + new Vector3(6f, 0f, -10f),           // toward the grill, from the south-east (the fan's wind blows across it)
-            TreeCenter + new Vector3(6f, 0f, -6f),           // toward the mushroom pad and the low branch
-            TreeCenter + new Vector3(-2f, 0f, 4f),           // toward the finish
+            new Vector3(-1f, 0f, 8.5f),                      // past the warm-up hoop, before the cactus garden
+            WashingLineCenter + new Vector3(5f, 0f, -5f),    // east of the laundry hoop, before the wagon's rails
+            PoolCenter + new Vector3(-13f, 0f, 8f),          // lawn north-west of the pool, before the sprinkler
+            PlaygroundCenter + new Vector3(8f, 0f, 4f),      // past the merry-go-round, before the hanging cacti
+            BbqCenter + new Vector3(-6f, 0f, 1f),            // north-west of the grill (north of the fan's wind), before the cactus wall
+            TreeCenter + new Vector3(3f, 0f, 3f),            // north of the low branch, by the way into the finish pen
         };
 
-        /// <summary>Centre of the finish pad's top, at the end of the trail.</summary>
-        public static readonly Vector3 TrailFinish = new Vector3(-8f, 0.4f, 68f);
+        /// <summary>Centre of the finish pad's top, at the far end of the finish pen (BuildFinishPen).</summary>
+        public static readonly Vector3 TrailFinish = new Vector3(5f, 0.4f, 118f);
 
         private static readonly Vector3 TrailStart = new Vector3(0f, 0f, -6.2f);
 
@@ -819,8 +870,7 @@ namespace GameJam.Editor
                 SpawnPoint(i + 1, checkpoint, YawToward(checkpoint, next), new Vector3(0f, 1.4f, 1.0f));
             }
 
-            BuildFinishPad(TrailFinish, TrailHoops[TrailHoops.Length - 1]);
-            FinishPinata(TrailHoops[TrailHoops.Length - 1], TrailFinish);
+            BuildFinishPad(TrailFinish, TrailFinish + Vector3.back * 10f); // reached up the pen, from the south
         }
 
         /// <summary>Ground point a fraction of the way along a gap, with the gap's direction and its right-hand side.</summary>
@@ -830,25 +880,6 @@ namespace GameJam.Editor
             across = Vector3.Cross(Vector3.up, along);
             facing = Quaternion.LookRotation(along, Vector3.up);
             return Flat(Vector3.Lerp(from, to, t));
-        }
-
-        /// <summary>A pinata swinging side to side across the way onto the finish pad: time the last slap.</summary>
-        private static void FinishPinata(Vector3 from, Vector3 to)
-        {
-            Vector3 c = GapPoint(from, to, PinataAlong, out _, out Vector3 across, out Quaternion facing);
-            const float beam = 5.8f;
-            // Posts 3.2 m out: the pinata (0.55 m half-size on a 3.4 m rope, 45 degree swing) reaches 2.95 m, clear of them.
-            foreach (float side in new[] { -3.2f, 3.2f })
-            {
-                Box("PinataPost", c + across * side + new Vector3(0f, beam / 2f, 0f), new Vector3(0.25f, beam, 0.25f), _palette.Wood);
-            }
-
-            Box("PinataBeam", c + new Vector3(0f, beam, 0f), new Vector3(6.7f, 0.25f, 0.25f), _palette.Wood).transform.rotation = facing;
-            MovingObstacle pinata = Mover("FinishPinata", c + new Vector3(0f, beam - 0.1f, 0f));
-            pinata.transform.rotation = facing;
-            pinata.ConfigureSwing(Vector3.forward, 45f, 3.2f); // about the path: it sweeps across it
-            Box("PinataRope", pinata.transform, new Vector3(0f, -1.5f, 0f), new Vector3(0.05f, 3f, 0.05f), _palette.Wood, false);
-            Box("FinishPinataBody", pinata.transform, new Vector3(0f, -3.4f, 0f), Vector3.one * 1.1f, PlaceholderAssets.Material("Pinata", ArtPalette.CandyPink));
         }
 
         private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
@@ -866,8 +897,9 @@ namespace GameJam.Editor
         /// </summary>
         private static void BuildFinishPad(Vector3 top, Vector3 approachFrom)
         {
-            Box("FinishPad", top + new Vector3(0f, -0.2f, 0f), new Vector3(8f, 0.4f, 6f), _palette.Deck);
-            Box("FinishMat", top + new Vector3(0f, 0.02f, 0f), new Vector3(7f, 0.04f, 5f), _palette.Checker, false);
+            // 7 m wide: it fills the finish pen (7.2 m between its fences).
+            Box("FinishPad", top + new Vector3(0f, -0.2f, 0f), new Vector3(7f, 0.4f, 6f), _palette.Deck);
+            Box("FinishMat", top + new Vector3(0f, 0.02f, 0f), new Vector3(6.2f, 0.04f, 5f), _palette.Checker, false);
 
             Vector3 along = Flat(top - approachFrom).normalized; // the way players face as they arrive
             Quaternion facing = Quaternion.LookRotation(along, Vector3.up);
@@ -959,7 +991,7 @@ namespace GameJam.Editor
             // for the high hoops: pool and tree; leaf blower = gust toward the nearest hoop for the rest) and one other.
             for (int i = 0; i < 10; i++)
             {
-                ItemSpawn(i, new Vector3(-5f, 0.9f, -9.6f + i * 0.9f));
+                ItemSpawn(i, new Vector3(-5f, 0.9f, -9.9f + i * 0.85f)); // the last one clear of the lobby's north glass wall
             }
 
             int[] helpers = { 9, 8, 9, 9, 8, 9 };
@@ -983,12 +1015,14 @@ namespace GameJam.Editor
         /// follow it: the pot, the body out to its spine tips and each arm. Without the FBX it falls back to the old
         /// placeholder (a green cylinder with a red slab), which the user found unreadable as spikes.
         /// </summary>
-        private static void CactusPot(Vector3 baseTop, float yaw = 0f, float scale = 1f)
+        private static void CactusPot(Vector3 baseTop, float yaw = 0f, float scale = 1f, Transform parent = null)
         {
+            parent = parent != null ? parent : _course; // a mover (the wagon, a swing) carries its cactus with it
             GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(CactusModelPath);
             if (model == null)
             {
                 GameObject pot = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "CactusPot", _course, baseTop + Vector3.up * 0.4f, new Vector3(0.6f, 0.4f, 0.6f), _palette.Cactus, true);
+                pot.transform.SetParent(parent, true);
                 pot.AddComponent<Sharp>().Configure("Popped on a cactus!");
                 PlaceholderShapes.Primitive(PrimitiveType.Cube, "CactusSpikes", pot.transform, new Vector3(0f, 1.05f, 0f), new Vector3(1.2f, 0.15f, 1.2f), _palette.Hazard, false);
                 return;
@@ -998,6 +1032,7 @@ namespace GameJam.Editor
             root.transform.SetParent(_course, false);
             root.transform.SetPositionAndRotation(baseTop, Quaternion.Euler(0f, yaw, 0f));
             root.transform.localScale = Vector3.one * scale;
+            root.transform.SetParent(parent, true);
             root.AddComponent<Sharp>().Configure("Popped on a cactus!");
 
             var visual = (GameObject)PrefabUtility.InstantiatePrefab(model, root.transform);

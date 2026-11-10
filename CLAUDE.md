@@ -123,20 +123,35 @@ Assets/GameJam/
   `SetPieceModels.Apply` (end of `BackyardCourseBuilder.Build`) places each at its anchor and hides the primitives it
   stands for, which keep their colliders; a missing FBX leaves the primitives. Item models: `Art/Props/Items/<Item>.fbx`
   from `build_item_props.py`, used automatically by `PlaceholderPrefabBuilder` when present.
-- Map: a trail of stations (GDD: Levels). Every hoop hangs at a set piece that is its obstacle, ~14 m apart and getting
+- Map: a trail of stations (GDD: Levels) zigzagging west-east up the yard. Every hoop hangs at a set piece that is its
+  obstacle, 18-25 m apart (the user asked for a bigger map with the hoops further apart; they were ~14 m) and getting
   harder: lawn warm-up (2.4 m), 1 m in front of the washing line (2.4, sheets swing into it), over the pool off the
   diving board (4.0), above the merry-go-round with a trampoline beside it (3.1; a ride: `MovingObstacle.CarriesPlayers` turns riders with it
   via `Player.Ride`, never knocks them off, and lets go as soon as they hop; its handle bars have no colliders), over the grill (3.25, flames on a beat,
   a fan blowing across; launch from ~4 m back), above the low tree branch via the mushroom pad (6.15), then the finish basket
-  past a swinging pinata: a horizontal ring 2.9 m over the finish pad (out of reach even with a jump) with a solid rim,
+  at the end of a fenced pen, past two swinging pinatas: a horizontal ring 2.9 m over the finish pad (out of reach even with a jump) with a solid rim,
   backboard and net; the balloon only finishes by dropping down through it (`FinishLine.Accepts`: moving down, centre inside
   the opening and within 0.25 m under the rim plane), so it can't be steered in from the side any more (playtest).
   `finish_check.cs` tests side, skim and drop entries. Rule from the playtest: nothing stays that doesn't shape the way to a hoop (the swing set,
   seesaw, slide, sandbox, picnic table, bug zapper, second washing line and yard-wide movers were cut). Stations are
   `BackyardCourseBuilder` centre constants; `TrailHoops` and `TrailCheckpoints` are offsets from them (checkpoint k = open
-  lawn on the working side of the approach to the next hoop, so nobody respawns in the pool or on the grill). Yard 52 x 100 m
-  (`HalfWidth` 26, `SouthEdge` -16, `NorthEdge` 84) with a lawn strip west for the giant; `RoamerAvoidCircles` is computed
-  from the stations, `RoamerWanderPoints` are literal. A cleared hoop shrinks away until the next run. Hoops count only during a run. Lobby: the crew waits on
+  lawn a few metres past hoop k, so a popped balloon has the whole gap and its obstacle to cross again; they used to sit right
+  in front of the next hoop). Yard 52 x 144 m (`HalfWidth` 26, `SouthEdge` -16, `NorthEdge` 128:
+  the extra room is all length, because 68 m wide felt too wide for players this small); `RoamerAvoidCircles`,
+  `RoamerWanderPoints` (a 9 x 10 m grid minus spots within 2 m of a circle) and `RoamerSpawns` are all computed from the
+  layout. The run is 8 minutes (`RunConfig.RunSeconds` 480) for the ~135 m trail.
+  Gap obstacles (`BackyardCourseBuilder.Obstacles.cs`, the user wanted the cactus used more and more challenge): every gap
+  after the warm-up has one, each using the potted cactus (`CactusPot`, pops on touch) differently: to hoop 2 a cactus
+  garden to weave through; to hoop 3 two cacti on a wagon sliding back and forth on rails (`MovingObstacle.ConfigurePingPong`);
+  to hoop 4 a sprinkler whose turning head sweeps a gust (`WindVolume` under a spinning mover, which must not knock
+  players) toward four cacti just past its reach; to hoop 5 two cactus pots swinging from frames; to hoop 6 a wall of five
+  tall cacti to lob it over; and the finish pen (`BuildFinishPen`): the yard's own 7 m pickets down both sides of the last 19 m and across its
+  end (a slapped balloon tops out near 6 m, so it can't be lobbed in), open only at the south, with two pinatas across it
+  (38 degree swing, the second faster) and a cactus against each fence before the pad. The user found the pinatas could
+  simply be walked around when they stood on open lawn; the giants stay out of the pen (avoid circles fill it). Their spots are computed from the hoops and checkpoints and feed the avoid circles. Models (`Art/Set`, from
+  `build_set_pieces.py`): `Pinata` (a striped paper donkey; the user pointed out the old pink cube wasn't modelled),
+  `SwingFrame`, `Wagon`, `PotHanger`, `SprinklerBase`, `SprinklerHead`; placed by `SetPieceModels.PlaceModel`, primitives
+  stay as colliders. `map_review.cs` renders a top view and one shot per obstacle to `Screenshots/map_*.png`. A cleared hoop shrinks away until the next run. Hoops count only during a run. Lobby: the crew waits on
   the start stage inside clear glass walls (slippery, 5 m, on Default so hands meet them) with a "slap the red button" sign
   and an arrow hovering over the button (`BackyardCourseBuilder.BuildLobbyOnly`, toggled by `LobbyOnly` from the networked
   run state); the balloon is hidden there (`GameState.IsBalloonShown`). Slapping the button drops the walls and shows the
@@ -315,8 +330,8 @@ Assets/GameJam/
   (`GeneratedAudio.CritterCheer`, `Critter_Cheer`: chirps, croaks, squeaks) for everyone and pops big confetti round each player's own view
   (`WinCelebration`, through `BurstEffects.BigConfetti`; the confetti pool is 900). A finished run (finish or time up) returns to
   the lobby after `RunConfig.ResultSeconds` (10 s): hoops reset, balloon back on station at the start, crew respawned on the stage, every item back
-  on its spot (`NetworkItem.ReturnHome`, home spot networked so late joiners agree). A run is 6 minutes (`RunConfig.RunSeconds`
-  360; no medals or grades, by request: any finish is a win, "You made it! N points!"); when time runs out everyone hears a referee
+  on its spot (`NetworkItem.ReturnHome`, home spot networked so late joiners agree). A run is 8 minutes (`RunConfig.RunSeconds`
+  480; no medals or grades, by request: any finish is a win, "You made it! N points!"); when time runs out everyone hears a referee
   whistle (`Whistle_TimeUp`, 2D on `GameState`) and sees "TIME'S UP!" with a countdown to the lobby (`ResultBanner` on the
   head camera, drawn on top). `time_up_check.cs` tests the flow. Wind (box fan,
   leaf blower) is drawn by `PlaceholderPrefabBuilder.StyleAsWind`: trail wisps on scrolling noise plus a few leaves.

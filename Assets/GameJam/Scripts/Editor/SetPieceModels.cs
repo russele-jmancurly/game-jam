@@ -69,6 +69,16 @@ namespace GameJam.Editor
 
         private static GameObject Load(string name) => AssetDatabase.LoadAssetAtPath<GameObject>($"{Folder}/{name}.fbx");
 
+        /// <summary>
+        /// Places one model (visual only) for a piece the course builder made itself: the gap obstacles, which repeat at
+        /// several spots and angles. Returns null when its FBX is missing, so the caller keeps its primitives visible.
+        /// </summary>
+        public static GameObject PlaceModel(string model, Transform parent, Vector3 position, Quaternion rotation, bool isStatic)
+        {
+            GameObject asset = Load(model);
+            return asset != null ? Place(asset, parent, position, rotation, isStatic) : null;
+        }
+
         private static GameObject Place(GameObject model, Transform parent, Vector3 position, Quaternion rotation, bool isStatic)
         {
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model, parent);

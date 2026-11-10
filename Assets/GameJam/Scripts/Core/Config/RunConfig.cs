@@ -12,7 +12,7 @@ namespace GameJam.Core
         [Header("Run")]
         [Tooltip("Length of a run: 6 minutes. When it runs out the referee whistles, TIME'S UP shows in everyone's view and " +
                  "the crew goes back to the lobby after ResultSeconds.")]
-        [Min(10f)] public float RunSeconds = 360f;
+        [Min(10f)] public float RunSeconds = 480f; // 8 minutes: the trail is ~135 m with an obstacle in every gap (it was 6 minutes for ~87 m)
         [Min(0f)] public float CountdownSeconds = 3f;
         [Tooltip("After a run ends (finish or time up) the result shows this long, then everyone, the balloon and the hoops " +
                  "go back to the start lobby.")]
