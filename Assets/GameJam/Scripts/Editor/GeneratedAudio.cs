@@ -415,6 +415,71 @@ namespace GameJam.Editor
             return attack * release;
         }
 
+        /// <summary>
+        /// Diving into a mole hole: a gritty scrape of soil, then a rounded "bwoop" dropping away as the player goes down.
+        /// </summary>
+        public static AudioClip MoleDive(string name) =>
+            Create(name, 0.9f, false, 41, PeakEffect, (t, soft, deep) =>
+            {
+                float scrape = soft * (0.55f + 0.45f * Sine(31f, t)) * Mathf.Exp(-t * 7f) * Mathf.Clamp01(t * 80f);
+                float drop = t - 0.12f;
+                float bwoop = 0f;
+                if (drop > 0f)
+                {
+                    // Pitch falls from 330 Hz to 70 Hz; the phase is the integral of that sweep, so it glides cleanly.
+                    float phase = 2f * Mathf.PI * (70f * drop + (260f / 5.5f) * (1f - Mathf.Exp(-drop * 5.5f)));
+                    bwoop = Mathf.Sin(phase) * Mathf.Exp(-drop * 3.2f) * Mathf.Clamp01(drop * 60f);
+                }
+
+                return scrape * 0.7f + bwoop * 0.9f + deep * 0.25f * Mathf.Exp(-t * 4f);
+            });
+
+        /// <summary>
+        /// Falling down the mole tunnel: a seamless loop of deep rushing air with soil rattling past. The swells repeat a
+        /// whole number of times per loop, so the seam is invisible.
+        /// </summary>
+        public static AudioClip TunnelRush(string name)
+        {
+            const float length = 3f;
+            return Create(name, length, true, 42, PeakLoop, (t, soft, deep) =>
+            {
+                float phase = 2f * Mathf.PI * t / length;
+                float swell = 0.8f + 0.15f * Mathf.Sin(phase * 2f) + 0.05f * Mathf.Sin(phase * 5f + 0.7f);
+                float rattle = soft * (0.5f + 0.5f * Mathf.Sin(phase * 36f)) * 0.22f;
+                return deep * swell + rattle;
+            });
+        }
+
+        /// <summary>Landing at the end of the tunnel: a soft, heavy thud into packed soil with a puff of loose dirt.</summary>
+        public static AudioClip LandThud(string name) =>
+            Create(name, 0.55f, false, 43, PeakEffect, (t, soft, deep) =>
+            {
+                float thump = Sine(78f * (1f - t * 0.7f), t) * Mathf.Exp(-t * 13f);
+                float dirt = soft * Mathf.Exp(-t * 22f) * 0.55f;
+                float scatter = soft * Mathf.Exp(-(t - 0.12f) * (t - 0.12f) * 300f) * 0.2f;
+                return (thump + dirt + scatter) * Mathf.Clamp01(t * 1500f);
+            });
+
+        /// <summary>
+        /// A tutorial gate sinking into the floor: soil and roots grinding for a second and a half (a low rumble that
+        /// judders), ending in a dull thunk as it settles.
+        /// </summary>
+        public static AudioClip GateRumble(string name) =>
+            Create(name, 1.9f, false, 45, PeakEffect, (t, soft, deep) =>
+            {
+                float grind = Mathf.Clamp01(t * 8f) * Mathf.Clamp01((1.6f - t) * 6f);
+                float judder = 0.65f + 0.35f * Sine(23f, t) * Sine(3.1f, t);
+                float rumble = (deep * 0.9f + soft * 0.3f) * judder * grind + Sine(52f, t) * 0.25f * grind;
+                float settle = t - 1.55f;
+                float thunk = settle > 0f ? Sine(64f * (1f - settle), settle) * Mathf.Exp(-settle * 14f) * 1.3f : 0f;
+                return rumble + thunk;
+            });
+
+        /// <summary>A tutorial lesson ticked off: two quick bright notes going up (G6 C7), shorter than the hoop chime.</summary>
+        public static AudioClip LessonDone(string name) =>
+            Create(name, 0.9f, false, 44, PeakEffect * 0.9f, (t, soft, deep) =>
+                Bell(1568f, t, 7f) + Bell(2093f, t - 0.11f, 5f));
+
         /// <summary>Trampoline: a springy boing (a pitch that drops and wobbles).</summary>
         public static AudioClip TrampolineBoing(string name) =>
             Create(name, 0.6f, false, 23, PeakEffect * 0.85f, (t, soft, deep) =>

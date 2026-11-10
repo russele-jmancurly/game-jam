@@ -44,6 +44,28 @@ namespace GameJam.Net
         [Tooltip("Where the giants start, one per character (cycled if there are fewer spawns than characters).")]
         [SerializeField] private Vector3[] _roamerSpawns = { new Vector3(0f, 0f, 60f) };
 
+        [Header("Tutorial scene")]
+        [Tooltip("Always run offline (Fusion Single mode), even with an App ID: the tutorial is one player's own practice room.")]
+        [SerializeField] private bool _offlineOnly;
+        [Tooltip("Practice rules (GameState.IsPractice): balloon live from the start, no lobby, clock or result.")]
+        [SerializeField] private bool _practiceMode;
+        [Tooltip("How many giants to spawn (0 = one per roster character).")]
+        [SerializeField, Min(0)] private int _roamerLimit;
+        [Tooltip("Wander spots replacing the ones baked into the giant prefab (empty = keep the prefab's yard).")]
+        [SerializeField] private Vector3[] _roamerWanderOverride = Array.Empty<Vector3>();
+        [Tooltip("Bounds for the override yard: min x, min z, max x, max z.")]
+        [SerializeField] private Vector4 _roamerBoundsOverride;
+
+        /// <summary>Builder wiring for the tutorial scene: offline practice with one giant kept inside its pen.</summary>
+        public void ConfigureTutorial(Vector3[] roamerWander, Vector4 roamerBounds)
+        {
+            _offlineOnly = true;
+            _practiceMode = true;
+            _roamerLimit = 1;
+            _roamerWanderOverride = roamerWander;
+            _roamerBoundsOverride = roamerBounds;
+        }
+
         public void Configure(NetworkObject avatarPrefab, NetworkObject balloonPrefab, NetworkObject gameStatePrefab, NetworkObject[] itemPrefabs,
             NetworkObject roamerPrefab = null, Vector3[] roamerSpawns = null)
         {
@@ -92,6 +114,9 @@ namespace GameJam.Net
         {
             NetworkRunner runner = GetComponent<NetworkRunner>();
             runner.ProvideInput = false;
+            GameState.IsPractice = _practiceMode;
+            GameState.PracticeCheckpoint = 0;
+            GameServices.LeaveSession = LeaveSession;
 
             var sceneManager = GetComponent<NetworkSceneManagerDefault>();
             if (sceneManager == null)
@@ -106,7 +131,12 @@ namespace GameJam.Net
             }
 
             GameMode mode = GameMode.Shared;
-            if (!HasFusionAppId())
+            if (_offlineOnly)
+            {
+                mode = GameMode.Single;
+                Debug.Log("[Net] Tutorial: running offline in Single mode.");
+            }
+            else if (!HasFusionAppId())
             {
                 if (!_playOfflineWithoutAppId)
                 {
@@ -164,6 +194,24 @@ namespace GameJam.Net
         private void OnDestroy()
         {
             GameServices.LocalPlayerId = -1;
+            GameServices.LeaveSession = null;
+        }
+
+        /// <summary>
+        /// Shuts the session down before the local player leaves this scene on their own (the tutorial hole). The runner
+        /// outlives a plain scene load, so without this the player would stay in the room as a ghost. The other players
+        /// carry on; coming back, this scene's bootstrap joins the same room again.
+        /// </summary>
+        private System.Threading.Tasks.Task LeaveSession()
+        {
+            NetworkRunner runner = GetComponent<NetworkRunner>();
+            if (runner == null || !runner.IsRunning)
+            {
+                return System.Threading.Tasks.Task.CompletedTask;
+            }
+
+            Debug.Log("[Net] Leaving the session (scene change).");
+            return runner.Shutdown();
         }
 
         /// <summary>
@@ -217,11 +265,26 @@ namespace GameJam.Net
             {
                 // Every show character walks the yard as a giant (Jman and Squoof), each always the same one.
                 int giants = Mathf.Max(1, _roamerPrefab.GetComponent<MischiefMaker>().CharacterCount);
+                if (_roamerLimit > 0)
+                {
+                    giants = Mathf.Min(giants, _roamerLimit);
+                }
+
+                bool overrideYard = _roamerWanderOverride != null && _roamerWanderOverride.Length > 0;
                 for (int i = 0; i < giants; i++)
                 {
                     int character = i;
-                    Runner.Spawn(_roamerPrefab, _roamerSpawns[i % _roamerSpawns.Length], Quaternion.identity,
-                        onBeforeSpawned: (runner, spawned) => spawned.GetComponent<MischiefMaker>().AssignCharacter(character));
+                    Vector3 spawn = overrideYard ? _roamerWanderOverride[0] : _roamerSpawns[i % _roamerSpawns.Length];
+                    Runner.Spawn(_roamerPrefab, spawn, Quaternion.identity,
+                        onBeforeSpawned: (runner, spawned) =>
+                        {
+                            var giant = spawned.GetComponent<MischiefMaker>();
+                            giant.AssignCharacter(character);
+                            if (overrideYard)
+                            {
+                                giant.ConfigureYard(_roamerWanderOverride, null, _roamerBoundsOverride);
+                            }
+                        });
                 }
             }
 

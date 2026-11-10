@@ -33,3 +33,16 @@ Locomotion regression tests (Play mode, PC mode, no headset; each logs PASS/FAIL
 - `fx_check.cs` (Play mode): fires two lawn taps and a wood and a metal tap through `HandTapEffects` (only the lawn ones may
   add clods), a confetti burst and a balloon pop through `BurstEffects`; slows time to 1 % and pauses the dirt mid-flight
   for captures from `FxCam_Dirt` / `FxCam_Burst`. Run again with `STEP = "restore"` to set time back.
+- `tutorial_dive.cs` (Play mode): puts the player over the scene's active mole hole so the real trip starts (lobby ->
+  Tunnel -> Tutorial, or back). `tutorial_status.cs`: scene, session mode, practice flag, balloon, items, giants, fade,
+  holes and the tutorial section. `tutorial_lessons_check.cs` (tutorial scene): plays the five sections with the real
+  balloon, items and giant and logs gates, checkpoint and goals (read the `tutorialLog` AppDomain data after ~45 s).
+  `tutorial_cams.cs` (tutorial scene) and `tutorial_hole_cam.cs` (prototype) place review cameras. `_run.sh <snippet>`
+  runs a snippet and prints only its result.
+- `tutorial_fx_record.cs` (Play mode): a recorder that survives scene loads; run it, drive the trip, then read the
+  `tutorialFx` AppDomain data: the fade's highest alpha, which trip sounds played, the highest particle count per emitter,
+  and how far the billboard labels were off the player (it samples before LateUpdate, so a teleport shows a large
+  transient angle). `tutorial_dive_holding.cs`: grabs an item through the real grip (PC input off), dives, and logs that
+  the item is let go before the session is left.
+- `cactus_pop_check.cs` (Play mode, tutorial scene): the balloon must pop on every part of each cactus (top, body side,
+  both arms, pot) and must not pop floating beside it.

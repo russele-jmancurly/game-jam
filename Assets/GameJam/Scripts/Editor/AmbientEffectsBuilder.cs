@@ -198,6 +198,79 @@ namespace GameJam.Editor
             return (clods, dust);
         }
 
+        /// <summary>Dust puffs fired with Emit (a tutorial gate grinding into the floor).</summary>
+        public static ParticleSystem DustPuffs(Transform parent)
+        {
+            ParticleSystem dust = OneShot("DustPuffs", parent, 80, PlaceholderPrefabBuilder.EffectParticleMaterial());
+            Color dustColor = Color.Lerp(ArtPalette.TimberDark, Color.white, 0.45f);
+            dustColor.a = 0.4f;
+            ParticleSystem.MainModule main = dust.main;
+            main.startColor = dustColor;
+            dust.GetComponent<ParticleSystemRenderer>().maxParticleSize = 1f;
+            ParticleSystem.SizeOverLifetimeModule spread = dust.sizeOverLifetime;
+            spread.enabled = true;
+            spread.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.6f, 1f, 1.8f));
+            FadeOutAtEnd(dust, 0f);
+            return dust;
+        }
+
+        /// <summary>Faint dust drifting up out of a mole hole, so it reads as an opening with air moving through it.</summary>
+        public static ParticleSystem HoleDust(Transform parent, Vector3 position)
+        {
+            ParticleSystem particles = Create("HoleDust", parent, position, 40);
+            ParticleSystem.MainModule main = particles.main;
+            main.prewarm = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(2f, 3.2f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.25f, 0.55f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.3f);
+            Color dust = Color.Lerp(ArtPalette.TimberDark, Color.white, 0.4f);
+            dust.a = 0.3f;
+            main.startColor = dust;
+            ParticleSystem.EmissionModule emission = particles.emission;
+            emission.rateOverTime = 7f;
+            ParticleSystem.ShapeModule shape = particles.shape;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius = 0.35f;
+            shape.rotation = new Vector3(-90f, 0f, 0f); // the circle lies flat and emits straight up
+            particles.GetComponent<ParticleSystemRenderer>().maxParticleSize = 0.5f;
+            Wobble(particles, 0.15f, 0.4f);
+            FadeInOut(particles);
+            particles.Play();
+            return particles;
+        }
+
+        /// <summary>
+        /// Soil rushing up past a player falling down the tunnel: clods and specks stretched along their speed, from a
+        /// ring below the camera to well above it.
+        /// </summary>
+        public static ParticleSystem TunnelStreaks(Transform parent, Vector3 bottom, float radius)
+        {
+            ParticleSystem particles = Create("TunnelStreaks", parent, bottom, 160);
+            ParticleSystem.MainModule main = particles.main;
+            main.prewarm = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(11f, 16f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.11f);
+            main.startColor = new ParticleSystem.MinMaxGradient(Color.Lerp(ArtPalette.TimberDark, Color.black, 0.2f),
+                Color.Lerp(ArtPalette.Timber, Color.white, 0.45f));
+            ParticleSystem.EmissionModule emission = particles.emission;
+            emission.rateOverTime = 110f;
+            ParticleSystem.ShapeModule shape = particles.shape;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius = radius;
+            shape.radiusThickness = 0.55f; // mostly near the wall, a few through the middle
+            shape.rotation = new Vector3(-90f, 0f, 0f);
+            var particleRenderer = particles.GetComponent<ParticleSystemRenderer>();
+            particleRenderer.sharedMaterial = PlaceholderPrefabBuilder.ParticleMaterial("EffectClod", GeneratedTextures.Clod("T_Clod"));
+            particleRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+            particleRenderer.velocityScale = 0.035f;
+            particleRenderer.lengthScale = 1f;
+            particleRenderer.maxParticleSize = 0.5f;
+            FadeInOut(particles);
+            particles.Play();
+            return particles;
+        }
+
         /// <summary>A world-space particle system that only emits when told to (Emit): no looping, no rate.</summary>
         private static ParticleSystem OneShot(string name, Transform parent, int maxParticles, Material material)
         {

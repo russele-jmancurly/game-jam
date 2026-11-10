@@ -15,7 +15,7 @@ namespace GameJam.Editor
     /// the map?"). Lawn the balloon must never touch, ringed by a climbable giant picket fence. Everything that moves runs
     /// on the shared CourseClock, so it costs no network traffic.
     /// </summary>
-    public static class BackyardCourseBuilder
+    public static partial class BackyardCourseBuilder
     {
         // The yard: lawn top at y = 0, x -26..26, z -16..84: the station trail plus a strip of lawn west for the giant.
         public const float HalfWidth = 26f;
@@ -387,7 +387,12 @@ namespace GameJam.Editor
             GameObject howTo = BuildItemHowTo(root.transform, stageCenter, stageSize);
             GameObject howToPlay = BuildHowToPlay(root.transform, stageCenter, stageSize);
 
-            root.AddComponent<LobbyOnly>().Configure(new[] { fence, sign, howTo, howToPlay });
+            // The mole hole to the tutorial, in the stage's south-east corner (clear of the spawn slots, the button and the
+            // signs). Lobby only: once the button is slapped it is gone until the run is over.
+            GameObject tutorialHole = BuildMoleHole(root.transform, stageCenter + new Vector3(3.9f, stageSize.y, -3.3f), SceneTravel.TutorialScene,
+                "TUTORIAL", "JUMP IN THE HOLE!", 90f);
+
+            root.AddComponent<LobbyOnly>().Configure(new[] { fence, sign, howTo, howToPlay, tutorialHole });
         }
 
         /// <summary>
@@ -555,7 +560,7 @@ namespace GameJam.Editor
                 Box("HostPodium", spot + new Vector3(0f, 0.15f, 0f), new Vector3(1.1f, 0.3f, 1.1f), _palette.Gold);
                 // Faces the spawn (south); a solid capsule so players bump into the host instead of walking through.
                 CrewFigure("Host_Jman", host, spot + new Vector3(0f, 0.3f, 0f), 180f, host.Height, fallback, true);
-                PlaceholderShapes.Text("HostName", _course, spot + new Vector3(0f, host.Height + 0.65f, 0f), 0.022f, $"{host.DisplayName}  ·  HOST", ArtPalette.Accent);
+                Billboard(PlaceholderShapes.Text("HostName", _course, spot + new Vector3(0f, host.Height + 0.65f, 0f), 0.022f, $"{host.DisplayName}  ·  HOST", ArtPalette.Accent));
             }
 
             CharacterDefinition commentator = FindCharacter("Squoof");
@@ -565,7 +570,7 @@ namespace GameJam.Editor
                 Vector3 roof = screen + new Vector3(0f, 3.2f, 0.6f);
                 float height = commentator.Height * 1.5f; // readable from across the yard
                 CrewFigure("Commentator_Squoof", commentator, roof, 180f, height, fallback, false);
-                PlaceholderShapes.Text("CommentatorName", _course, roof + new Vector3(0f, height + 0.5f, 0f), 0.05f, $"{commentator.DisplayName}  ·  COMMENTATOR", ArtPalette.Accent);
+                Billboard(PlaceholderShapes.Text("CommentatorName", _course, roof + new Vector3(0f, height + 0.5f, 0f), 0.05f, $"{commentator.DisplayName}  ·  COMMENTATOR", ArtPalette.Accent));
             }
         }
 
@@ -961,7 +966,7 @@ namespace GameJam.Editor
                 renderers.Add(bead.GetComponent<Renderer>());
             }
 
-            PlaceholderShapes.Text($"Hoop{index + 1}Label", root.transform, new Vector3(0f, HoopRingRadius + 0.5f, 0f), 0.04f, $"HOOP {index + 1}", ArtPalette.Accent);
+            Billboard(PlaceholderShapes.Text($"Hoop{index + 1}Label", root.transform, new Vector3(0f, HoopRingRadius + 0.5f, 0f), 0.04f, $"HOOP {index + 1}", ArtPalette.Accent));
             var chimeHost = new GameObject("ClearChime");
             chimeHost.transform.SetParent(_course, false); // not under the hoop, which hides its children when cleared
             chimeHost.transform.position = center;
@@ -991,11 +996,64 @@ namespace GameJam.Editor
 
         // ------------------------------------------------------------------ helpers
 
-        private static void CactusPot(Vector3 baseTop)
+        private const string CactusModelPath = "Assets/GameJam/Art/Set/Cactus.fbx";
+
+        /// <summary>
+        /// A potted cactus that pops the balloon (<see cref="Sharp"/>): the model from Art/Set/Cactus.fbx (a spiny saguaro
+        /// with two arms in a terracotta pot, built by tools/blender/scripts/build_set_pieces.py) wrapped in colliders that
+        /// follow it: the pot, the body out to its spine tips and each arm. Without the FBX it falls back to the old
+        /// placeholder (a green cylinder with a red slab), which the user found unreadable as spikes.
+        /// </summary>
+        private static void CactusPot(Vector3 baseTop, float yaw = 0f, float scale = 1f)
         {
-            GameObject pot = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "CactusPot", _course, baseTop + Vector3.up * 0.4f, new Vector3(0.6f, 0.4f, 0.6f), _palette.Cactus, true);
-            pot.AddComponent<Sharp>().Configure("Popped on a cactus!");
-            PlaceholderShapes.Primitive(PrimitiveType.Cube, "CactusSpikes", pot.transform, new Vector3(0f, 1.05f, 0f), new Vector3(1.2f, 0.15f, 1.2f), _palette.Hazard, false);
+            GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(CactusModelPath);
+            if (model == null)
+            {
+                GameObject pot = PlaceholderShapes.Primitive(PrimitiveType.Cylinder, "CactusPot", _course, baseTop + Vector3.up * 0.4f, new Vector3(0.6f, 0.4f, 0.6f), _palette.Cactus, true);
+                pot.AddComponent<Sharp>().Configure("Popped on a cactus!");
+                PlaceholderShapes.Primitive(PrimitiveType.Cube, "CactusSpikes", pot.transform, new Vector3(0f, 1.05f, 0f), new Vector3(1.2f, 0.15f, 1.2f), _palette.Hazard, false);
+                return;
+            }
+
+            var root = new GameObject("CactusPot");
+            root.transform.SetParent(_course, false);
+            root.transform.SetPositionAndRotation(baseTop, Quaternion.Euler(0f, yaw, 0f));
+            root.transform.localScale = Vector3.one * scale;
+            root.AddComponent<Sharp>().Configure("Popped on a cactus!");
+
+            var visual = (GameObject)PrefabUtility.InstantiatePrefab(model, root.transform);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localRotation = Quaternion.identity;
+            foreach (Collider collider in visual.GetComponentsInChildren<Collider>(true))
+            {
+                Object.DestroyImmediate(collider);
+            }
+
+            // Colliders in the model's own measurements (metres, origin at the pot's base): see build_cactus.
+            CactusCollider(root.transform, "PotCollider", new Vector3(0f, 0.25f, 0f), 0.38f, 0.5f);
+            CactusCollider(root.transform, "BodyCollider", new Vector3(0f, 1.08f, 0f), 0.4f, 1.24f);
+            CactusCollider(root.transform, "ArmColliderWest", new Vector3(-0.5f, 1.17f, 0f), 0.22f, 0.66f);
+            CactusCollider(root.transform, "ArmColliderEast", new Vector3(0.47f, 0.96f, 0.04f), 0.21f, 0.6f);
+        }
+
+        private static void CactusCollider(Transform cactus, string name, Vector3 centre, float radius, float height)
+        {
+            var holder = new GameObject(name);
+            holder.transform.SetParent(cactus, false);
+            holder.transform.localPosition = centre;
+            var capsule = holder.AddComponent<CapsuleCollider>();
+            capsule.radius = radius;
+            capsule.height = Mathf.Max(height, radius * 2f);
+        }
+
+        /// <summary>
+        /// Makes a floating label (text that isn't on a sign or a wall) turn to face the player (<see cref="FaceCamera"/>),
+        /// so it never reads edge-on or mirrored. Returns the text for chaining.
+        /// </summary>
+        private static TextMesh Billboard(TextMesh text)
+        {
+            text.gameObject.AddComponent<FaceCamera>();
+            return text;
         }
 
         private static void SpawnPoint(int checkpoint, Vector3 position, float yaw, Vector3 balloonOffset)

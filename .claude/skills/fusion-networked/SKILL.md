@@ -97,6 +97,21 @@ this skill if it has drifted.
 | Roaming giant | `MischiefMaker` | Master Client Object with NetworkTransform (no Rigidbody). Authority runs a wander/chase/wind-up/bonk state machine in `FixedUpdateNetwork`; the bonk is `NetworkBalloon.RequestHit(PlayerRef.None, ...)` (nobody's hit). `GameState` re-rolls its character at each run start. Implements `IKnockbackSource`, so `RigHazardSensor` knocks players it walks into. A thrown item calls `RequestKnockDown` (RPC All -> StateAuthority); the master sets `Mood = KnockedDown`, a `StateTimer` and a networked `KnockVelocity`, and every client's `Render` drops its own local `GiantRagdoll` (physics is not synced, only the knockdown). |
 | Voice | `AvatarVoice` + Photon `VoiceNetworkObject` | See "Voice wiring" above. Online without a Voice App ID, `NetworkBootstrap` sets `FusionVoiceClient.AutoConnectAndJoin = false` (never destroy the client: `VoiceNetworkObject.Spawned` needs it and throws a NullReferenceException) and `NetworkBootstrap.VoiceEnabled` keeps avatars off the microphone. Hearing each other needs both App IDs and two clients (untested). |
 
+## Leaving the room alone, and the offline tutorial
+
+- One player changing scene on their own (the lobby's tutorial hole) must shut the runner down first: the runner outlives
+  a plain `LoadScene`, so the player would stay in the room as a ghost. `SceneTravel.Go` calls `GameServices.LeaveSession`
+  (set by `NetworkBootstrap`, which calls `runner.Shutdown()`), waits for it, then loads `Tunnel`. `RigHazardSensor` drops
+  held items before that, while still in the session (a `NetworkItem` whose `Holder` has left stays held for the others).
+  Coming back, `Prototype`'s bootstrap joins the same room again. Never route this through the network scene manager.
+- The tutorial scene reuses every networked prefab offline: `NetworkBootstrap.ConfigureTutorial` forces `GameMode.Single`,
+  sets `GameState.IsPractice` (a static, not networked: balloon live from the start, no lobby, clock or result; hoops reopen)
+  and spawns one giant with its own yard (`MischiefMaker.ConfigureYard` in `onBeforeSpawned`). `GameState.PracticeCheckpoint`
+  (static) is the tutorial section, set by `TutorialGuide`. Don't add networked fields for the tutorial.
+- Tested solo only (three round trips, each rejoining the Shared room). Not tested: the master client leaving through the
+  hole with others in the room, what the others see, and voice after the return (Photon logs a "Disconnecting state"
+  warning on each trip).
+
 ## Wiring in the Editor
 
 The prefabs and scene come from `Assets/GameJam/Scripts/Editor/` (`PrototypeSceneBuilder`,

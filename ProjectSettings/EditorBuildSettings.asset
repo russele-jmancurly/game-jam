@@ -17,6 +17,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Photon/FusionDemos/Fusion-Intro-Shared/Scenes/FusionIntroShared.unity
     guid: 00000000000000000000000000000000
+  - enabled: 1
+    path: Assets/GameJam/Scenes/Tunnel.unity
+    guid: d8fdbde6760574949b7998a8e7fd1371
+  - enabled: 1
+    path: Assets/GameJam/Scenes/Tutorial.unity
+    guid: 43db15425f05a6047908c4b96fbe5194
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: bfa1182bd221b4ca89619141f66f1260, type: 2}
     Unity.XR.WindowsMR.Settings: {fileID: 11400000, guid: dc5a169419fa04987b057f65238cf3ba, type: 2}

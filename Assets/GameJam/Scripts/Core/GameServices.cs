@@ -17,6 +17,12 @@ namespace GameJam.Core
         /// <summary>The local player's network id, or -1 while offline. Used for spawn slots and colours.</summary>
         public static int LocalPlayerId { get; set; } = -1;
 
+        /// <summary>
+        /// Leaves the network session (set by the network layer). Called before the local player changes scene on their
+        /// own (the lobby's tutorial hole): the returned task completes once the session is shut down.
+        /// </summary>
+        public static System.Func<System.Threading.Tasks.Task> LeaveSession { get; set; }
+
         public static int CurrentCheckpoint => Run != null ? Run.CurrentCheckpoint : 0;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -25,6 +31,7 @@ namespace GameJam.Core
             Run = null;
             LocalKnockback = null;
             LocalPlayerId = -1;
+            LeaveSession = null;
         }
     }
 }

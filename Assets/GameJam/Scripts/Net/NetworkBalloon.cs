@@ -162,6 +162,9 @@ namespace GameJam.Net
         /// <summary>How many hits the owner has applied; the slapper watches it to know when its predicted hit landed.</summary>
         [Networked] private int HitCount { get; set; }
 
+        /// <summary>How many hits the balloon has taken since it spawned (players, items and giants alike).</summary>
+        public int Hits => HitCount;
+
         /// <summary>True while this client is showing a predicted hit (or blending it out), for tests.</summary>
         public bool IsShowingPrediction => _isPredicting || Time.time - _blendStartTime < PredictionBlendSeconds;
 

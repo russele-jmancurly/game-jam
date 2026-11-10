@@ -153,6 +153,16 @@ namespace GameJam.Player
             grip.Update(isDown, !IsKnockedDown, _config.GrabRadius, _config.ThrowBoost);
         }
 
+        /// <summary>
+        /// Lets go of whatever either hand holds (no throw). Called before the player leaves the session down the tutorial
+        /// hole: an item still held by a player who has left would stay "held" for everyone else.
+        /// </summary>
+        public void DropHeldItems()
+        {
+            _leftGrip?.Drop();
+            _rightGrip?.Drop();
+        }
+
         public void Turn(float degrees) => _locomotion.Turn(degrees);
 
         /// <summary>Shows or hides the rig's own glove spheres (hidden while your avatar's gorilla arms draw the hands).</summary>

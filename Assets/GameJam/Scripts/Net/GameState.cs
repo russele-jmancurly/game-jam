@@ -31,6 +31,21 @@ namespace GameJam.Net
 
         public static GameState Instance { get; private set; }
 
+        /// <summary>
+        /// Practice (the tutorial scene, set by its NetworkBootstrap before anything spawns): the balloon is live from the
+        /// start, with no lobby, countdown, clock or result, and a cleared hoop comes back after a few seconds so it can be
+        /// tried again. Local, not networked: the tutorial always runs offline.
+        /// </summary>
+        public static bool IsPractice { get; set; }
+
+        /// <summary>
+        /// Practice only: the tutorial section the player has reached (set by TutorialGuide). The balloon comes back to that
+        /// section's station after a pop, and a player who falls out of the map respawns there.
+        /// </summary>
+        public static int PracticeCheckpoint { get; set; }
+
+        private const float PracticeHoopResetSeconds = 4f;
+
         [Networked] public RunState State { get; private set; }
 
         /// <summary>Bit i set = hoop i cleared this run.</summary>
@@ -65,7 +80,7 @@ namespace GameJam.Net
         /// <summary>The balloon is hidden in the lobby and shows up when the red button is slapped.</summary>
         public bool IsBalloonShown => State != RunState.Lobby;
 
-        public int CurrentCheckpoint => LastHoop + 1;
+        public int CurrentCheckpoint => IsPractice ? PracticeCheckpoint : LastHoop + 1;
 
         public int HoopCount => _hoopCount;
 
@@ -80,7 +95,7 @@ namespace GameJam.Net
             _ => _config.RunSeconds,
         };
 
-        public string WristText => State switch
+        public string WristText => IsPractice ? "Tutorial" : State switch
         {
             RunState.Running => $"{TimeFormat.MinutesSeconds(TimeLeft)}  {HoopsCleared}/{_hoopCount}",
             RunState.Countdown => "Ready",
@@ -188,9 +203,9 @@ namespace GameJam.Net
 
             if (HasStateAuthority)
             {
-                State = RunState.Lobby;
+                State = IsPractice ? RunState.Running : RunState.Lobby;
                 LastHoop = NoHoop;
-                Headline = LobbyHeadline;
+                Headline = IsPractice ? "Tutorial" : LobbyHeadline;
             }
         }
 
@@ -217,6 +232,17 @@ namespace GameJam.Net
             }
 
             Heartbeat++;
+
+            if (IsPractice)
+            {
+                // No clock in practice; a cleared hoop just comes back so it can be tried again.
+                if (HoopMask != 0 && Timer.Expired(Runner))
+                {
+                    HoopMask = 0;
+                }
+
+                return;
+            }
 
             if (State == RunState.Countdown && Timer.Expired(Runner))
             {
@@ -267,7 +293,7 @@ namespace GameJam.Net
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         private void RpcRequestStart()
         {
-            if (State == RunState.Countdown || State == RunState.Running)
+            if (IsPractice || State == RunState.Countdown || State == RunState.Running)
             {
                 return;
             }
@@ -315,6 +341,13 @@ namespace GameJam.Net
             }
 
             HoopMask |= 1 << hoopIndex;
+            if (IsPractice)
+            {
+                // The balloon keeps coming back to the tutorial's one station (LastHoop stays put), and the hoop reopens.
+                Timer = TickTimer.CreateFromSeconds(Runner, PracticeHoopResetSeconds);
+                return;
+            }
+
             LastHoop = hoopIndex;
             Headline = AllHoopsCleared
                 ? "All hoops! Drop it in the finish basket!"

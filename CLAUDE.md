@@ -65,6 +65,7 @@ Assets/GameJam/
   Config/              tuning assets: Balloon/Slap/Run/PlayerRig/KnockbackConfig, Items/Item_*.asset
   Prefabs/Net/         generated network prefabs (do not hand-edit; change the builder)
   Scenes/Prototype.unity  generated placeholder prototype (Scene/Game.unity is the untouched original)
+  Scenes/Tunnel.unity, Tutorial.unity  generated: the mole tunnel and the tutorial burrow (see Tutorial below)
   Materials/Placeholder/  Audio/
 ```
 
@@ -83,6 +84,25 @@ Assets/GameJam/
   in front of the player's view, and stays there (the user doesn't want it to follow the head); it waits for the headset to
   report a pose first, since placing it on a fixed timer left it out of sight in the headset). Rebuild with `GameJam.Editor.SplashSceneBuilder.BuildFromCli()` (menu: Game Jam > Build Splash
   Scene). The prototype builder keeps the splash first in the build settings.
+- Tutorial (lobby only): a mole hole in the start stage's south-east corner (`BackyardCourseBuilder.BuildMoleHole`, a part of
+  `LobbyOnly`, so it is gone during a run) takes the one player who gets into it (`MoleHole`, found by `RigHazardSensor`)
+  Lobby -> `Scenes/Tunnel.unity` -> `Scenes/Tutorial.unity`, and the tutorial's holes take them back the same way.
+  `SceneTravel.Go` (Gameplay/Flow) fades the view (`ScreenFade`: a black quad on the head camera, no post-processing), leaves
+  the room first (`GameServices.LeaveSession` -> `NetworkBootstrap` shuts the runner down: it outlives a scene load, so
+  without that the player stays in the room as a ghost) and loads Tunnel, where `TunnelTransition` rushes soil rings past a
+  head-tracked camera (up when falling, down on the way back) while the destination loads; the rig's `TunnelArrival` plays
+  the landing thud and soil burst. Coming back, Prototype's bootstrap joins the same room again. The tutorial is a burrow of
+  five rooms in a row, one lesson each (move, slap + hoop, what pops it, items, the giant), each closed by a `SectionGate`
+  that `TutorialGuide` (Net) opens when the room's goal is met (the user asked for it "by section, not all at once"; read
+  as one lesson at a time in the game, to be confirmed); it also moves the balloon and the respawn point on (`GameState.PracticeCheckpoint`). It runs the real prefabs
+  offline: `NetworkBootstrap.ConfigureTutorial` forces Single mode, practice rules (`GameState.IsPractice`: balloon live
+  from the start, no lobby, clock or result, a cleared hoop reopens after 4 s) and one giant kept in its den
+  (`MischiefMaker.ConfigureYard`). Builders: `TunnelSceneBuilder.BuildFromCli()` and `TutorialSceneBuilder.BuildFromCli()`
+  (menu: Game Jam > Build Tunnel / Tutorial Scene); rebuild the tutorial after the prototype whenever prefabs or the rig
+  change (both regenerate the same prefabs). Layout constants are in `BackyardCourseBuilder.Tutorial.cs`. Sounds:
+  `Mole_Dive`, `Tunnel_Rush`, `Tunnel_Land`, `Gate_Rumble`, `Lesson_Done`. Tests (Play mode): `tutorial_dive.cs` puts the
+  player in the scene's hole, `tutorial_status.cs` reports the trip, `tutorial_lessons_check.cs` plays all five sections,
+  `tutorial_cams.cs` / `tutorial_hole_cam.cs` frame them.
 - Photon: Fusion 2.1.4 only. Never import PUN 2 or the Asset Store Photon Voice 2 package: it breaks
   Fusion's Photon Realtime (see the `fusion-networked` skill). Without a Fusion App ID the game runs
   offline in Fusion's Single mode.
@@ -98,7 +118,8 @@ Assets/GameJam/
   (items via `PlaceholderPrefabBuilder.GlossyToy`, the pillow stays matte), striped crowd stands, and a spinning golden
   ring on every item spot (`BackyardCourseBuilder.ItemSpotRing`).
 - Set-piece models: `Art/Set/*.fbx` (tree, paddling pool, grill, picnic table, playground pieces, rotary clothesline, fence
-  picket) from `tools/blender/scripts/build_set_pieces.py` (`--check` verifies walkable tops against the colliders).
+  picket, and `Cactus`: the potted cactus `BackyardCourseBuilder.CactusPot` uses for anything "spiky" that pops the balloon,
+  wrapped in capsule colliders for pot, body and arms; the user rejected the old cylinder-with-a-red-slab placeholder) from `tools/blender/scripts/build_set_pieces.py` (`--check` verifies walkable tops against the colliders).
   `SetPieceModels.Apply` (end of `BackyardCourseBuilder.Build`) places each at its anchor and hides the primitives it
   stands for, which keep their colliders; a missing FBX leaves the primitives. Item models: `Art/Props/Items/<Item>.fbx`
   from `build_item_props.py`, used automatically by `PlaceholderPrefabBuilder` when present.
@@ -275,7 +296,10 @@ Assets/GameJam/
   `Art/UI/Icon_*.png` are rendered by `tools/blender/scripts/build_lobby_icons.py` (transparent, cartoon outline); rerun it
   and rebuild the prototype to change them. Course TextMeshes use `Shaders/WorldText.shader` (`GameJam/WorldText`, depth
   tested; `DepthTestCourseText`): the built-in text shader reads its depth test from a GUI global and drew every label
-  through walls and signs.
+  through walls and signs. Floating labels (text that isn't on a sign or a wall: hoop labels, the host's and commentator's
+  names, the mole holes' titles, the tutorial's WATER / SPIKES / den / welcome labels) get `FaceCamera`
+  (`BackyardCourseBuilder.Billboard`): they turn about the vertical axis to face the player (the user asked for every
+  non-sign text to billboard). Text on boards, walls and gates stays fixed to its surface.
 - Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
 - Layer 9 is `Item`: loose items are off the Default layer so gorilla hands never grip them, and each item ignores
   collisions with the local rig's solid colliders (`NetworkItem.IgnoreLocalRig`), so items never push you. Only an item
@@ -314,7 +338,8 @@ Assets/GameJam/
 - Parse `--format json`; branch on the exit code and `errors[0].code`. Never merge stderr into stdout.
 - If the Editor is in Safe Mode (compile errors), `unity status` lists the errors: fix the code first.
 - Quest APK (Editor open, target already Android): `unity command build run ... -- --target Android --output-path
-  Builds/Quest/PricklyPop.apk --scenes '["Assets/GameJam/Scenes/Prototype.unity"]' --confirm`, then poll `build status`
+  Builds/Quest/PricklyPop.apk --scenes '["Assets/GameJam/Scenes/Splash.unity","Assets/GameJam/Scenes/Prototype.unity","Assets/GameJam/Scenes/Tunnel.unity","Assets/GameJam/Scenes/Tutorial.unity"]' --confirm`
+  (the tutorial hole loads Tunnel and Tutorial by name: an APK without them goes black at the hole; not built since they were added), then poll `build status`
   (~8 min, IL2CPP). `Builds/` and `*.apk` are gitignored. Builds rewrite the URP config prefilters and the preloaded
   assets; commit those. The URP global settings must stay at `m_AssetVersion` 9 (URP 17.3), or the build refuses to start.
 - If a command times out or the Editor drops, stop and tell the user; don't loop or fall back to YAML edits.

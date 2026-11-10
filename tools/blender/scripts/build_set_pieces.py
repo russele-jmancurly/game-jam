@@ -16,7 +16,7 @@ Pieces and anchors (all at ground unless noted):
     Grill            BbqCenter + (0, 0, -6)           RotaryArms    the spinning arms' centre (y = 2.4 above ground)
     MerryGoRound     the Mover (disc centre, 0.25 up) Slide         PlaygroundCenter + (10, 0, 8)
     SwingSet         PlaygroundCenter + (-9, 0, -4)   Trampoline    PlaygroundCenter + (12, 0, -6)
-    PicnicTable      BbqCenter + (0, 0, 5)
+    PicnicTable      BbqCenter + (0, 0, 5)           Cactus        its pot's base centre (BackyardCourseBuilder.CactusPot)
 """
 import math
 import os
@@ -48,6 +48,9 @@ COLOURS = {
     "SlideChute": (0xA77BF3, 0.5), "Climb": (0xFF8A3D, 0.6),
     "TrampolineMat": (0x1E2028, 0.8), "PadBlue": (0x5AA9FF, 0.6),
     "Line": (0xF6F1E7, 0.6), "Cap": (0xE8384F, 0.5), "Picket": (0xF6F1E7, 0.7),
+    "CactusGreen": (0x4E9A3A, 0.75), "CactusRidge": (0x7CC84B, 0.7), "Spine": (0xFFF4D6, 0.5),
+    "Terracotta": (0xC2614F, 0.8), "TerracottaRim": (0xD9644A, 0.75), "PotSoil": (0x5A3B22, 0.95),
+    "CactusFlower": (0xFF7EB6, 0.5), "FlowerHeart": (0xFFD23F, 0.5),
 }
 
 
@@ -618,14 +621,99 @@ def build_fence_picket():
     return p
 
 
+def build_cactus():
+    """A potted saguaro, 1.7 m tall: the "spikes" that pop the balloon. Ribbed body with two arms, rows of pale spines
+    big enough to read from across a room, a flower on top, in a terracotta pot. Origin at the pot's base centre.
+    BackyardCourseBuilder.CactusPot wraps it in colliders: pot (0..0.5), body (r 0.4 to y 1.7), the two arms."""
+    p = Piece("Cactus")
+    green, ridge, spine = p.mat("CactusGreen"), p.mat("CactusRidge"), p.mat("Spine")
+    pot, rim, soil = p.mat("Terracotta"), p.mat("TerracottaRim"), p.mat("PotSoil")
+    flower, heart = p.mat("CactusFlower"), p.mat("FlowerHeart")
+    bm = p.bm
+
+    # Pot: tapered, with a thick rolled rim and soil just below it.
+    p.lathe([(0.0, 0.0), (0.25, 0.0), (0.33, 0.4)], 16, pot)
+    p.lathe([(0.33, 0.4), (0.385, 0.4), (0.395, 0.45), (0.385, 0.5), (0.33, 0.5), (0.31, 0.46)], 16, rim)
+    p.lathe([(0.31, 0.46), (0.0, 0.47)], 16, soil)
+
+    def spike(base, direction, length=0.15, width=0.03):
+        """A three-sided spine: a small cone pointing along `direction`."""
+        d = direction.normalized()
+        ref = UP if abs(d.y) < 0.9 else V((1, 0, 0))
+        a = d.cross(ref).normalized()
+        b = d.cross(a)
+        ring = [bm.verts.new(base + (a * math.cos(k * 2.094) + b * math.sin(k * 2.094)) * width) for k in range(3)]
+        tip = bm.verts.new(base + d * length)
+        for k in range(3):
+            bm.faces.new((ring[k], ring[(k + 1) % 3], tip)).material_index = spine
+
+    def ribbed(points, radii, ribs, spines_at, squash=1.0):
+        """A ribbed column along a polyline (round in cross-section, ridges lighter), with spines on the ridges."""
+        pts = [V(q) for q in points]
+        segments = ribs * 2
+        rings = []
+        frames = []
+        normal = None
+        for i, q in enumerate(pts):
+            t = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized()
+            if normal is None:
+                ref = V((0, 0, 1)) if abs(t.z) < 0.9 else V((1, 0, 0))
+                normal = (ref - t * ref.dot(t)).normalized()
+            normal = (normal - t * normal.dot(t)).normalized()
+            binormal = t.cross(normal)
+            frames.append((q, normal, binormal))
+            ring = []
+            for j in range(segments):
+                phi = 2 * math.pi * j / segments
+                r = radii[i] * (1.0 if j % 2 == 0 else 0.8)  # even = ridge, odd = groove
+                ring.append(q + (normal * math.cos(phi) + binormal * math.sin(phi) * squash) * r)
+            rings.append(ring)
+        p.rings(rings, green, cap_start=True, cap_end=True)
+        for i in spines_at:
+            q, n, b = frames[i]
+            for j in range(0, segments, 2):
+                phi = 2 * math.pi * j / segments
+                out = (n * math.cos(phi) + b * math.sin(phi) * squash)
+                spike(q + out * radii[i] * 0.97, out + UP * 0.25)
+
+    # Body: swells out of the pot, straight, domed on top.
+    body_pts = [(0, 0.44, 0), (0, 0.6, 0), (0, 0.8, 0), (0, 1.0, 0), (0, 1.2, 0), (0, 1.38, 0), (0, 1.52, 0), (0, 1.61, 0), (0, 1.655, 0)]
+    body_r = [0.17, 0.25, 0.285, 0.29, 0.285, 0.265, 0.21, 0.13, 0.05]
+    ribbed(body_pts, body_r, 9, spines_at=(1, 2, 3, 4, 5, 6))
+
+    # Arms: out of the body's side, then up, each ending in a rounded tip.
+    left = [(-0.2, 0.92, 0), (-0.36, 0.93, 0), (-0.47, 0.99, 0), (-0.5, 1.1, 0), (-0.5, 1.24, 0), (-0.5, 1.36, 0), (-0.5, 1.42, 0)]
+    right = [(0.2, 0.74, 0.02), (0.34, 0.75, 0.03), (0.44, 0.8, 0.04), (0.47, 0.9, 0.04), (0.47, 1.02, 0.04), (0.47, 1.11, 0.04), (0.47, 1.16, 0.04)]
+    arm_r = [0.105, 0.115, 0.12, 0.125, 0.125, 0.1, 0.045]
+    ribbed(left, arm_r, 6, spines_at=(2, 3, 4, 5))
+    ribbed(right, [r * 0.92 for r in arm_r], 6, spines_at=(2, 3, 4, 5))
+
+    # Flower on top: five petals round a yellow heart.
+    top = V((0, 1.66, 0))
+    for k in range(5):
+        a = 2 * math.pi * k / 5
+        out = V((math.cos(a), 0, math.sin(a)))
+        p.blob(top + out * 0.075 + UP * 0.02, (0.07, 0.035, 0.07), lambda f, c, r: flower, seed=k, amp=0.05, subdivisions=1)
+    p.blob(top + UP * 0.045, (0.045, 0.04, 0.045), lambda f, c, r: heart, seed=9.0, amp=0.03, subdivisions=1)
+
+    # The domed tops (faces turned up toward the light) take the lighter green.
+    for f in bm.faces:
+        if f.material_index != green:
+            continue
+        f.normal_update()
+        if f.normal.y > 0.35:
+            f.material_index = ridge
+    return p
+
+
 PIECES = {
     "Tree": build_tree, "PaddlingPool": build_pool, "Grill": build_grill, "MerryGoRound": build_merry_go_round,
     "Slide": build_slide, "SwingSet": build_swing_set, "Trampoline": build_trampoline,
     "PicnicTable": build_picnic_table, "RotaryPole": build_rotary_pole, "RotaryArms": build_rotary_arms,
-    "FencePicket": build_fence_picket,
+    "FencePicket": build_fence_picket, "Cactus": build_cactus,
 }
 BUDGETS = {"Tree": 6000, "PaddlingPool": 3000, "Grill": 2500, "MerryGoRound": 2000, "Slide": 2500, "SwingSet": 1200,
-           "Trampoline": 1500, "PicnicTable": 1500, "RotaryPole": 800, "RotaryArms": 800, "FencePicket": 60}
+           "Trampoline": 1500, "PicnicTable": 1500, "RotaryPole": 800, "RotaryArms": 800, "FencePicket": 60, "Cactus": 1800}
 
 
 def export(obj, path):

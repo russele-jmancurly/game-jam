@@ -121,6 +121,17 @@ namespace GameJam.Net
         /// <summary>Picks a new random character (called at every run start).</summary>
         public void Reroll() => RpcReroll();
 
+        /// <summary>
+        /// Spawn-time wiring (onBeforeSpawned): a different yard from the one baked into the prefab (the tutorial's pen).
+        /// </summary>
+        public void ConfigureYard(Vector3[] wanderPoints, Vector3[] avoidCircles, Vector4 bounds)
+        {
+            _wanderPoints = wanderPoints;
+            _avoidCircles = avoidCircles ?? System.Array.Empty<Vector3>();
+            _bounds = bounds;
+            _links = null;
+        }
+
         /// <summary>Spawn-time wiring (call from Runner.Spawn's onBeforeSpawned): this giant is always that character.</summary>
         public void AssignCharacter(int rosterIndex) => AssignedCharacter = rosterIndex + 1;
 

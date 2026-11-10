@@ -47,6 +47,18 @@ namespace GameJam.Player
                 return true; // players can wade and swim in the pool; only the balloon pops in water
             }
 
+            var hole = other.GetComponentInParent<MoleHole>();
+            if (hole != null)
+            {
+                if (!SceneTravel.IsTravelling)
+                {
+                    _rig.DropHeldItems(); // while still in the session, so the others see the items let go
+                }
+
+                hole.Enter(); // down the mole tunnel to another scene; nothing else matters once that starts
+                return false;
+            }
+
             Rigidbody body = _rig.Body;
             var pad = other.GetComponentInParent<BouncePad>();
             if (pad != null)

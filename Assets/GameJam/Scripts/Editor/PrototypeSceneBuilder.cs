@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Fusion;
 using GameJam.Core;
+using GameJam.Gameplay;
 using GameJam.Net;
 using GameJam.Player;
 using UnityEditor;
@@ -67,9 +68,9 @@ namespace GameJam.Editor
             BackyardCourseBuilder.Build(configs.Roster);
             EnvironmentLightingBuilder.Build();
             EnvironmentDressingBuilder.Build();
-            BuildRig(configs);
+            BuildRig(configs, RigStartPosition);
             BuildMusic();
-            BuildNetwork(avatar, balloon, gameState, items, roamer);
+            BuildNetwork(avatar, balloon, gameState, items, roamer, BackyardCourseBuilder.RoamerSpawns);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddToBuildSettings(ScenePath);
@@ -81,7 +82,7 @@ namespace GameJam.Editor
         }
 
         /// <summary>The background music: a seamless generated loop, 2D, fading in at the start (volume: AudioConfig.Music).</summary>
-        private static void BuildMusic()
+        internal static void BuildMusic()
         {
             var music = new GameObject("Music");
             PlaceholderPrefabBuilder.Sound(music, GeneratedAudio.MusicLoop("Music_Backyard"), true, 0f, 1f, playOnAwake: true, category: SoundCategory.Music);
@@ -162,10 +163,29 @@ namespace GameJam.Editor
             return material;
         }
 
-        private static void BuildRig(PrototypeConfigSet configs)
+        /// <summary>
+        /// The black quad in front of the head camera that <see cref="ScreenFade"/> fades in and out (the mole tunnel): drawn
+        /// last and on top of everything, big enough to cover both eyes.
+        /// </summary>
+        internal static void BuildScreenFade(Transform head, bool alwaysFadeIn)
+        {
+            Material material = PlaceholderAssets.TransparentUnlit("ScreenFade", null);
+            material.color = Color.black;
+            material.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay + 50;
+            EditorUtility.SetDirty(material);
+            GameObject quad = PlaceholderShapes.Primitive(PrimitiveType.Quad, "ScreenFade", head, new Vector3(0f, 0f, 0.2f), new Vector3(3f, 3f, 1f), material, false);
+            var quadRenderer = quad.GetComponent<Renderer>();
+            quadRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            quadRenderer.receiveShadows = false;
+            quadRenderer.enabled = false;
+            quad.AddComponent<ScreenFade>().Configure(quadRenderer, alwaysFadeIn);
+        }
+
+        internal static void BuildRig(PrototypeConfigSet configs, Vector3 startPosition)
         {
             var root = new GameObject("GorillaRig");
-            root.transform.position = RigStartPosition;
+            root.transform.position = startPosition;
             var body = root.AddComponent<Rigidbody>();
             body.mass = 1f;
             body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -184,6 +204,7 @@ namespace GameJam.Editor
             head.AddComponent<AudioListener>();
             BuildTurnIndicator(head.transform);
             BuildResultBanner(head.transform);
+            BuildScreenFade(head.transform, false);
             var headCollider = head.AddComponent<SphereCollider>();
             headCollider.radius = 0.12f;
 
@@ -232,6 +253,13 @@ namespace GameJam.Editor
             // Dirt and grass flicked up where a hand taps the lawn (surfaces marked KicksUpDirt).
             (ParticleSystem clods, ParticleSystem dust) = AmbientEffectsBuilder.HandDirt(root.transform);
             root.AddComponent<HandTapEffects>().Configure(locomotion, clods, dust);
+
+            // Landing out of the mole tunnel: a thud and soil bursting up round the feet (only after a tunnel trip).
+            var landing = new GameObject("TunnelLanding");
+            landing.transform.SetParent(root.transform, false);
+            (ParticleSystem landClods, ParticleSystem landDust) = AmbientEffectsBuilder.HandDirt(landing.transform);
+            AudioSource thud = PlaceholderPrefabBuilder.Sound(landing, GeneratedAudio.LandThud("Tunnel_Land"), false, 0f, 0.9f);
+            root.AddComponent<TunnelArrival>().Configure(head.transform, thud, landClods, landDust);
 
             var rig = root.AddComponent<LocalRig>();
             rig.Configure(configs.PlayerRig, configs.Knockback, locomotion, head.transform, leftController, rightController, leftHand, rightHand, wrist);
@@ -338,14 +366,17 @@ namespace GameJam.Editor
             return surfaces;
         }
 
-        private static void BuildNetwork(NetworkObject avatar, NetworkObject balloon, NetworkObject gameState, NetworkObject[] items, NetworkObject roamer)
+        internal static NetworkBootstrap BuildNetwork(NetworkObject avatar, NetworkObject balloon, NetworkObject gameState, NetworkObject[] items,
+            NetworkObject roamer, Vector3[] roamerSpawns)
         {
             var network = new GameObject("Network");
             network.AddComponent<NetworkRunner>();
             network.AddComponent<NetworkSceneManagerDefault>();
             network.AddComponent<NetworkObjectProviderDefault>();
             network.AddComponent<Photon.Voice.Fusion.FusionVoiceClient>(); // follows the Fusion session; offline in Single mode
-            network.AddComponent<NetworkBootstrap>().Configure(avatar, balloon, gameState, items, roamer, BackyardCourseBuilder.RoamerSpawns);
+            var bootstrap = network.AddComponent<NetworkBootstrap>();
+            bootstrap.Configure(avatar, balloon, gameState, items, roamer, roamerSpawns);
+            return bootstrap;
         }
 
         private static Transform Child(string name, Transform parent, Vector3 localPosition)
@@ -386,13 +417,22 @@ namespace GameJam.Editor
             return slapHand;
         }
 
-        private static void AddToBuildSettings(string path)
+        internal static void AddToBuildSettings(string path)
         {
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             scenes.RemoveAll(entry => entry.path == path);
             scenes.Insert(0, new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = scenes.ToArray();
             SplashSceneBuilder.KeepFirstInBuildSettings(); // the game opens on the splash, then this scene
+        }
+
+        /// <summary>Adds a scene after the ones already listed (the tunnel and the tutorial: loaded by name, never first).</summary>
+        internal static void AppendToBuildSettings(string path)
+        {
+            var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            scenes.RemoveAll(entry => entry.path == path);
+            scenes.Add(new EditorBuildSettingsScene(path, true));
+            EditorBuildSettings.scenes = scenes.ToArray();
         }
     }
 }
