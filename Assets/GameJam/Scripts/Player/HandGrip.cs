@@ -12,6 +12,7 @@ namespace GameJam.Player
         private readonly SlapHand _slapHand;
         private readonly Collider[] _overlaps = new Collider[MaxOverlaps];
         private bool _wasDown;
+        private float _nextPushTime;
 
         public HandGrip(Transform hand, SlapHand slapHand)
         {
@@ -51,6 +52,32 @@ namespace GameJam.Player
 
         /// <summary>The trigger on this hand: uses the held item (its effect runs while pressed).</summary>
         public void SetUse(bool isPressed) => Held?.Use(isPressed);
+
+        /// <summary>
+        /// The other hand bumped the item this hand holds (a ball in the right hand hit with the left): true with the way
+        /// the body is pushed, away from the item on the free hand's side. Needs closing speed, so hands resting together
+        /// don't push, and waits out the cooldown between pushes.
+        /// </summary>
+        public bool IsBumpedBy(SlapHand freeHand, KnockbackConfig config, out Vector3 push)
+        {
+            push = Vector3.zero;
+            if (Held == null || freeHand == null || Time.time < _nextPushTime
+                || !Held.Touches(freeHand.transform.position, config.HeldItemTouchRadius, out Vector3 away))
+            {
+                return false;
+            }
+
+            Vector3 holdVelocity = _slapHand != null ? _slapHand.Velocity : Vector3.zero;
+            float closingSpeed = Vector3.Dot(freeHand.Velocity - holdVelocity, -away);
+            if (closingSpeed < config.HeldItemPushMinSpeed)
+            {
+                return false;
+            }
+
+            _nextPushTime = Time.time + config.HeldItemPushCooldown;
+            push = away;
+            return true;
+        }
 
         public void Drop()
         {

@@ -17,5 +17,11 @@ namespace GameJam.Core
 
         /// <summary>The holder's trigger, every frame while held: an item with an effect runs it while pressed.</summary>
         void Use(bool isPressed);
+
+        /// <summary>
+        /// A hand-sized sphere touches this item: true with the direction from the item out to that point (the way a hand
+        /// pushing off it sends the body).
+        /// </summary>
+        bool Touches(Vector3 point, float radius, out Vector3 away);
     }
 }

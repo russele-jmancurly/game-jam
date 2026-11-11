@@ -18,6 +18,7 @@ namespace GameJam.Net
         private const float RandomSpin = 5f;
         private const float GustAimCone = 25f;     // a hoop within this many degrees of where the blower points gets the gust
         private const float GustOvershoot = 1.5f; // a leaf-blower gust reaches this far past the hoop it aims at
+        private const float SolidAfterReleaseSeconds = 0.5f; // a let-go effect item clears your body before it turns solid again
 
         [SerializeField] private ItemDefinition _definition;
         [Tooltip("Wind zone this item sets off where it lands (bubble wand, leaf blower); null for plain items.")]
@@ -41,6 +42,9 @@ namespace GameJam.Net
         private bool _isUsing;
         private float _nextUseTime;
         private bool _shownSpent;
+        private bool _ignoresRig;
+        private bool _hasRigRule;
+        private float _solidFromTime;
 
         [Networked] public PlayerRef Holder { get; private set; }
 
@@ -85,6 +89,25 @@ namespace GameJam.Net
 
         public bool IsHeldBy(Transform hand) => _hand != null && _hand == hand;
 
+        public bool Touches(Vector3 point, float radius, out Vector3 away)
+        {
+            away = Vector3.zero;
+            if (_collider == null || !_collider.enabled)
+            {
+                return false;
+            }
+
+            Vector3 surface = _collider.ClosestPoint(point);
+            if ((surface - point).sqrMagnitude > radius * radius)
+            {
+                return false;
+            }
+
+            away = point - _collider.bounds.center;
+            away = away.sqrMagnitude > 0.0001f ? away.normalized : Vector3.up;
+            return true;
+        }
+
         public void Grab(Transform hand, IHandVelocity handVelocity)
         {
             if (Object != null && Object.IsValid && IsSpent)
@@ -96,6 +119,7 @@ namespace GameJam.Net
             _handVelocity = handVelocity;
             _hasPendingThrow = false;
             SetLayer(GameLayers.IgnoreRaycast); // held items are not climbable and ignore your own rig
+            UpdateRigCollision(false);           // at once: a solid wand or blower in the hand would ram its holder
 
             if (HasStateAuthority)
             {
@@ -172,7 +196,7 @@ namespace GameJam.Net
             }
 
             _defaultLayer = gameObject.layer;
-            IgnoreLocalRig();
+            UpdateRigCollision(true);
             if (_effectZone != null)
             {
                 _effectZone.transform.SetParent(null, true); // the zone stays where the item landed, not on the item
@@ -277,6 +301,8 @@ namespace GameJam.Net
 
         public override void Render()
         {
+            UpdateRigCollision(false); // here, not in FixedUpdateNetwork: it must also run on clients that don't own the item
+
             if (IsSpent != _shownSpent)
             {
                 ShowSpent(IsSpent);
@@ -442,7 +468,7 @@ namespace GameJam.Net
 
             if (!isSpent)
             {
-                IgnoreLocalRig(); // disabling a collider drops its IgnoreCollision pairs: items would push the player again
+                UpdateRigCollision(true); // disabling a collider drops its IgnoreCollision pairs: set the rule again
             }
         }
 
@@ -528,17 +554,35 @@ namespace GameJam.Net
         }
 
         /// <summary>
-        /// Items never physically push your own body or head (a ball rolling into you, a held pan against your chest).
-        /// Only the local rig's solid colliders are ignored: other players' hitboxes are triggers, so throwing an item at a
-        /// friend still registers.
+        /// Plain items never physically push your own body or head (a ball rolling into you, a held pan against your chest).
+        /// Items with a trigger effect (bubble wand, leaf blower) are solid against your body while loose or thrown (the
+        /// user's call), but not in anyone's hand or just after being let go: a held item follows the hand, so it would
+        /// shove its holder around. Only the local rig's solid colliders are involved: other players' hitboxes are triggers, so
+        /// throwing an item at a friend still registers.
         /// </summary>
-        private void IgnoreLocalRig()
+        private void UpdateRigCollision(bool force)
         {
+            bool isHeld = IsHeld; // by anyone: a kinematic item in another player's hand would ram you, not bump you
+            if (isHeld)
+            {
+                _solidFromTime = Time.time + SolidAfterReleaseSeconds;
+            }
+
+            bool isSolid = _definition.Effect != ItemEffect.None && !isHeld && Time.time >= _solidFromTime;
+            bool ignores = !isSolid;
+            if (!force && _hasRigRule && ignores == _ignoresRig)
+            {
+                return;
+            }
+
             LocalRig rig = LocalRig.Instance;
             if (rig == null)
             {
                 return;
             }
+
+            _ignoresRig = ignores;
+            _hasRigRule = true;
 
             Collider[] mine = GetComponentsInChildren<Collider>(true);
             foreach (Collider part in rig.transform.root.GetComponentsInChildren<Collider>(true))
@@ -550,7 +594,7 @@ namespace GameJam.Net
 
                 foreach (Collider own in mine)
                 {
-                    Physics.IgnoreCollision(own, part);
+                    Physics.IgnoreCollision(own, part, ignores);
                 }
             }
         }

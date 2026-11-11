@@ -392,9 +392,28 @@ namespace GameJam.Player
                 _locomotion.locomotionEnabledLayers = touchable;
             }
 
+            PushOffHeldItems();
             CarryOnRide();
             ApplyLocomotionTuning();
             UpdateWrist();
+        }
+
+        /// <summary>
+        /// Bumping the item one hand holds with the other hand pushes your body away from it, like pushing off something
+        /// solid (the user's call; held items are otherwise untouchable for your own rig). A light push, never a knockdown.
+        /// </summary>
+        private void PushOffHeldItems()
+        {
+            if (IsKnockedDown || !AreControllersTracked)
+            {
+                return;
+            }
+
+            if (_rightGrip.IsBumpedBy(_leftSlapHand, _knockbackConfig, out Vector3 push)
+                || _leftGrip.IsBumpedBy(_rightSlapHand, _knockbackConfig, out push))
+            {
+                Push(push, _knockbackConfig.HeldItemPushForce);
+            }
         }
 
         /// <summary>Copies the locomotion tuning from the config every frame, so it can be tuned live in Play mode.</summary>

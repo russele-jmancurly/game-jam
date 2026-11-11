@@ -18,6 +18,16 @@ namespace GameJam.Core
         [Tooltip("A moving obstacle shoves only when its surface moves faster than this (m/s).")]
         [Min(0f)] public float ObstacleMinSpeed = 0.8f;
 
+        [Header("Held item bumped with your free hand (pushes your own body away from the item)")]
+        [Tooltip("Speed of the push (m/s).")]
+        [Min(0f)] public float HeldItemPushForce = 2.5f;
+        [Tooltip("The free hand must close on the held item at least this fast (m/s), so hands resting together don't push.")]
+        [Min(0f)] public float HeldItemPushMinSpeed = 0.5f;
+        [Tooltip("The free hand counts as touching the item within this distance of its surface (m).")]
+        [Min(0.01f)] public float HeldItemTouchRadius = 0.08f;
+        [Tooltip("Seconds before the same item can push again.")]
+        [Min(0f)] public float HeldItemPushCooldown = 0.4f;
+
         [Header("Your own view (a straight shove, never a camera spin)")]
         [Tooltip("Minimum upward share of a shove or a kick, so you never get pushed into the floor.")]
         [Range(0f, 1f)] public float MinUpward = 0.15f;

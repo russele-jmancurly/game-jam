@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 992d4c8cad2260546a72b5574703a44d, type: 3}
   m_Name: RunConfig
   m_EditorClassIdentifier: GameJam.Core::GameJam.Core.RunConfig
-  RunSeconds: 480
+  RunSeconds: 600
   CountdownSeconds: 3
   ResultSeconds: 10
   BasePoints: 1000

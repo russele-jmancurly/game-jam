@@ -142,7 +142,7 @@ Assets/GameJam/
   in front of the next hoop). Yard 52 x 144 m (`HalfWidth` 26, `SouthEdge` -16, `NorthEdge` 128:
   the extra room is all length, because 68 m wide felt too wide for players this small); `RoamerAvoidCircles`,
   `RoamerWanderPoints` (a 9 x 10 m grid minus spots within 2 m of a circle) and `RoamerSpawns` are all computed from the
-  layout. The run is 8 minutes (`RunConfig.RunSeconds` 480) for the ~135 m trail.
+  layout. The run is 10 minutes (`RunConfig.RunSeconds` 600; the user raised it from 8) for the ~135 m trail.
   Gap obstacles (`BackyardCourseBuilder.Obstacles.cs`, the user wanted the cactus used more and more challenge): every gap
   after the warm-up has one, each using the potted cactus (`CactusPot`, pops on touch) differently: to hoop 2 a cactus
   garden to weave through; to hoop 3 two cacti on a wagon sliding back and forth on rails (`MovingObstacle.ConfigurePingPong`);
@@ -333,8 +333,8 @@ Assets/GameJam/
   (`GeneratedAudio.CritterCheer`, `Critter_Cheer`: chirps, croaks, squeaks) for everyone and pops big confetti round each player's own view
   (`WinCelebration`, through `BurstEffects.BigConfetti`; the confetti pool is 900). A finished run (finish or time up) returns to
   the lobby after `RunConfig.ResultSeconds` (10 s): hoops reset, balloon back on station at the start, crew respawned on the stage, every item back
-  on its spot (`NetworkItem.ReturnHome`, home spot networked so late joiners agree). A run is 8 minutes (`RunConfig.RunSeconds`
-  480; no medals or grades, by request: any finish is a win, "You made it! N points!"); when time runs out everyone hears a referee
+  on its spot (`NetworkItem.ReturnHome`, home spot networked so late joiners agree). A run is 10 minutes (`RunConfig.RunSeconds`
+  600; no medals or grades, by request: any finish is a win, "You made it! N points!"); when time runs out everyone hears a referee
   whistle (`Whistle_TimeUp`, 2D on `GameState`) and sees "TIME'S UP!" with a countdown to the lobby (`ResultBanner` on the
   head camera, drawn on top). `time_up_check.cs` tests the flow. Wind (box fan,
   leaf blower) is drawn by `PlaceholderPrefabBuilder.StyleAsWind`: trail wisps on scrolling noise plus a few leaves.
@@ -353,9 +353,19 @@ Assets/GameJam/
   (`BackyardCourseBuilder.Billboard`): they turn about the vertical axis to face the player (the user asked for every
   non-sign text to billboard). Text on boards, walls and gates stays fixed to its surface.
 - Layer 8 is `Balloon` (named by `ProjectLayers`, used through `GameLayers.Balloon`).
-- Layer 9 is `Item`: loose items are off the Default layer so gorilla hands never grip them, and each item ignores
-  collisions with the local rig's solid colliders (`NetworkItem.IgnoreLocalRig`), so items never push you. Only an item
+- Layer 9 is `Item`: loose items are off the Default layer so gorilla hands never grip them, and plain items ignore
+  collisions with the local rig's solid colliders (`NetworkItem.UpdateRigCollision`, run from `Render` so clients that
+  don't own the item apply it too), so they never push you. The two items with a trigger effect (bubble wand, leaf blower)
+  are the exception, by the user's request: solid against your body while loose or thrown, but not while anyone holds
+  them or for 0.5 s after being let go (a held item follows the hand and would ram its holder). Only an item
   another player threw or swung shoves you (lightly; never a knockdown); loose ones never do.
+  Held-item push (the user's): hitting the item one hand holds with your other hand (a beach ball in the right hand
+  bumped with the left) pushes your own body away from it (`HandGrip.IsBumpedBy` -> `LocalRig.PushOffHeldItems`,
+  `IGrabbable.Touches`; a light `Push`, never a knockdown, you keep the item). It needs closing speed, so hands resting
+  together don't push. Tuning: `KnockbackConfig` `HeldItemPushForce` / `MinSpeed` / `TouchRadius` / `Cooldown`.
+  `held_item_push_check.cs` tests both rules in Play mode; `solid_item_contact_check.cs` measures the bump a solid
+  item gives your body (dropped inside it, thrown into it). `knockdown_check.cs` counts frames, so its giant-kick case
+  can miss its 1.2 s by a hair above ~190 fps: re-run it before reading that as a bug.
 - Layer 10 is `Ragdoll` (a knocked-down giant's bones): `PhysicsLayerRules` lets it touch only Default and itself, so a
   falling giant never hits players (Ignore Raycast), the balloon or items.
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with
@@ -391,7 +401,7 @@ Assets/GameJam/
 - If the Editor is in Safe Mode (compile errors), `unity status` lists the errors: fix the code first.
 - Quest APK (Editor open, target already Android): `unity command build run ... -- --target Android --output-path
   Builds/Quest/PricklyPop.apk --scenes '["Assets/GameJam/Scenes/Splash.unity","Assets/GameJam/Scenes/Prototype.unity","Assets/GameJam/Scenes/Tunnel.unity","Assets/GameJam/Scenes/Tutorial.unity"]' --confirm`
-  (the tutorial hole loads Tunnel and Tutorial by name: an APK without them goes black at the hole; not built since they were added), then poll `build status`
+  (the tutorial hole loads Tunnel and Tutorial by name: an APK without them goes black at the hole; last built 2026-11-11 with all four, ~79 MB, 9.5 min), then poll `build status`
   (~8 min, IL2CPP). `Builds/` and `*.apk` are gitignored. Builds rewrite the URP config prefilters and the preloaded
   assets; commit those. The URP global settings must stay at `m_AssetVersion` 9 (URP 17.3), or the build refuses to start.
 - If a command times out or the Editor drops, stop and tell the user; don't loop or fall back to YAML edits.
