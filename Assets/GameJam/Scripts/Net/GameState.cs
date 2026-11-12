@@ -282,7 +282,7 @@ namespace GameJam.Net
 
             NetworkBalloon balloon = NetworkBalloon.Instance;
             int bestRally = balloon != null ? balloon.BestRally : 0;
-            string soloNote = balloon != null && balloon.IsPassRuleSuspended ? "\nSOLO TEST: pass rule off" : string.Empty;
+            string soloNote = balloon != null && balloon.IsPassRuleSuspended ? "\nSolo: hit it as often as you like" : string.Empty;
             board.SetScoreboard(
                 $"Time  {TimeFormat.MinutesSeconds(TimeLeft)}\n" +
                 $"Hoops  {HoopsCleared}/{_hoopCount}\n" +

@@ -75,8 +75,8 @@ namespace GameJam.Net
         public Vector3 Velocity => _body != null ? _body.linearVelocity : Vector3.zero;
 
         /// <summary>
-        /// True while a lone player is testing: the pass rule (no double hits) is off so one person can play the whole
-        /// loop. Turns itself back on as soon as a second player joins.
+        /// True while one player is playing alone: the pass rule (no double hits) is off so one person can play the whole
+        /// run, and each of their hits counts toward the rally. Turns itself back on as soon as a second player joins.
         /// </summary>
         public bool IsPassRuleSuspended => _config.AllowSoloDoubleHits && CountPlayers() < 2;
 
@@ -539,7 +539,8 @@ namespace GameJam.Net
 
                 _lastPlayerHitTime = Time.time;
 
-                if (LastHitter != PlayerRef.None && hitter != LastHitter)
+                // A pass to someone else keeps the rally going; playing solo, every hit after the first counts.
+                if (LastHitter != PlayerRef.None && (hitter != LastHitter || IsPassRuleSuspended))
                 {
                     Rally++;
                     BestRally = Mathf.Max(BestRally, Rally);

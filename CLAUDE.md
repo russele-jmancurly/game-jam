@@ -381,8 +381,12 @@ Assets/GameJam/
 - Layer 10 is `Ragdoll` (a knocked-down giant's bones): `PhysicsLayerRules` lets it touch only Default and itself, so a
   falling giant never hits players (Ignore Raycast), the balloon or items.
 - Testing without a headset: PC test mode (keyboard and mouse) turns on automatically, or force it with
-  `PlayerRigConfig.ForceDesktopMode`. Solo, the pass rule is suspended (`BalloonConfig.AllowSoloDoubleHits`).
-  All players join one Photon region (`NetworkBootstrap._fixedRegion`, default `asia`), or they can miss each other.
+  `PlayerRigConfig.ForceDesktopMode`.
+- Solo is a real way to play (the user's): with one player in the room the pass rule is off
+  (`BalloonConfig.AllowSoloDoubleHits`, `NetworkBalloon.IsPassRuleSuspended`), every hit after the first counts toward the
+  rally (it used to need a different hitter, so solo rallies stayed at 0), and the scoreboard says "Solo: hit it as often
+  as you like". A second player joining turns the pass rule back on. `solo_play_check.cs` tests it.
+- Online rooms: all players join one Photon region (`NetworkBootstrap._fixedRegion`, default `asia`), or they can miss each other.
   Each build gets its own room: the session name ends in the build's ID (`BalloonDrop-Dev-<buildGUID>`; the Editor and its
   MPPM clones share `-editor`), because a client whose prefabs or networked fields differ from the master's never receives
   its objects and sits on "Connecting..." (that happened on the Quest). Every headset in a playtest needs the same APK;

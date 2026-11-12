@@ -23,6 +23,8 @@ Locomotion regression tests (Play mode, PC mode, no headset; each logs PASS/FAIL
 - `save_rally_check.cs` (`[SaveRally]`): starts a run; a hit on a falling balloon just above the stage is a SAVE, a high
   one isn't; ten alternating stand-in hitters reach the rally milestones; a bounce off the stage breaks the rally (sad
   trombone). Writes `Screenshots/save_popup.png` and `Screenshots/rally.png` from the player's head.
+- `solo_play_check.cs` (`[Solo]`): starts a run alone; the local player hits the balloon 8 times in a row: no pop, never
+  "not your turn", rally 7, and the scoreboard's solo line.
 - `predicted_hit_check.cs` (`[PredictTest]`): fakes network latency offline (env `PREDICT_LATENCY`) and checks the
   slapper's predicted hit: visuals move on the first frame, no jump at the hand-over, end on the real balloon.
   Note: `LOCOTEST_ONLY=slap` in the gorilla suite always fails (PC input stays off without the WASD scenario).
