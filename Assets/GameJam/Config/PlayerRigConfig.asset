@@ -23,6 +23,7 @@ MonoBehaviour:
   VelocityHistorySize: 8
   DefaultSlideFactor: 0.03
   TapVolume: 0.6
+  SlideVolume: 0.35
   TapHapticStrength: 0.5
   SlideHapticStrength: 0.075
   StickMovement: 1
@@ -35,7 +36,10 @@ MonoBehaviour:
   HazardRadius: 0.35
   HazardCooldown: 1.5
   GrabRadius: 0.15
-  ThrowBoost: 1.3
+  ThrowBoost: 1
+  ThrowWindowSeconds: 0.12
+  ThrowSampleSeconds: 0.04
+  ThrowMaxSpeed: 16
   ForceDesktopMode: 0
   ShowDesktopControlsHelp: 1
   DesktopMoveSpeed: 3

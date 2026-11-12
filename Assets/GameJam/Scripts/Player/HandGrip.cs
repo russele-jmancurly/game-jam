@@ -27,7 +27,7 @@ namespace GameJam.Player
 
         public SlapHand SlapHand => _slapHand;
 
-        public void Update(bool isDown, bool canGrab, float grabRadius, float throwBoost)
+        public void Update(bool isDown, bool canGrab, PlayerRigConfig config)
         {
             bool wasDestroyed = Held is Object unityObject && unityObject == null;
             if (Held != null && (wasDestroyed || !Held.IsHeldBy(_hand)))
@@ -37,17 +37,32 @@ namespace GameJam.Player
 
             if (isDown && !_wasDown && Held == null && canGrab)
             {
-                Held = FindNearest(grabRadius);
+                Held = FindNearest(config.GrabRadius);
                 Held?.Grab(_hand, _slapHand);
             }
             else if (!isDown && _wasDown && Held != null)
             {
-                Vector3 throwVelocity = _slapHand != null ? _slapHand.Velocity * throwBoost : Vector3.zero;
-                Held.Release(throwVelocity);
+                Held.Release(ThrowVelocity(config));
                 Held = null;
             }
 
             _wasDown = isDown;
+        }
+
+        /// <summary>
+        /// The swing's best moment just before letting go (SlapHand.ThrowVelocity), measured where the item sits in the
+        /// hand, boosted and capped.
+        /// </summary>
+        private Vector3 ThrowVelocity(PlayerRigConfig config)
+        {
+            if (_slapHand == null)
+            {
+                return Vector3.zero;
+            }
+
+            Vector3 itemInHand = _slapHand.transform.InverseTransformDirection(Held.Position - _slapHand.transform.position);
+            Vector3 velocity = _slapHand.ThrowVelocity(config.ThrowWindowSeconds, config.ThrowSampleSeconds, itemInHand) * config.ThrowBoost;
+            return Vector3.ClampMagnitude(velocity, config.ThrowMaxSpeed);
         }
 
         /// <summary>The trigger on this hand: uses the held item (its effect runs while pressed).</summary>

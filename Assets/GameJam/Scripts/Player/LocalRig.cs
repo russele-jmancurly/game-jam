@@ -152,7 +152,7 @@ namespace GameJam.Player
         public void SetGrip(bool isRightHand, bool isDown)
         {
             HandGrip grip = isRightHand ? _rightGrip : _leftGrip;
-            grip.Update(isDown, !IsKnockedDown, _config.GrabRadius, _config.ThrowBoost);
+            grip.Update(isDown, !IsKnockedDown, _config);
         }
 
         /// <summary>

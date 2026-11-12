@@ -323,6 +323,10 @@ namespace GameJam.Net
             Instance = this;
             _body = GetComponent<Rigidbody>();
             _networkTransform = GetComponent<NetworkTransform>();
+            // Never spins: a thrown item clipping the sphere used to turn the whole balloon, its finder arrow included.
+            _body.constraints = RigidbodyConstraints.FreezeRotation;
+            _body.angularVelocity = Vector3.zero;
+            _body.rotation = Quaternion.identity;
             _physics = new BalloonPhysics(_config, transform);
             _colorBlock = new MaterialPropertyBlock();
             if (_visual != null)

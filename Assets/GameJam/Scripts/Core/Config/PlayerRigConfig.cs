@@ -65,8 +65,15 @@ namespace GameJam.Core
 
         [Header("Items")]
         [Min(0.02f)] public float GrabRadius = 0.15f;
-        [Tooltip("Throw velocity = hand velocity x this.")]
-        [Min(0f)] public float ThrowBoost = 1.3f;
+        [Tooltip("Throw velocity = the swing's velocity x this.")]
+        [Min(0f)] public float ThrowBoost = 1f;
+        [Tooltip("A throw uses the fastest moment of the swing within this long before you let go (you open your hand a " +
+                 "little after the swing's peak).")]
+        [Range(0.02f, 0.3f)] public float ThrowWindowSeconds = 0.12f;
+        [Tooltip("Length of the stretch the swing's velocity is measured over. Longer = steadier, shorter = snappier.")]
+        [Range(0.01f, 0.1f)] public float ThrowSampleSeconds = 0.04f;
+        [Tooltip("Fastest a thrown item can leave the hand, after the boost.")]
+        [Min(1f)] public float ThrowMaxSpeed = 16f;
 
         [Header("PC test mode (keyboard and mouse)")]
         [Tooltip("Use keyboard and mouse even when a headset is connected. Without an active headset " +

@@ -340,7 +340,9 @@ Assets/GameJam/
   leaf blower) is drawn by `PlaceholderPrefabBuilder.StyleAsWind`: trail wisps on scrolling noise plus a few leaves.
 - Finding the balloon: `BalloonLocator` (on the balloon, local only) shows a bobbing arrow over it (no beam: the user had it removed) and, when
   it is out of your view, an arrow at the edge of your view with its distance, only while it is stationed (start, reset,
-  after a pop); the first hit hides everything (user's call: no indicator while it is in play). The balloon has a dark ink
+  after a pop); the first hit hides everything (user's call: no indicator while it is in play). The arrow never moves when something
+  hits it: the balloon's Rigidbody has its rotation frozen (a thrown item clipping the sphere used to spin the balloon and
+  its arrow) and `BalloonLocator` holds the arrow upright; `balloon_arrow_spin_check.cs` tests it. The balloon has a dark ink
   outline: `Shaders/Outline.shader` (`GameJam/Outline`, inverted hull, stereo-instancing safe) on a child sphere of `Visual`.
 - Lobby picture signs (lobby only, both built by `BackyardCourseBuilder.BuildPictureSign`): "How to play" inside the north glass
   wall, straight ahead of the spawn (slap the balloon, through a hoop, clear all 6, fly it to the finish, plus the two pop
@@ -363,6 +365,16 @@ Assets/GameJam/
   bumped with the left) pushes your own body away from it (`HandGrip.IsBumpedBy` -> `LocalRig.PushOffHeldItems`,
   `IGrabbable.Touches`; a light `Push`, never a knockdown, you keep the item). It needs closing speed, so hands resting
   together don't push. Tuning: `KnockbackConfig` `HeldItemPushForce` / `MinSpeed` / `TouchRadius` / `Cooldown`.
+  Throwing: letting go throws with the fastest stretch of the swing just before the grip opened, not the release frame
+  (people let go after the swing's peak, which threw short and ~40 degrees off): `SlapHand.ThrowVelocity` keeps a pose
+  history and measures it at the item's place in the hand, so a wrist flick counts; `HandGrip` boosts and caps it.
+  `ThrowBoost` is 1 (1.3 on top of the peak-of-swing rule was too strong in the headset). Hold poses
+  (`PlaceholderPrefabBuilder.ApplyHoldPose`): the paw's centre is the hand's origin with the knuckles just ahead of it, so
+  a round item's centre goes half its model depth (not its collider's) less ~1 cm along +Z, or it floats in front of the
+  fist (the watermelon did, by 6 cm); `hold_pose_view.cs` puts an item in the hand and frames it.
+  Tuning: `PlayerRigConfig` `ThrowBoost` / `ThrowWindowSeconds` / `ThrowSampleSeconds` / `ThrowMaxSpeed`. Never change
+  `SlapHand.Velocity` for this: slaps, nudges and the held-item push are tuned on it. `throw_release_check.cs` tests it at
+  72 fps and uncapped.
   `held_item_push_check.cs` tests both rules in Play mode; `solid_item_contact_check.cs` measures the bump a solid
   item gives your body (dropped inside it, thrown into it). `knockdown_check.cs` counts frames, so its giant-kick case
   can miss its 1.2 s by a hair above ~190 fps: re-run it before reading that as a bug.

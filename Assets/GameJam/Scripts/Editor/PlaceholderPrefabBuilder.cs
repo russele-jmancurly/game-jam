@@ -178,6 +178,7 @@ namespace GameJam.Editor
             body.useGravity = false;          // BalloonPhysics applies its own floaty gravity and drag
             body.linearDamping = 0f;
             body.angularDamping = 1f;
+            body.constraints = RigidbodyConstraints.FreezeRotation; // hits never spin it (or its finder arrow)
             body.interpolation = RigidbodyInterpolation.Interpolate; // required by Forecast Physics
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
@@ -449,9 +450,11 @@ namespace GameJam.Editor
                 // Tip (+Y) pointing out of the fist, ready to throw.
                 "Darts" => (new Vector3(0f, 0f, 0.05f), new Vector3(90f, 0f, 0f), Vector3.zero),
                 "RubberDuck" => (new Vector3(0f, 0f, 0.1f), Vector3.zero, Vector3.zero),
-                "BeachBall" => (new Vector3(0f, 0f, 0.22f), Vector3.zero, Vector3.zero),
-                "Watermelon" => (new Vector3(0f, 0f, 0.2f), Vector3.zero, Vector3.zero),
-                "Pillow" => (new Vector3(0f, 0f, 0.16f), Vector3.zero, Vector3.zero),
+                // Round items: centre = half the model's depth along the fist axis, less ~1 cm, so the knuckles press into
+                // it. The melon is 0.28 deep (its sphere collider is 0.35: fitting to that left it floating 6 cm off).
+                "BeachBall" => (new Vector3(0f, 0f, 0.19f), Vector3.zero, Vector3.zero),
+                "Watermelon" => (new Vector3(0f, 0f, 0.13f), Vector3.zero, Vector3.zero),
+                "Pillow" => (new Vector3(0f, 0f, 0.14f), Vector3.zero, Vector3.zero),
                 _ => (new Vector3(0f, 0f, 0.12f), Vector3.zero, Vector3.zero),
             };
             definition.HoldOffset = offset;

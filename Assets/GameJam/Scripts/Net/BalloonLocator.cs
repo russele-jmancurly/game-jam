@@ -70,6 +70,11 @@ namespace GameJam.Net
                 _beacon.SetActive(isWaiting);
             }
 
+            if (isWaiting && _beacon != null)
+            {
+                _beacon.transform.rotation = Quaternion.identity; // always upright, pointing down at the balloon
+            }
+
             Camera camera = Camera.main;
             if (_pointer == null || camera == null)
             {
